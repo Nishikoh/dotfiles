@@ -226,8 +226,8 @@ zle -N zle-keymap-selec
 # エイリアス
  alias lst='ls -ltr --color=auto'
  alias ls='ls --color=auto'
- alias la='ls -la --color=auto'
- alias ll='ls -l --color=auto'
+ alias la='ls -lah --color=auto'
+ alias ll='ls -lh --color=auto'
 
  #go
  export PATH=$PATH:/usr/lib/go-1.14/bin
