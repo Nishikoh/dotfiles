@@ -116,18 +116,32 @@ ulimit -c 0
 # %*    時間(hh:flag_mm:ss)
 # %T    時間(hh:mm)
 # %t    時間(hh:mm(am/pm))
-# git設定
-#PROMPT='%F{cyan}%n@%m%f:%~# '
+# git color設定
 PROMPT="%{${fg[blue]}%}%F{magenta}%~%f %{${reset_color}%}"
+# VCSの情報を取得するzsh関数
 autoload -Uz vcs_info
+
+# PROMPT変数内で変数参照
 setopt prompt_subst
+
+#formats 設定項目で %c,%u が使用可
 zstyle ':vcs_info:git:*' check-for-changes true
+#commit されていないファイルがある
 zstyle ':vcs_info:git:*' stagedstr "%F{yellow}!"
+#add されていないファイルがある
 zstyle ':vcs_info:git:*' unstagedstr "%F{red}+"
+#通常
 zstyle ':vcs_info:*' formats "%F{green}%c%u[%b]%f"
+#rebase 途中,merge コンフリクト等 formats 外の表示
 zstyle ':vcs_info:*' actionformats "[%b|%a]"
+# プロンプト表示直前に vcs_info 呼び出し
 precmd () { vcs_info }
 PROMPT=$PROMPT'${vcs_info_msg_0_} ▷  '
+# %b ブランチ情報
+# %a アクション名(mergeなど)
+# %c changes
+# %u uncommit
+
 
 # -----------------------------
 # Completion
