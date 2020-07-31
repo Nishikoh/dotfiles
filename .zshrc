@@ -272,3 +272,5 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
+# brew path
+eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
