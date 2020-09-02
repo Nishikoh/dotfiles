@@ -297,3 +297,5 @@ eval "$(starship init zsh)"
 
 #lazygit 
  alias lg='lazygit' 
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
