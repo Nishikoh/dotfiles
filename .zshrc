@@ -243,11 +243,6 @@ zle -N zle-keymap-selec
 # ^P,^Nを検索へ割り当て
 #bindkey "^P" history-beginning-search-backward-end
 #bindkey "^N" history-beginning-search-forward-end
-# エイリアス
- alias lst='ls -ltr --color=auto'
- alias ls='ls --color=auto'
- alias la='ls -lah --color=auto'
- alias ll='ls -lh --color=auto'
 
  #go
  export PATH=$PATH:/usr/lib/go-1.14/bin
@@ -284,3 +279,12 @@ eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
 #starship
 eval "$(starship init zsh)"
 
+# エイリアス
+ #alias lst='ls -ltr --color=auto'
+ #alias ls='ls --color=auto'
+ #alias la='ls -lah --color=auto'
+ 
+ alias ls='exa --time-style=long-iso -g'
+ alias ll='ls --git --time-style=long-iso -gl'
+ alias la='ls --git --time-style=long-iso -agl'
+ alias l1='exa -1'
