@@ -279,12 +279,21 @@ eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
 #starship
 eval "$(starship init zsh)"
 
+#---------------
 # エイリアス
+#---------------
  #alias lst='ls -ltr --color=auto'
  #alias ls='ls --color=auto'
  #alias la='ls -lah --color=auto'
  
+#exa
  alias ls='exa --time-style=long-iso -g'
  alias ll='ls --git --time-style=long-iso -gl'
  alias la='ls --git --time-style=long-iso -agl'
  alias l1='exa -1'
+
+#bat 
+ alias cat='bat' 
+
+#lazygit 
+ alias lg='lazygit' 
