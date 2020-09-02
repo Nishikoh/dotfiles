@@ -280,3 +280,7 @@ unset __conda_setup
 
 # brew path
 eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+
+#starship
+eval "$(starship init zsh)"
+
