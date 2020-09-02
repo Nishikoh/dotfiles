@@ -1,7 +1,7 @@
  # Lang
  # -----------------------------
- #export LANG=ja_JP.UTF-8
- #export LESSCHARSET=utf-8
+ export LANG=ja_JP.UTF-8
+ export LESSCHARSET=utf-8
 
  # -----------------------------
  # General
@@ -146,8 +146,14 @@ PROMPT=$PROMPT'${vcs_info_msg_0_} ▷  '
 # -----------------------------
 # Completion
 # -----------------------------
+# brew 　の場合
+fpath=($(brew --prefix)/share/zsh/site-functions $fpath)
+
+# brew じゃない
+fpath=(~/.zsh/completion $fpath)
+
 # 自動補完を有効にする
-autoload -Uz compinit ; compinit
+autoload -Uz compinit ; compinit -u
 
 # 単語の入力途中でもTab補完を有効化
 setopt complete_in_word
@@ -162,7 +168,7 @@ zstyle ':completion:*' menu select
 setopt list_packed
 
 # 補完候補にファイルの種類も表示する
-#setopt list_types
+setopt list_types
 
 # 色の設定
 export LSCOLORS=Exfxcxdxbxegedabagacad
