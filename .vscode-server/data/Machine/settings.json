@@ -6,7 +6,7 @@
     "files.autoSave": "afterDelay",
     "git.autofetch": true,
     "diffEditor.ignoreTrimWhitespace": false,
-    "workbench.colorTheme": "Solarized Dark",
+    "workbench.colorTheme": "Community Material Theme",
     "go.formatTool": "goimports",
     "files.autoGuessEncoding": true,
     "workbench.panel.defaultLocation": "right",
