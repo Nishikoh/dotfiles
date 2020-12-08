@@ -16,4 +16,4 @@ htop
 docker 
 docker-compose
 fzf
-
+diff-so-fancy
