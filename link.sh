@@ -10,10 +10,13 @@ DOTFILES_PATH=$( (cd "${cwd}" && pwd))
 # 正規表現で設定ファイルを取得し、シンボリックリンクを張る
 for f in .??*; do
     # 除外リスト
-    [[ "$f" == ".git" ]] && continue
-    [[ "$f" == ".gitignore" ]] && continue
-    [[ "$f" == ".DS_Store" ]] && continue
-
+    ([ "$f" = ".git" ] || \
+    [ "$f" = ".gitignore" ] || \
+    [ "$f" = ".DS_Store" ] || \
+    [ "$f" = ".github" ] || \
+    [ "$f" = ".latexmkrc" ] || \
+    [ "$f" = ".vscode-server" ]) && continue
+    echo $f
     # シンボリックリンクを張る
     ln -snfv ${DOTFILES_PATH}/"${f}" ~/"${f}"
 done
