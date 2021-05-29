@@ -14,5 +14,5 @@ RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/instal
 # ADD init/ ./
 USER root
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:${PATH}"
-RUN cd && git clone https://github.com/Nishikoh/dotfile.git \
-    && cd dofile/init && sh init.sh && sh link.sh
+RUN cd && git clone https://github.com/Nishikoh/dotfiles.git \
+    && cd dotfiles && sudo sh init.sh && sudo sh link.sh

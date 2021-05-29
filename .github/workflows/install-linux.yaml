@@ -18,29 +18,24 @@ jobs:
       matrix:
         script:
           [
-            "./script/albert.sh",
-            "./script/docker.sh",
-            "./script/latex.sh",
-            "./script/nvim.sh",
-            "./script/zsh.sh",
-            "./script/python/pyenv.sh",
-            "./script/tmux.sh",
+            "./install.sh",
+            "./link.sh",
           ]
 
     steps:
       - uses: actions/checkout@v2
       - name: unit-test of ${{matrix.script}}
-        working-directory: ./init/linux
+        working-directory: ./
         run: ${{matrix.script}}
 
-  init-test:
-    runs-on: ubuntu-latest
+  # init-test:
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v2
-      - name: init
-        working-directory: ./init/linux
-        run: make init
-      - name: link
-        working-directory: ./init/linux
-        run: make link
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: init
+  #       working-directory: ./init/linux
+  #       run: make init
+  #     - name: link
+  #       working-directory: ./init/linux
+  #       run: make link
