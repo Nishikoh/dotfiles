@@ -15,4 +15,4 @@ RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/instal
 USER root
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:${PATH}"
 RUN cd && git clone https://github.com/Nishikoh/dotfile.git \
-    && brew install zsh && sh link.sh
+    && cd dofile/init && sh init.sh && sh link.sh
