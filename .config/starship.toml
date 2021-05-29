@@ -1,0 +1,47 @@
+#add_newline = false
+
+[directory]
+truncate_to_repo = false
+style = "#deb887"
+
+[git_branch]
+symbol = "🌱 "
+style = "#00ff7f"
+
+[git_commit]
+#disabled = true
+#commit_hash_length = 4
+
+[git_status]
+conflicted = " C"
+ahead = " ah"
+behind =  "bh"
+diverged = " div"
+untracked = " U"
+stashed = " S"
+modified = " M"
+staged.value = " +"
+staged.style = "green"
+staged_count.enabled = true
+staged_count.style = "green"
+renamed = " reN"
+deleted = " D"
+format = '([\[$all_status$ahead_behind \] ]($style) )' #format = " ]"
+style = "red"
+
+[character]
+success_symbol = "[❯](#00ff7f)"
+error_symbol = "[❯](bold red)"
+vicmd_symbol = "[❮](bold gr`een)"
+
+[memory_usage]
+disabled = false
+show_percentage = true
+show_swap = true
+threshold = -1
+separator = "|"
+style = "bold dimmed green"
+
+[package]
+disabled = true
+format =" "
