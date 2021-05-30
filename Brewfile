@@ -32,6 +32,7 @@ brew "zsh"
 brew "zsh-completions"
 
 cask "biscuit"
+cask "kindle"
 cask "google-chrome"
 cask "google-japanese-ime"
 cask "spotify"
