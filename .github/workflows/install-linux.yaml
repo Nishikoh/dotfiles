@@ -25,7 +25,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: unit-test of ${{matrix.script}}
-        working-directory: ./
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.MY_TOKEN || github.token }}
+        # working-directory: ./
         run: ${{matrix.script}}
 
   # init-test:
