@@ -26,9 +26,10 @@ jobs:
       - uses: actions/checkout@v2
         
       # Error Check
+      - continue-on-error: true
       - name: Run install.sh
         run: ./install.sh linux
-      - if: always()
+
       - name: Run link.sh
         run: ./link.sh
         
