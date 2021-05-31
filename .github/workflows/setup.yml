@@ -49,6 +49,7 @@ jobs:
 
       # Error Check
       - name: Run install.sh
+        continue-on-error: true
         run: ./install.sh mac
 
       - name: Run link.sh
