@@ -159,6 +159,13 @@ if [ -e /usr/local/share/zsh-completions ]; then
     fpath=(/usr/local/share/zsh-completions $fpath)
 fi
 
+if type brew &>/dev/null; then
+  FPATH=$(brew --prefix)/share/zsh-completions:$FPATH
+
+  autoload -Uz compinit
+  compinit
+fi
+
 # 自動補完を有効にする
 autoload -Uz compinit ; compinit -u
 
@@ -286,6 +293,9 @@ eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
 #starship
 eval "$(starship init zsh)"
 
+#saml2aws
+eval "$(saml2aws --completion-script-zsh)"
+
 #---------------
 # エイリアス
 #---------------
@@ -293,6 +303,10 @@ eval "$(starship init zsh)"
 #alias ls='ls --color=auto'
 #alias la='ls -lah --color=auto'
 
+alias cp='cp -i'
+alias rm='rm -i'
+alias mv='mv -i'
+ 
 #exa
 alias ls='exa --time-style=long-iso -g'
 alias ll='ls --git --time-style=long-iso -gl'
