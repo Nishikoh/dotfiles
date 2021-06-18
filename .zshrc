@@ -293,6 +293,9 @@ eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
 #starship
 eval "$(starship init zsh)"
 
+# mcfly
+eval "$(mcfly init zsh)"                     ⮀ INSERT ⮀
+
 #saml2aws
 eval "$(saml2aws --completion-script-zsh)"
 
