@@ -15,6 +15,7 @@ for f in .??*; do
     [ "$f" = ".DS_Store" ] || \
     [ "$f" = ".github" ] || \
     [ "$f" = ".latexmkrc" ] || \
+    [ "$f" = ".config" ] || \
     [ "$f" = ".vscode-server" ]) && continue
     echo $f
     # シンボリックリンクを張る

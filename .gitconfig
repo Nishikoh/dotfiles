@@ -17,21 +17,19 @@
 [credential]
 	helper = wincred
 [pager]
-	diff = diff-so-fancy | less --tabs=4 -RFX --pattern='^(added|deleted|modified): '
-	show = diff-so-fancy | less --tabs=4 -RFX
+    diff = delta
+    log = delta
+    reflog = delta
+    show = delta
+[delta]
+    plus-style = "syntax #012800"
+    syntax-theme = Monokai Extended
+    navigate = true
+	line-numbers = true
+    side-by-side = true
+[interactive]
+    diffFilter = delta --color-only
 [color]
 	ui = true
-[color "diff-highlight"]
-	oldNormal = red bold
-	oldHighlight = yellow bold 52
-	newNormal = green bold
-	newHighlight = white bold 22
-[color "diff"]
-	meta = 11
-	frag = magenta bold
-	commit = yellow bold
-	old = red bold
-	# new = green bold
-	whitespace = red reverse
 [fetch]
 	prune = true
