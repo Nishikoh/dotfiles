@@ -28,7 +28,7 @@ jobs:
       # Error Check
       - name: Run install.sh
         continue-on-error: true
-        run: ./install.sh linux
+        run: ./install.sh 
 #         if: succeeded() || failed()
 #         run: ./link.sh
 
@@ -50,7 +50,7 @@ jobs:
       # Error Check
       - name: Run install.sh
         continue-on-error: true
-        run: ./install.sh mac
+        run: ./install.sh 
 
       - name: Run link.sh
         run: ./link.sh
