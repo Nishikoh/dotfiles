@@ -1,5 +1,4 @@
 #!/bin/bash -xeu
-
 # -eはエラー時にスクリプトが停止、-uは未定義変数利用時にスクリプトが停止
 set -eu
 
@@ -17,7 +16,11 @@ for f in .??*; do
     [ "$f" = ".latexmkrc" ] || \
     [ "$f" = ".config" ] || \
     [ "$f" = ".vscode-server" ]) && continue
+
     echo $f
+    if [ ! -e ~/"$f" ] || diff -u ${DOTFILES_PATH}/"${f}" ~/"${f}"; then
     # シンボリックリンクを張る
     ln -snfv ${DOTFILES_PATH}/"${f}" ~/"${f}"
+     continue
+    fi
 done
