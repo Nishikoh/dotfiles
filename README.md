@@ -5,3 +5,7 @@
 git clone https://github.com/Nishikoh/dotfiles.git
 cd dotfiles && sh install.sh && sh link.sh
 ```
+ ## brew dump
+ ```
+ brew bundle dump # -f
+ ```
