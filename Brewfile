@@ -56,5 +56,6 @@ cask "microsoft-office"
 cask "slack"
 cask "spotify"
 cask "visual-studio-code"
+mas "Alfred", id: 405843582
 mas "Kindle", id: 405399194
 mas "LINE", id: 539883307
