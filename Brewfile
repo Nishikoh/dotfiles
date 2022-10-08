@@ -1,5 +1,4 @@
 tap "aquaproj/aqua"
-tap "aws/tap"
 tap "cantino/mcfly"
 tap "dbcli/tap"
 tap "homebrew/bundle"
