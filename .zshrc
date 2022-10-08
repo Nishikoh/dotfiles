@@ -245,11 +245,11 @@ bindkey '^R' history-incremental-pattern-search-backward
 #bindkey "^S" history-incremental-search-forward
 
 function zle-line-init zle-keymap-select {
-VIM_NORMAL="%K{208}%F{black}⮀%k%f%K{208}%F{white} % NORMAL %k%f%K{black}%F{208}⮀%k%f"
-VIM_INSERT="%K{075}%F{black}⮀%k%f%K{075}%F{white} % INSERT %k%f%K{black}%F{075}⮀%k%f"
-RPS1="${${KEYMAP/vicmd/$VIM_NORMAL}/(main|viins)/$VIM_INSERT}"
-RPS2=$RPS1
-zle reset-prompt
+    VIM_NORMAL="%K{208}%F{black}⮀%k%f%K{208}%F{white} % NORMAL %k%f%K{black}%F{208}⮀%k%f"
+    VIM_INSERT="%K{075}%F{black}⮀%k%f%K{075}%F{white} % INSERT %k%f%K{black}%F{075}⮀%k%f"
+    RPS1="${${KEYMAP/vicmd/$VIM_NORMAL}/(main|viins)/$VIM_INSERT}"
+    RPS2=$RPS1
+    zle reset-prompt
 }
 zle -N zle-line-init
 zle -N zle-keymap-selec
@@ -258,34 +258,9 @@ zle -N zle-keymap-selec
 #bindkey "^P" history-beginning-search-backward-end
 #bindkey "^N" history-beginning-search-forward-end
 
-#go
-export PATH=$PATH:/usr/lib/go-1.14/bin
-
-#ruby
-export PATH="$HOME/.rbenv/bin:$PATH"
-eval "$(rbenv init -)"
-
 #python alias
 #alias python='python3'
 #alias pip='pip3'
-#export PATH="/home/koki/anaconda3/bin:$PATH"
-
-
-
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/koki/anaconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-eval "$__conda_setup"
-else
-if [ -f "/home/koki/anaconda3/etc/profile.d/conda.sh" ]; then
-    . "/home/koki/anaconda3/etc/profile.d/conda.sh"
-else
-    export PATH="/home/koki/anaconda3/bin:$PATH"
-fi
-fi
-unset __conda_setup
-# <<< conda initialize <<<
 
 # brew path
 eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
@@ -324,3 +299,5 @@ alias lg='lazygit'
 
 #fzf ファジー検索
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+eval "$(zoxide init zsh)"
