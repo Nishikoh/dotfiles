@@ -31,3 +31,5 @@ pipx install pydeps --verbose
 pipx install pyan3 --verbose
 pipx install perflint --verbose
 pipx install refurb --verbose
+pipx install flake8-comprehensions --verbose
+pipx install flake8-mutable --verbose
