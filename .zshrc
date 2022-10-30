@@ -286,6 +286,7 @@ alias rm='rm -i'
 alias mv='mv -i'
  
 #exa
+alias l='exa  --group-directories-first --binary --inode --classify --header --tree --level=1 --long --git --color always --icons --time-style long-iso'
 alias ls='exa --time-style=long-iso -g'
 alias ll='ls --git --time-style=long-iso -gl'
 alias la='ls --git --time-style=long-iso -agl'
