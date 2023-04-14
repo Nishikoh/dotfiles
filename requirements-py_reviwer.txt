@@ -16,7 +16,7 @@ darglint
 flake8-docstrings
 pydocstyle
 pycodestyle
-bandit[toml]
+bandit
 prospector[with_pyroma]
 pyflakes
 flake8-bugbear

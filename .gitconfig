@@ -14,8 +14,6 @@
 	pl = pull
 	ck = checkout
 	graph = log --date=short  --decorate --graph --branches --tags --remotes
-[credential]
-	helper = wincred
 [pager]
     diff = delta
     log = delta
