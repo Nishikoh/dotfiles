@@ -286,6 +286,7 @@ alias rm='rm -i'
 alias mv='mv -i'
  
 #exa
+alias l='exa  --group-directories-first --binary --inode --classify --header --tree --level=1 --long --git --color always --icons --time-style long-iso'
 alias ls='exa --time-style=long-iso -g'
 alias ll='ls --git --time-style=long-iso -gl'
 alias la='ls --git --time-style=long-iso -agl'
@@ -297,7 +298,23 @@ alias cat='bat'
 #lazygit 
 alias lg='lazygit' 
 
+# xcp
+alias cp='xcp'
+
 #fzf ファジー検索
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 eval "$(zoxide init zsh)"
+# pyenv
+alias brew='env PATH="${PATH//$(pyenv root)\/shims:/}" brew'
+export PYENV_ROOT="${HOME}/.pyenv"
+command -v pyenv >/dev/null || export PATH="${PYENV_ROOT}/bin:$PATH"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)"
+
+# pipx 
+autoload -U bashcompinit
+bashcompinit
+eval "$(register-python-argcomplete pipx)"
+
+tre() { command tre "$@" -e && source "/tmp/tre_aliases_$USER" 2>/dev/null; }
