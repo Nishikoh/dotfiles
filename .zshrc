@@ -298,6 +298,9 @@ alias cat='bat'
 #lazygit 
 alias lg='lazygit' 
 
+# xcp
+alias cp='xcp'
+
 #fzf ファジー検索
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
@@ -313,3 +316,5 @@ eval "$(pyenv virtualenv-init -)"
 autoload -U bashcompinit
 bashcompinit
 eval "$(register-python-argcomplete pipx)"
+
+tre() { command tre "$@" -e && source "/tmp/tre_aliases_$USER" 2>/dev/null; }
