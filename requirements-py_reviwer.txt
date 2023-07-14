@@ -31,7 +31,6 @@ wily
 pydeps
 pyan3
 perflint
-refurb
-flakeheaven
+# refurb
 flake8-comprehensions
 flake8-mutable

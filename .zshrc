@@ -271,8 +271,6 @@ eval "$(starship init zsh)"
 # mcfly
 eval "$(mcfly init zsh)"                     
 
-#saml2aws
-eval "$(saml2aws --completion-script-zsh)"
 
 #---------------
 # エイリアス
@@ -305,16 +303,11 @@ alias cp='xcp'
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 eval "$(zoxide init zsh)"
-# pyenv
-alias brew='env PATH="${PATH//$(pyenv root)\/shims:/}" brew'
-export PYENV_ROOT="${HOME}/.pyenv"
-command -v pyenv >/dev/null || export PATH="${PYENV_ROOT}/bin:$PATH"
-eval "$(pyenv init -)"
-eval "$(pyenv virtualenv-init -)"
 
 # pipx 
-autoload -U bashcompinit
-bashcompinit
-eval "$(register-python-argcomplete pipx)"
+# autoload -U bashcompinit
+# bashcompinit
+# eval "$(register-python-argcomplete pipx)"
 
 tre() { command tre "$@" -e && source "/tmp/tre_aliases_$USER" 2>/dev/null; }
+source "$HOME/.rye/env"
