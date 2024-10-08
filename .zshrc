@@ -15,9 +15,6 @@ export EDITOR=vim
 # Ctrl+Dでログアウトしてしまうことを防ぐ
 setopt IGNOREEOF
 
-# パスを追加したい場合
-export PATH="$HOME/bin:$PATH"
-
 # cdした際のディレクトリをディレクトリスタックへ自動追加
 setopt auto_pushd
 
@@ -205,11 +202,25 @@ zstyle ':completion:*:manuals' separate-sections true
 # --prefix=/usr などの = 以降でも補完
 setopt magic_equal_subst
 
+# brew path
+eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+
+#starship
+eval "$(starship init zsh)"
+
+# mcfly
+eval "$(mcfly init zsh)"    
+
+#fzf ファジー検索
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+eval "$(zoxide init zsh)"
+
 # -----------------------------
 # History
 # -----------------------------
 # 基本設定
-HISTFILE=$HOME/.zsh-history
+HISTFILE=$HOME/.zsh_history
 HISTSIZE=100000
 SAVEHIST=1000000
 
@@ -230,6 +241,8 @@ setopt hist_reduce_blanks
 
 # 履歴をすぐに追加する
 setopt inc_append_history
+
+setopt SHARE_HISTORY             # Share history between all sessions.
 
 # ヒストリを呼び出してから実行する間に一旦編集できる状態になる
 setopt hist_verify
@@ -258,56 +271,34 @@ zle -N zle-keymap-selec
 #bindkey "^P" history-beginning-search-backward-end
 #bindkey "^N" history-beginning-search-forward-end
 
-#python alias
-#alias python='python3'
-#alias pip='pip3'
-
-# brew path
-eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
-
-#starship
-eval "$(starship init zsh)"
-
-# mcfly
-eval "$(mcfly init zsh)"                     
-
-
 #---------------
 # エイリアス
 #---------------
-#alias lst='ls -ltr --color=auto'
-#alias ls='ls --color=auto'
-#alias la='ls -lah --color=auto'
 
-alias cp='cp -i'
-alias rm='rm -i'
+alias cp='fcp -i'
+alias rm='rmz -i'
 alias mv='mv -i'
  
-#exa
-alias l='exa  --group-directories-first --binary --inode --classify --header --tree --level=1 --long --git --color always --icons --time-style long-iso'
-alias ls='exa --time-style=long-iso -g'
+#eza
+alias l='eza  --group-directories-first --binary --inode --classify --header --tree --level=1 --long --git --color always --icons --time-style long-iso'
+alias ls='eza --time-style=long-iso -g'
 alias ll='ls --git --time-style=long-iso -gl'
 alias la='ls --git --time-style=long-iso -agl'
-alias l1='exa -1'
+alias l1='eza -1'
 
 #bat 
 alias cat='bat' 
 
 #lazygit 
-alias lg='lazygit' 
+alias lg='lazygit'
 
-# xcp
-alias cp='xcp'
+# install-release
+alias ir='uvx --with setuptools install-release'
 
-#fzf ファジー検索
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+#---------------
+# PATH
+#---------------
+# パスを追加したい場合
+export PATH="$HOME/bin:$PATH"
 
-eval "$(zoxide init zsh)"
-
-# pipx 
-# autoload -U bashcompinit
-# bashcompinit
-# eval "$(register-python-argcomplete pipx)"
-
-tre() { command tre "$@" -e && source "/tmp/tre_aliases_$USER" 2>/dev/null; }
-source "$HOME/.rye/env"
+export PATH="$HOME/.pixi/bin:$PATH"
