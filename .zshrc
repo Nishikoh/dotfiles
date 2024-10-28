@@ -275,8 +275,8 @@ zle -N zle-keymap-selec
 # エイリアス
 #---------------
 
-alias cp='fcp -i'
-alias rm='rmz -i'
+alias cp='fcp'
+alias rm='rmz'
 alias mv='mv -i'
  
 #eza
