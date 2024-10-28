@@ -1,8 +1,10 @@
 # cat bin_github.txt | grep -v -e '^#' -e '^$'　| xargs -I {} uvx --with setuptools install-release get {} -y
+# cpz と rmzは明示的にインストールしないと失敗する
 # https://github.com/htop-dev/htop
+# https://github.com/nushell/nushell
 # https://github.com/so-fancy/diff-so-fancy
-#https://github.com/nushell/nushell
 https://github.com/BurntSushi/ripgrep
+https://github.com/BurntSushi/ripgrep -n rg
 https://github.com/Byron/dua-cli
 https://github.com/Nukesor/pueue
 https://github.com/SUPERCILEX/fuc -n cpz
@@ -30,6 +32,8 @@ https://github.com/mozilla/sccache
 https://github.com/nektos/act
 https://github.com/peco/peco
 https://github.com/pemistahl/grex
+https://github.com/protocolbuffers/protobuf
+https://github.com/protocolbuffers/protobuf -n protoc
 https://github.com/rhysd/actionlint
 https://github.com/rui314/mold
 https://github.com/sharkdp/bat
@@ -37,5 +41,8 @@ https://github.com/sharkdp/fd
 https://github.com/sharkdp/hyperfine
 https://github.com/slavaGanzin/await
 https://github.com/starship/starship
+https://github.com/suzuki-shunsuke/ghalint
+https://github.com/suzuki-shunsuke/ghatm
+https://github.com/suzuki-shunsuke/github-comment
 https://github.com/topgrade-rs/topgrade
 https://github.com/ynqa/jnv
