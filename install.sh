@@ -19,5 +19,6 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 #echo "export PATH=$PATH:/home/linuxbrew/.linuxbrew/bin/" >> ~/.bashrc
 
 # TODO: argc-completion
-# TODO gh-copilot
 
+gh auth login --web -h github.com
+gh extension install github/gh-copilot --force
