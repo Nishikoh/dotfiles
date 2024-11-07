@@ -2,8 +2,7 @@
 
 curl -fsSL https://get.jetify.com/devbox | bash
 eval "$(devbox global shellenv)"
-# TODO latest config
-devbox global pull https://gist.githubusercontent.com/Nishikoh/c58e4963b7abac7d06574360a1cd653b/raw/5f61b0294e6a2481e4078f43b3a70e21b571268d/devbox.json
+devbox global pull https://github.com/Nishikoh/devbox.git
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 #cargo install cargo-binstall
@@ -17,7 +16,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 #brew update
 #brew bundle
 
-# TODO: argc-completion
-
-
 #echo "export PATH=$PATH:/home/linuxbrew/.linuxbrew/bin/" >> ~/.bashrc
+
+# TODO: argc-completion
+# TODO gh-copilot
+
