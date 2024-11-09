@@ -13,7 +13,7 @@ or
 curl -sSf https://raw.githubusercontent.com/Nishikoh/dotfiles/refs/heads/master/setup.sh | bash -s -- setup devbox
 ```
 
-## devlop shell file
+## develop shell file
 
 
 ```
