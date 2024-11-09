@@ -19,7 +19,7 @@ clean() {
 setup::devbox() {
 	# devboxがインストールされていない場合はインストールする
 	if ! command -v devbox 2>&1 >/dev/null; then
-		curl -fsSL https://get.jetify.com/devbox | bash
+		curl -fsSL https://get.jetify.com/devbox | bash -s -- -y
 	else
 		echo "devbox is already installed"
 	fi
@@ -33,7 +33,7 @@ setup::devbox() {
     # need curl, git, xz
     # apt update
     # apt install curl git xz-utils
-	devbox global pull https://github.com/Nishikoh/devbox.git
+	yes | devbox global pull https://github.com/Nishikoh/devbox.git
     eval "$(devbox global shellenv)"
 }
 
