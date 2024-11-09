@@ -19,7 +19,7 @@ clean() {
 setup::devbox() {
 	# devboxがインストールされていない場合はインストールする
 	if ! command -v devbox 2>&1 >/dev/null; then
-		curl -fsSL https://get.jetify.com/devbox | bash -s -- -y
+		curl -fsSL https://get.jetify.com/devbox | bash -s -- -f
 	else
 		echo "devbox is already installed"
 	fi
