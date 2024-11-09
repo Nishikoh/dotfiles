@@ -76,3 +76,5 @@ eval "$(mcfly init zsh)"
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 eval "$(zoxide init zsh)"
+
+eval "$(devbox global shellenv)"
