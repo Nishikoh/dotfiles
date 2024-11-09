@@ -24,26 +24,16 @@ setup::devbox() {
 		echo "devbox is already installed"
 	fi
 
-    if ! (command -v git 2>&1 >/dev/null && command -v xz 2>&1 >/dev/null); then
-        echo "git or xz are not found. install them."
-        exit 1
-    fi
+	if ! (command -v git 2>&1 >/dev/null && command -v xz 2>&1 >/dev/null); then
+		echo "git or xz are not found. install them."
+		exit 1
+	fi
 
-
-    # need curl, git, xz
-    # apt update
-    # apt install curl git xz-utils
+	# need curl, git, xz
+	# apt update
+	# apt install curl git xz-utils
 	yes | devbox global pull https://github.com/Nishikoh/devbox.git
-    eval "$(devbox global shellenv)"
-}
-
-# @cmd completion shell
-setup::completion() {
-	git clone https://github.com/sigoden/argc-completions.git
-	cd argc-completions
-	./scripts/download-tools.sh
-	./scripts/setup-shell.sh zsh
-	cd -
+	eval "$(devbox global shellenv)"
 }
 
 # @cmd setup rust and cargo
@@ -85,19 +75,6 @@ setup::copilot() {
 		~/.vim/pack/github/start/copilot.vim
 }
 
-# @cmd setup environments and tools quickly.
-setup::slim() {
-	setup::devbox
-	setup::completion
-	setup::copilot
-}
-
-# @cmd setup full environments and tools. need some time.
-setup::full() {
-	setup::slim
-	setup::rust::bins
-}
-
 # @cmd setup cuda
 setup::cuda() {
 	echo "TODO:"
@@ -114,21 +91,27 @@ setup::cuda::install() {
 link_targets_list=(".gitconfig" ".vimrc" ".zshrc")
 
 # @cmd setup dotfiles
+# @arg path=~/dev/dotfiles 		path to git clone
 setup::dotfiles() {
 
-	cwd=$(dirname "${0}")
-	ORIGINAL_DOTFILES_PATH=$( (cd "${cwd}" && pwd))
+	if [ "$argc_path" = "$HOME" ]; then
+		echo invalid dir. This is Home.
+		exit 1
+	fi
+
+	if [ -d "$argc_path" ]; then
+		echo "skip git clone"
+	else
+		git clone https://github.com/Nishikoh/dotfiles.git ${argc_path}
+	fi
+
+	ORIGINAL_DOTFILES_PATH=$( (cd "${argc_path}" && pwd))
 	ZSH_CONFIG_DIR=$ORIGINAL_DOTFILES_PATH/zsh
 
 	if [ -d "$ZSH_CONFIG_DIR" ]; then
 		ls "$ZSH_CONFIG_DIR"
 	else
 		echo zsh dir is not exists.
-		exit 1
-	fi
-
-	if [ "$ORIGINAL_DOTFILES_PATH" = "$HOME" ]; then
-		echo invalid dir. This is Home.
 		exit 1
 	fi
 
@@ -150,6 +133,33 @@ clean::dotfiles() {
 			unlink ~/"${f}"
 		fi
 	done
+}
+
+# @cmd completion shell
+# @arg path=~/dev/dotfiles 		path to git clone
+setup::completion() {
+	setup::dotfiles $argc_path
+	git clone https://github.com/sigoden/argc-completions.git
+	cd argc-completions
+	./scripts/download-tools.sh
+	./scripts/setup-shell.sh zsh
+	cd -
+}
+
+# @cmd setup environments and tools quickly.
+# @arg path=~/dev/dotfiles 		path to git clone
+setup::slim() {
+	setup::devbox
+	setup::dotfiles $argc_path
+	setup::completion $argc_path
+	setup::copilot
+}
+
+# @cmd setup full environments and tools. need some time.
+# @arg path=~/dev/dotfiles 		path to git clone
+setup::full() {
+	setup::slim $argc_path
+	setup::rust::bins
 }
 
 # See more details at https://github.com/sigoden/argc

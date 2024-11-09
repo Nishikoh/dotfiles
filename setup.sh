@@ -24,26 +24,16 @@ setup::devbox() {
 		echo "devbox is already installed"
 	fi
 
-    if ! (command -v git 2>&1 >/dev/null && command -v xz 2>&1 >/dev/null); then
-        echo "git or xz are not found. install them."
-        exit 1
-    fi
+	if ! (command -v git 2>&1 >/dev/null && command -v xz 2>&1 >/dev/null); then
+		echo "git or xz are not found. install them."
+		exit 1
+	fi
 
-
-    # need curl, git, xz
-    # apt update
-    # apt install curl git xz-utils
+	# need curl, git, xz
+	# apt update
+	# apt install curl git xz-utils
 	yes | devbox global pull https://github.com/Nishikoh/devbox.git
-    eval "$(devbox global shellenv)"
-}
-
-# @cmd completion shell
-setup::completion() {
-	git clone https://github.com/sigoden/argc-completions.git
-	cd argc-completions
-	./scripts/download-tools.sh
-	./scripts/setup-shell.sh zsh
-	cd -
+	eval "$(devbox global shellenv)"
 }
 
 # @cmd setup rust and cargo
@@ -85,19 +75,6 @@ setup::copilot() {
 		~/.vim/pack/github/start/copilot.vim
 }
 
-# @cmd setup environments and tools quickly.
-setup::slim() {
-	setup::devbox
-	setup::completion
-	setup::copilot
-}
-
-# @cmd setup full environments and tools. need some time.
-setup::full() {
-	setup::slim
-	setup::rust::bins
-}
-
 # @cmd setup cuda
 setup::cuda() {
 	echo "TODO:"
@@ -114,21 +91,27 @@ setup::cuda::install() {
 link_targets_list=(".gitconfig" ".vimrc" ".zshrc")
 
 # @cmd setup dotfiles
+# @arg path=~/dev/dotfiles 		path to git clone
 setup::dotfiles() {
 
-	cwd=$(dirname "${0}")
-	ORIGINAL_DOTFILES_PATH=$( (cd "${cwd}" && pwd))
+	if [ "$argc_path" = "$HOME" ]; then
+		echo invalid dir. This is Home.
+		exit 1
+	fi
+
+	if [ -d "$argc_path" ]; then
+		echo "skip git clone"
+	else
+		git clone https://github.com/Nishikoh/dotfiles.git ${argc_path}
+	fi
+
+	ORIGINAL_DOTFILES_PATH=$( (cd "${argc_path}" && pwd))
 	ZSH_CONFIG_DIR=$ORIGINAL_DOTFILES_PATH/zsh
 
 	if [ -d "$ZSH_CONFIG_DIR" ]; then
 		ls "$ZSH_CONFIG_DIR"
 	else
 		echo zsh dir is not exists.
-		exit 1
-	fi
-
-	if [ "$ORIGINAL_DOTFILES_PATH" = "$HOME" ]; then
-		echo invalid dir. This is Home.
 		exit 1
 	fi
 
@@ -150,6 +133,33 @@ clean::dotfiles() {
 			unlink ~/"${f}"
 		fi
 	done
+}
+
+# @cmd completion shell
+# @arg path=~/dev/dotfiles 		path to git clone
+setup::completion() {
+	setup::dotfiles $argc_path
+	git clone https://github.com/sigoden/argc-completions.git
+	cd argc-completions
+	./scripts/download-tools.sh
+	./scripts/setup-shell.sh zsh
+	cd -
+}
+
+# @cmd setup environments and tools quickly.
+# @arg path=~/dev/dotfiles 		path to git clone
+setup::slim() {
+	setup::devbox
+	setup::dotfiles $argc_path
+	setup::completion $argc_path
+	setup::copilot
+}
+
+# @cmd setup full environments and tools. need some time.
+# @arg path=~/dev/dotfiles 		path to git clone
+setup::full() {
+	setup::slim $argc_path
+	setup::rust::bins
 }
 
 # See more details at https://github.com/sigoden/argc
@@ -259,20 +269,20 @@ USAGE: Argcfile setup <COMMAND>
 
 COMMANDS:
   devbox      setup devbox
-  completion  completion shell
   rust        setup rust and cargo
   copilot     setup github copilot [aliases: gh-copilot]
-  slim        setup environments and tools quickly.
-  full        setup full environments and tools. need some time.
   cuda        setup cuda
   dotfiles    setup dotfiles
+  completion  completion shell
+  slim        setup environments and tools quickly.
+  full        setup full environments and tools. need some time.
 EOF
     exit
 }
 
 _argc_parse_setup() {
     local _argc_key _argc_action
-    local _argc_subcmds="devbox, completion, rust, copilot, gh-copilot, slim, full, cuda, dotfiles"
+    local _argc_subcmds="devbox, rust, copilot, gh-copilot, cuda, dotfiles, completion, slim, full"
     while [[ $_argc_index -lt $_argc_len ]]; do
         _argc_item="${argc__args[_argc_index]}"
         _argc_key="${_argc_item%%=*}"
@@ -291,11 +301,6 @@ _argc_parse_setup() {
             _argc_action=_argc_parse_setup_devbox
             break
             ;;
-        completion)
-            _argc_index=$((_argc_index + 1))
-            _argc_action=_argc_parse_setup_completion
-            break
-            ;;
         rust)
             _argc_index=$((_argc_index + 1))
             _argc_action=_argc_parse_setup_rust
@@ -304,16 +309,6 @@ _argc_parse_setup() {
         copilot | gh-copilot)
             _argc_index=$((_argc_index + 1))
             _argc_action=_argc_parse_setup_copilot
-            break
-            ;;
-        slim)
-            _argc_index=$((_argc_index + 1))
-            _argc_action=_argc_parse_setup_slim
-            break
-            ;;
-        full)
-            _argc_index=$((_argc_index + 1))
-            _argc_action=_argc_parse_setup_full
             break
             ;;
         cuda)
@@ -326,14 +321,26 @@ _argc_parse_setup() {
             _argc_action=_argc_parse_setup_dotfiles
             break
             ;;
+        completion)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_setup_completion
+            break
+            ;;
+        slim)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_setup_slim
+            break
+            ;;
+        full)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_setup_full
+            break
+            ;;
         help)
             local help_arg="${argc__args[$((_argc_index + 1))]:-}"
             case "$help_arg" in
             devbox)
                 _argc_usage_setup_devbox
-                ;;
-            completion)
-                _argc_usage_setup_completion
                 ;;
             rust)
                 _argc_usage_setup_rust
@@ -341,17 +348,20 @@ _argc_parse_setup() {
             copilot | gh-copilot)
                 _argc_usage_setup_copilot
                 ;;
-            slim)
-                _argc_usage_setup_slim
-                ;;
-            full)
-                _argc_usage_setup_full
-                ;;
             cuda)
                 _argc_usage_setup_cuda
                 ;;
             dotfiles)
                 _argc_usage_setup_dotfiles
+                ;;
+            completion)
+                _argc_usage_setup_completion
+                ;;
+            slim)
+                _argc_usage_setup_slim
+                ;;
+            full)
+                _argc_usage_setup_full
                 ;;
             "")
                 _argc_usage_setup
@@ -410,47 +420,6 @@ _argc_parse_setup_devbox() {
         argc__fn=setup::devbox
         if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
             _argc_usage_setup_devbox
-        fi
-    fi
-}
-
-_argc_usage_setup_completion() {
-    cat <<-'EOF'
-completion shell
-
-USAGE: Argcfile setup completion
-EOF
-    exit
-}
-
-_argc_parse_setup_completion() {
-    local _argc_key _argc_action
-    local _argc_subcmds=""
-    while [[ $_argc_index -lt $_argc_len ]]; do
-        _argc_item="${argc__args[_argc_index]}"
-        _argc_key="${_argc_item%%=*}"
-        case "$_argc_key" in
-        --help | -help | -h)
-            _argc_usage_setup_completion
-            ;;
-        --)
-            _argc_dash="${#argc__positionals[@]}"
-            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
-            _argc_index=$_argc_len
-            break
-            ;;
-        *)
-            argc__positionals+=("$_argc_item")
-            _argc_index=$((_argc_index + 1))
-            ;;
-        esac
-    done
-    if [[ -n "${_argc_action:-}" ]]; then
-        $_argc_action
-    else
-        argc__fn=setup::completion
-        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
-            _argc_usage_setup_completion
         fi
     fi
 }
@@ -649,88 +618,6 @@ _argc_parse_setup_copilot() {
     fi
 }
 
-_argc_usage_setup_slim() {
-    cat <<-'EOF'
-setup environments and tools quickly.
-
-USAGE: Argcfile setup slim
-EOF
-    exit
-}
-
-_argc_parse_setup_slim() {
-    local _argc_key _argc_action
-    local _argc_subcmds=""
-    while [[ $_argc_index -lt $_argc_len ]]; do
-        _argc_item="${argc__args[_argc_index]}"
-        _argc_key="${_argc_item%%=*}"
-        case "$_argc_key" in
-        --help | -help | -h)
-            _argc_usage_setup_slim
-            ;;
-        --)
-            _argc_dash="${#argc__positionals[@]}"
-            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
-            _argc_index=$_argc_len
-            break
-            ;;
-        *)
-            argc__positionals+=("$_argc_item")
-            _argc_index=$((_argc_index + 1))
-            ;;
-        esac
-    done
-    if [[ -n "${_argc_action:-}" ]]; then
-        $_argc_action
-    else
-        argc__fn=setup::slim
-        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
-            _argc_usage_setup_slim
-        fi
-    fi
-}
-
-_argc_usage_setup_full() {
-    cat <<-'EOF'
-setup full environments and tools. need some time.
-
-USAGE: Argcfile setup full
-EOF
-    exit
-}
-
-_argc_parse_setup_full() {
-    local _argc_key _argc_action
-    local _argc_subcmds=""
-    while [[ $_argc_index -lt $_argc_len ]]; do
-        _argc_item="${argc__args[_argc_index]}"
-        _argc_key="${_argc_item%%=*}"
-        case "$_argc_key" in
-        --help | -help | -h)
-            _argc_usage_setup_full
-            ;;
-        --)
-            _argc_dash="${#argc__positionals[@]}"
-            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
-            _argc_index=$_argc_len
-            break
-            ;;
-        *)
-            argc__positionals+=("$_argc_item")
-            _argc_index=$((_argc_index + 1))
-            ;;
-        esac
-    done
-    if [[ -n "${_argc_action:-}" ]]; then
-        $_argc_action
-    else
-        argc__fn=setup::full
-        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
-            _argc_usage_setup_full
-        fi
-    fi
-}
-
 _argc_usage_setup_cuda() {
     cat <<-'EOF'
 setup cuda
@@ -836,7 +723,10 @@ _argc_usage_setup_dotfiles() {
     cat <<-'EOF'
 setup dotfiles
 
-USAGE: Argcfile setup dotfiles
+USAGE: Argcfile setup dotfiles [PATH]
+
+ARGS:
+  [PATH]  path to git clone [default: ~/dev/dotfiles]
 EOF
     exit
 }
@@ -869,6 +759,174 @@ _argc_parse_setup_dotfiles() {
         argc__fn=setup::dotfiles
         if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
             _argc_usage_setup_dotfiles
+        fi
+        _argc_match_positionals 0
+        local values_index values_size
+        IFS=: read -r values_index values_size <<<"${_argc_match_positionals_values[0]:-}"
+        if [[ -n "$values_index" ]]; then
+            argc_path="${argc__positionals[values_index]}"
+        else
+            argc_path=~/dev/dotfiles
+            argc__positionals+=("$argc_path")
+        fi
+    fi
+}
+
+_argc_usage_setup_completion() {
+    cat <<-'EOF'
+completion shell
+
+USAGE: Argcfile setup completion [PATH]
+
+ARGS:
+  [PATH]  path to git clone [default: ~/dev/dotfiles]
+EOF
+    exit
+}
+
+_argc_parse_setup_completion() {
+    local _argc_key _argc_action
+    local _argc_subcmds=""
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_setup_completion
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        *)
+            argc__positionals+=("$_argc_item")
+            _argc_index=$((_argc_index + 1))
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        argc__fn=setup::completion
+        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
+            _argc_usage_setup_completion
+        fi
+        _argc_match_positionals 0
+        local values_index values_size
+        IFS=: read -r values_index values_size <<<"${_argc_match_positionals_values[0]:-}"
+        if [[ -n "$values_index" ]]; then
+            argc_path="${argc__positionals[values_index]}"
+        else
+            argc_path=~/dev/dotfiles
+            argc__positionals+=("$argc_path")
+        fi
+    fi
+}
+
+_argc_usage_setup_slim() {
+    cat <<-'EOF'
+setup environments and tools quickly.
+
+USAGE: Argcfile setup slim [PATH]
+
+ARGS:
+  [PATH]  path to git clone [default: ~/dev/dotfiles]
+EOF
+    exit
+}
+
+_argc_parse_setup_slim() {
+    local _argc_key _argc_action
+    local _argc_subcmds=""
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_setup_slim
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        *)
+            argc__positionals+=("$_argc_item")
+            _argc_index=$((_argc_index + 1))
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        argc__fn=setup::slim
+        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
+            _argc_usage_setup_slim
+        fi
+        _argc_match_positionals 0
+        local values_index values_size
+        IFS=: read -r values_index values_size <<<"${_argc_match_positionals_values[0]:-}"
+        if [[ -n "$values_index" ]]; then
+            argc_path="${argc__positionals[values_index]}"
+        else
+            argc_path=~/dev/dotfiles
+            argc__positionals+=("$argc_path")
+        fi
+    fi
+}
+
+_argc_usage_setup_full() {
+    cat <<-'EOF'
+setup full environments and tools. need some time.
+
+USAGE: Argcfile setup full [PATH]
+
+ARGS:
+  [PATH]  path to git clone [default: ~/dev/dotfiles]
+EOF
+    exit
+}
+
+_argc_parse_setup_full() {
+    local _argc_key _argc_action
+    local _argc_subcmds=""
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_setup_full
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        *)
+            argc__positionals+=("$_argc_item")
+            _argc_index=$((_argc_index + 1))
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        argc__fn=setup::full
+        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
+            _argc_usage_setup_full
+        fi
+        _argc_match_positionals 0
+        local values_index values_size
+        IFS=: read -r values_index values_size <<<"${_argc_match_positionals_values[0]:-}"
+        if [[ -n "$values_index" ]]; then
+            argc_path="${argc__positionals[values_index]}"
+        else
+            argc_path=~/dev/dotfiles
+            argc__positionals+=("$argc_path")
         fi
     fi
 }
@@ -970,6 +1028,49 @@ _argc_parse_clean_dotfiles() {
         if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
             _argc_usage_clean_dotfiles
         fi
+    fi
+}
+
+_argc_match_positionals() {
+    _argc_match_positionals_values=()
+    _argc_match_positionals_len=0
+    local params=("$@")
+    local args_len="${#argc__positionals[@]}"
+    if [[ $args_len -eq 0 ]]; then
+        return
+    fi
+    local params_len=$# arg_index=0 param_index=0
+    while [[ $param_index -lt $params_len && $arg_index -lt $args_len ]]; do
+        local takes=0
+        if [[ "${params[param_index]}" -eq 1 ]]; then
+            if [[ $param_index -eq 0 ]] &&
+                [[ ${_argc_dash:-} -gt 0 ]] &&
+                [[ $params_len -eq 2 ]] &&
+                [[ "${params[$((param_index + 1))]}" -eq 1 ]] \
+                ; then
+                takes=${_argc_dash:-}
+            else
+                local arg_diff=$((args_len - arg_index)) param_diff=$((params_len - param_index))
+                if [[ $arg_diff -gt $param_diff ]]; then
+                    takes=$((arg_diff - param_diff + 1))
+                else
+                    takes=1
+                fi
+            fi
+        else
+            takes=1
+        fi
+        _argc_match_positionals_values+=("$arg_index:$takes")
+        arg_index=$((arg_index + takes))
+        param_index=$((param_index + 1))
+    done
+    if [[ $arg_index -lt $args_len ]]; then
+        _argc_match_positionals_values+=("$arg_index:$((args_len - arg_index))")
+    fi
+    _argc_match_positionals_len=${#_argc_match_positionals_values[@]}
+    if [[ $params_len -gt 0 ]] && [[ $_argc_match_positionals_len -gt $params_len ]]; then
+        local index="${_argc_match_positionals_values[params_len]%%:*}"
+        _argc_die "error: unexpected argument \`${argc__positionals[index]}\` found"
     fi
 }
 
