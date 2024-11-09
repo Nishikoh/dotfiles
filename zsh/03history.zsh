@@ -53,4 +53,4 @@ zle -N zle-keymap-selec
 #bindkey "^N" history-beginning-search-forward-end
 
 eval "$(mcfly init zsh)"
-
+export MCFLY_RESULTS=30
