@@ -32,12 +32,12 @@ jobs:
       # Error Check
       - name: Run install.sh
         continue-on-error: true
-        run: ./install.sh
+        run: bash setup.sh setup devbox
       #         if: succeeded() || failed()
       #         run: ./link.sh
 
       - name: Run link.sh
-        run: ./link.sh
+        run: bash setup.sh setup dotfiles
 
       - name: Run zsh
         run: zsh
@@ -54,10 +54,10 @@ jobs:
       # Error Check
       - name: Run install.sh
         continue-on-error: true
-        run: ./install.sh
+        run: bash setup.sh setup devbox
 
       - name: Run link.sh
-        run: ./link.sh
+        run: bash setup.sh setup dotfiles
 
       - name: Run zsh
         run: zsh

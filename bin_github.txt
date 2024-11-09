@@ -1,0 +1,9 @@
+# cat bin_github.txt | grep -v -e '^#' -e '^$'　| xargs -I {} uvx --with setuptools install-release get {} -y
+# cpz と rmzは明示的にインストールしないと失敗する
+# sort bin_github.txt | tee bin_github.txt
+https://github.com/SUPERCILEX/fuc -n cpz
+https://github.com/SUPERCILEX/fuc -n rmz
+https://github.com/Svetlitski/fcp
+https://github.com/suzuki-shunsuke/ghalint
+https://github.com/suzuki-shunsuke/ghatm
+https://github.com/suzuki-shunsuke/github-comment
