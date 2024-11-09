@@ -3,9 +3,24 @@
 
 ```
 git clone https://github.com/Nishikoh/dotfiles.git
-cd dotfiles && sh install.sh && sh link.sh
+cd dotfiles && bash setup.sh
 ```
- ## brew dump
- ```
- brew bundle dump # -f
- ```
+
+## devlop shell file
+
+
+```
+argc
+```
+
+## build standalone shell file
+
+```
+argc --argc-build Argcfile.sh setup.sh
+```
+
+run 
+```
+bash setup.sh
+```
+
