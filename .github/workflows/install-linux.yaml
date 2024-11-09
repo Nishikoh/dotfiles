@@ -23,7 +23,7 @@ jobs:
           ]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: unit-test of ${{matrix.script}}
         with:
           ref: ${{ github.head_ref }}
