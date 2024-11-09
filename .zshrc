@@ -6,3 +6,4 @@ for f in $ZSH_CONFIG_PATH/*; do
 done
 echo "done setup base zsh config"
 
+# TODO: setup argc completions
