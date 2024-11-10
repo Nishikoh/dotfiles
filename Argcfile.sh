@@ -5,7 +5,8 @@ set -e
 
 # @describe Setup environment and tools
 
-# @cmd setup environments and tools
+
+# @cmd setup each environments and each tools
 setup() {
 	:
 }
@@ -168,6 +169,42 @@ setup::gcloud::fzf() {
 }
 
 # TODO:ir
+
+# @cmd Make setup easy.
+#
+# Selecting 'large' will take longer. Recommend not to use the 'large' option
+# @flag  	-l		--large      					It takes a long time by 'cargo install'
+# @flag  	-f		--force      					force setup
+# @option	-co    	--install-copilot[true|false]   setup github copilot
+lazy-setup() {
+
+	setup::devbox
+	setup::dotfiles
+	setup::completion
+
+	# validate to install gh-copilot
+	if [ -z "$argc_co" ]; then 
+		read -p "Do you install gh-copilot (y/N): " yn
+		case "$yn" in
+			[yY]*) argc_co=true ;;
+			*) argc_co=false ;;
+		esac
+	fi
+	if [ ${argc_co} = 'true' ]; then
+		setup::copilot
+	else
+		echo "skip install gh copilot"
+	fi
+
+
+	if [ $argc_large -eq 1 ]; then
+		echo "start cargo binary"
+		setup::rust::bins
+		echo "finish cargo binary"
+	else
+		echo "skip install cargo binary"
+	fi
+}
 
 # @cmd setup environments and tools quickly.
 # @arg path=~/setup/dotfiles 		path to git clone for dotfiles
