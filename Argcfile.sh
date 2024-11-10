@@ -49,6 +49,8 @@ setup::rust::install() {
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 	else
 		echo "rust is already installed"
+		rustup update
+		rustup self update
 	fi
 }
 
