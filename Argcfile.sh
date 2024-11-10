@@ -91,7 +91,7 @@ setup::cuda::install() {
 link_targets_list=(".gitconfig" ".vimrc" ".zshrc")
 
 # @cmd setup dotfiles
-# @arg path=~/dev/dotfiles 		path to git clone
+# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::dotfiles() {
 
 	if [ "$argc_path" = "$HOME" ]; then
@@ -136,18 +136,37 @@ clean::dotfiles() {
 }
 
 # @cmd completion shell
-# @arg path=~/dev/dotfiles 		path to git clone
+# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::completion() {
 	setup::dotfiles $argc_path
-	git clone https://github.com/sigoden/argc-completions.git
-	cd argc-completions
+	git clone https://github.com/sigoden/argc-completions.git ~/setup/argc-completions
+	cd ~/setup/argc-completions
 	./scripts/download-tools.sh
+
+	# argc generate git
+	# git retore completions
+
 	./scripts/setup-shell.sh zsh
 	cd -
 }
 
+# @cmd setup gcloud
+setup::gcloud() {
+	:
+}
+
+# @cmd setup gcloud fzf
+setup::gcloud::fzf() {
+	if ! [ -d "./zsh/plugins" ]; then
+		echo "current directry is invalid. move parent './zsh/plugins' "
+	else
+		curl https://raw.githubusercontent.com/mbhynes/fzf-gcloud/main/fzf-gcloud.plugin.zsh > ./zsh/plugins/.fzf-gcloud.plugin.zsh
+		echo "donwload gcloud-fzf script"
+	fi
+}
+
 # @cmd setup environments and tools quickly.
-# @arg path=~/dev/dotfiles 		path to git clone
+# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::slim() {
 	setup::devbox
 	setup::dotfiles $argc_path
@@ -156,7 +175,7 @@ setup::slim() {
 }
 
 # @cmd setup full environments and tools. need some time.
-# @arg path=~/dev/dotfiles 		path to git clone
+# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::full() {
 	setup::slim $argc_path
 	setup::rust::bins

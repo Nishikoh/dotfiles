@@ -91,7 +91,7 @@ setup::cuda::install() {
 link_targets_list=(".gitconfig" ".vimrc" ".zshrc")
 
 # @cmd setup dotfiles
-# @arg path=~/dev/dotfiles 		path to git clone
+# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::dotfiles() {
 
 	if [ "$argc_path" = "$HOME" ]; then
@@ -136,18 +136,37 @@ clean::dotfiles() {
 }
 
 # @cmd completion shell
-# @arg path=~/dev/dotfiles 		path to git clone
+# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::completion() {
 	setup::dotfiles $argc_path
-	git clone https://github.com/sigoden/argc-completions.git
-	cd argc-completions
+	git clone https://github.com/sigoden/argc-completions.git ~/setup/argc-completions
+	cd ~/setup/argc-completions
 	./scripts/download-tools.sh
+
+	# argc generate git
+	# git retore completions
+
 	./scripts/setup-shell.sh zsh
 	cd -
 }
 
+# @cmd setup gcloud
+setup::gcloud() {
+	:
+}
+
+# @cmd setup gcloud fzf
+setup::gcloud::fzf() {
+	if ! [ -d "./zsh/plugins" ]; then
+		echo "current directry is invalid. move parent './zsh/plugins' "
+	else
+		curl https://raw.githubusercontent.com/mbhynes/fzf-gcloud/main/fzf-gcloud.plugin.zsh > ./zsh/plugins/.fzf-gcloud.plugin.zsh
+		echo "donwload gcloud-fzf script"
+	fi
+}
+
 # @cmd setup environments and tools quickly.
-# @arg path=~/dev/dotfiles 		path to git clone
+# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::slim() {
 	setup::devbox
 	setup::dotfiles $argc_path
@@ -156,7 +175,7 @@ setup::slim() {
 }
 
 # @cmd setup full environments and tools. need some time.
-# @arg path=~/dev/dotfiles 		path to git clone
+# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::full() {
 	setup::slim $argc_path
 	setup::rust::bins
@@ -274,6 +293,7 @@ COMMANDS:
   cuda        setup cuda
   dotfiles    setup dotfiles
   completion  completion shell
+  gcloud      setup gcloud
   slim        setup environments and tools quickly.
   full        setup full environments and tools. need some time.
 EOF
@@ -282,7 +302,7 @@ EOF
 
 _argc_parse_setup() {
     local _argc_key _argc_action
-    local _argc_subcmds="devbox, rust, copilot, gh-copilot, cuda, dotfiles, completion, slim, full"
+    local _argc_subcmds="devbox, rust, copilot, gh-copilot, cuda, dotfiles, completion, gcloud, slim, full"
     while [[ $_argc_index -lt $_argc_len ]]; do
         _argc_item="${argc__args[_argc_index]}"
         _argc_key="${_argc_item%%=*}"
@@ -326,6 +346,11 @@ _argc_parse_setup() {
             _argc_action=_argc_parse_setup_completion
             break
             ;;
+        gcloud)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_setup_gcloud
+            break
+            ;;
         slim)
             _argc_index=$((_argc_index + 1))
             _argc_action=_argc_parse_setup_slim
@@ -356,6 +381,9 @@ _argc_parse_setup() {
                 ;;
             completion)
                 _argc_usage_setup_completion
+                ;;
+            gcloud)
+                _argc_usage_setup_gcloud
                 ;;
             slim)
                 _argc_usage_setup_slim
@@ -726,7 +754,7 @@ setup dotfiles
 USAGE: Argcfile setup dotfiles [PATH]
 
 ARGS:
-  [PATH]  path to git clone [default: ~/dev/dotfiles]
+  [PATH]  path to git clone for dotfiles [default: ~/setup/dotfiles]
 EOF
     exit
 }
@@ -766,7 +794,7 @@ _argc_parse_setup_dotfiles() {
         if [[ -n "$values_index" ]]; then
             argc_path="${argc__positionals[values_index]}"
         else
-            argc_path=~/dev/dotfiles
+            argc_path=~/setup/dotfiles
             argc__positionals+=("$argc_path")
         fi
     fi
@@ -779,7 +807,7 @@ completion shell
 USAGE: Argcfile setup completion [PATH]
 
 ARGS:
-  [PATH]  path to git clone [default: ~/dev/dotfiles]
+  [PATH]  path to git clone for dotfiles [default: ~/setup/dotfiles]
 EOF
     exit
 }
@@ -819,8 +847,108 @@ _argc_parse_setup_completion() {
         if [[ -n "$values_index" ]]; then
             argc_path="${argc__positionals[values_index]}"
         else
-            argc_path=~/dev/dotfiles
+            argc_path=~/setup/dotfiles
             argc__positionals+=("$argc_path")
+        fi
+    fi
+}
+
+_argc_usage_setup_gcloud() {
+    cat <<-'EOF'
+setup gcloud
+
+USAGE: Argcfile setup gcloud <COMMAND>
+
+COMMANDS:
+  fzf  setup gcloud fzf
+EOF
+    exit
+}
+
+_argc_parse_setup_gcloud() {
+    local _argc_key _argc_action
+    local _argc_subcmds="fzf"
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_setup_gcloud
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        fzf)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_setup_gcloud_fzf
+            break
+            ;;
+        help)
+            local help_arg="${argc__args[$((_argc_index + 1))]:-}"
+            case "$help_arg" in
+            fzf)
+                _argc_usage_setup_gcloud_fzf
+                ;;
+            "")
+                _argc_usage_setup_gcloud
+                ;;
+            *)
+                _argc_die "error: invalid value \`$help_arg\` for \`<command>\`"$'\n'"  [possible values: $_argc_subcmds]"
+                ;;
+            esac
+            ;;
+        *)
+            _argc_die "error: \`Argcfile-setup-gcloud\` requires a subcommand but one was not provided"$'\n'"  [subcommands: $_argc_subcmds]"
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        _argc_usage_setup_gcloud
+    fi
+}
+
+_argc_usage_setup_gcloud_fzf() {
+    cat <<-'EOF'
+setup gcloud fzf
+
+USAGE: Argcfile setup gcloud fzf
+EOF
+    exit
+}
+
+_argc_parse_setup_gcloud_fzf() {
+    local _argc_key _argc_action
+    local _argc_subcmds=""
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_setup_gcloud_fzf
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        *)
+            argc__positionals+=("$_argc_item")
+            _argc_index=$((_argc_index + 1))
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        argc__fn=setup::gcloud::fzf
+        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
+            _argc_usage_setup_gcloud_fzf
         fi
     fi
 }
@@ -832,7 +960,7 @@ setup environments and tools quickly.
 USAGE: Argcfile setup slim [PATH]
 
 ARGS:
-  [PATH]  path to git clone [default: ~/dev/dotfiles]
+  [PATH]  path to git clone for dotfiles [default: ~/setup/dotfiles]
 EOF
     exit
 }
@@ -872,7 +1000,7 @@ _argc_parse_setup_slim() {
         if [[ -n "$values_index" ]]; then
             argc_path="${argc__positionals[values_index]}"
         else
-            argc_path=~/dev/dotfiles
+            argc_path=~/setup/dotfiles
             argc__positionals+=("$argc_path")
         fi
     fi
@@ -885,7 +1013,7 @@ setup full environments and tools. need some time.
 USAGE: Argcfile setup full [PATH]
 
 ARGS:
-  [PATH]  path to git clone [default: ~/dev/dotfiles]
+  [PATH]  path to git clone for dotfiles [default: ~/setup/dotfiles]
 EOF
     exit
 }
@@ -925,7 +1053,7 @@ _argc_parse_setup_full() {
         if [[ -n "$values_index" ]]; then
             argc_path="${argc__positionals[values_index]}"
         else
-            argc_path=~/dev/dotfiles
+            argc_path=~/setup/dotfiles
             argc__positionals+=("$argc_path")
         fi
     fi
