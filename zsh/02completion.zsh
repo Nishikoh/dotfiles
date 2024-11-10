@@ -72,9 +72,8 @@ eval "$(starship init zsh)"
 # mcfly
 eval "$(mcfly init zsh)"
 
-#fzf ファジー検索
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-
 eval "$(zoxide init zsh)"
 
 eval "$(devbox global shellenv)"
+
+source <(fzf --zsh)
