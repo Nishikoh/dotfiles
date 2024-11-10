@@ -146,6 +146,21 @@ setup::completion() {
 	cd -
 }
 
+# @cmd setup gcloud
+setup::gcloud() {
+	:
+}
+
+# @cmd setup gcloud fzf
+setup::gcloud::fzf() {
+	if ! [ -d "./zsh/plugins" ]; then
+		echo "current directry is invalid. move parent './zsh/plugins' "
+	else
+		curl https://raw.githubusercontent.com/mbhynes/fzf-gcloud/main/fzf-gcloud.plugin.zsh > ./zsh/plugins/.fzf-gcloud.plugin.zsh
+		echo "donwload gcloud-fzf script"
+	fi
+}
+
 # @cmd setup environments and tools quickly.
 # @arg path=~/dev/dotfiles 		path to git clone
 setup::slim() {
