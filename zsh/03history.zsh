@@ -45,8 +45,9 @@ function zle-line-init zle-keymap-select {
     RPS2=$RPS1
     zle reset-prompt
 }
-zle -N zle-line-init
-zle -N zle-keymap-selec
+# show vim mode
+# zle -N zle-line-init
+# zle -N zle-keymap-selec
 
 # ^P,^Nを検索へ割り当て
 #bindkey "^P" history-beginning-search-backward-end
