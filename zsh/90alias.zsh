@@ -1,20 +1,28 @@
 #---------------
-# エイリアス
+# alias
 #---------------
 
-command -v fcp 2>&1 >/dev/null  && alias cp='fcp'
-command -v rmz 2>&1 >/dev/null  && alias rm='rmz'
+set_alias_if_command_exists() {
+	# modern linux command. +i -> improve
+	command -v "$1" &>/dev/null && alias "$2"i="$1"
+}
+
+set_alias_if_command_exists "fcp" "cp"
+set_alias_if_command_exists "rmz" "rm"
 alias mv='mv -i'
 
 #eza
-command -v eza 2>&1 >/dev/null && alias l='eza  --group-directories-first --binary --inode --classify --header --tree --level=1 --long --git --color always --icons --time-style long-iso'
-command -v eza 2>&1 >/dev/null && alias ls='eza --time-style=long-iso -g'
-alias ll='ls --git --time-style=long-iso -gl'
-alias la='ls --git --time-style=long-iso -agl'
-command -v eza 2>&1 >/dev/null && alias l1='eza -1'
+set_alias_if_command_exists "eza" "ls"
+if command -v eza &>/dev/null; then
+	alias l='eza  --group-directories-first --binary --inode --classify --header --tree --level=1 --long --git --color always --icons --time-style long-iso'
+	alias lsis='eza --time-style=long-iso -g'
+	alias ll='exa --git --time-style=long-iso -gl'
+	alias la='exa --git --time-style=long-iso -agl'
+	alias l1='eza -1'
+fi
 
 #bat
-command -v bat 2>&1 >/dev/null && alias cat='bat'
+set_alias_if_command_exists "bat" "cat"
 
 #lazygit
 alias lg='lazygit'
@@ -27,3 +35,6 @@ alias h='fc -lt '%F %T' 1'
 
 # mcfly
 alias ms='mcfly search -r 30'
+
+# fzf + bat
+alias fb="fzf --preview 'bat --style=numbers --color=always --line-range :500 {}'"
