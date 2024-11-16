@@ -10,7 +10,7 @@ bash setup.sh
 or 
 
 ```sh
-curl -sSf https://raw.githubusercontent.com/Nishikoh/dotfiles/refs/heads/master/setup.sh | bash -s -- setup devbox
+curl -sSf https://raw.githubusercontent.com/Nishikoh/dotfiles/refs/heads/master/setup.sh | bash -s -- lazy-setup
 ```
 
 ## develop shell file
