@@ -5,7 +5,8 @@ set -e
 
 # @describe Setup environment and tools
 
-# @cmd setup environments and tools
+
+# @cmd setup each environments and each tools
 setup() {
 	:
 }
@@ -49,6 +50,8 @@ setup::rust::install() {
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 	else
 		echo "rust is already installed"
+		rustup update
+		rustup self update
 	fi
 }
 
@@ -70,7 +73,7 @@ setup::copilot() {
 		gh extension install github/gh-copilot --force
 	fi
 
-	echo "Start Vim/Neovim and invoke :Copilot setup."
+	echo "Start Vim/Neovim and invoke ':Copilot setup' ."
 	git clone https://github.com/github/copilot.vim.git \
 		~/.vim/pack/github/start/copilot.vim
 }
@@ -143,8 +146,8 @@ setup::completion() {
 	cd ~/setup/argc-completions
 	./scripts/download-tools.sh
 
-	# argc generate git
-	# git retore completions
+	argc generate git
+	git restore completions/
 
 	./scripts/setup-shell.sh zsh
 	cd -
@@ -155,30 +158,57 @@ setup::gcloud() {
 	:
 }
 
+# @cmd setup gcloud cli
+setup::gcloud::install() {
+	# TODO
+	:
+}
+
 # @cmd setup gcloud fzf
 setup::gcloud::fzf() {
 	if ! [ -d "./zsh/plugins" ]; then
-		echo "current directry is invalid. move parent './zsh/plugins' "
+		echo "current directory is invalid. move parent './zsh/plugins' "
 	else
 		curl https://raw.githubusercontent.com/mbhynes/fzf-gcloud/main/fzf-gcloud.plugin.zsh > ./zsh/plugins/.fzf-gcloud.plugin.zsh
-		echo "donwload gcloud-fzf script"
+		echo "download gcloud-fzf script"
 	fi
 }
 
-# @cmd setup environments and tools quickly.
-# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
-setup::slim() {
-	setup::devbox
-	setup::dotfiles $argc_path
-	setup::completion $argc_path
-	setup::copilot
+# @cmd setup terraform-target with fzf
+setup::terraform-fzf() {
+	if ! [ -d "$HOME/setup/bin" ]; then
+		mkdir $HOME/setup/bin
+	fi
+	curl -o $HOME/setup/bin/terraform-target https://raw.githubusercontent.com/soar/terraform-target/refs/heads/main/terraform-target
+	echo "download terraform-fzf script"
 }
 
-# @cmd setup full environments and tools. need some time.
-# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
-setup::full() {
-	setup::slim $argc_path
-	setup::rust::bins
+# @cmd setup binary from github releases
+setup::bin-gh() {
+	cat bin_github.txt | grep -v -e '^#' -e '^$' | xargs -I {} uvx --with setuptools install-release get {} -y
+}
+
+
+# @cmd Make setup easy.
+#
+# Selecting 'large' will take longer. Recommend not to use the 'large' option
+# @flag  	-l		--large      					It takes a long time by 'cargo install'
+lazy-setup() {
+
+	setup::devbox
+	setup::dotfiles
+	setup::completion
+	setup::rust
+	setup::copilot
+	setup::bin-gh	
+
+	if [ $argc_large -eq 1 ]; then
+		echo "start cargo binary"
+		setup::rust::bins
+		echo "finish cargo binary"
+	else
+		echo "skip install cargo binary"
+	fi
 }
 
 # See more details at https://github.com/sigoden/argc
