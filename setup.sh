@@ -5,7 +5,8 @@ set -e
 
 # @describe Setup environment and tools
 
-# @cmd setup environments and tools
+
+# @cmd setup each environments and each tools
 setup() {
 	:
 }
@@ -49,6 +50,8 @@ setup::rust::install() {
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 	else
 		echo "rust is already installed"
+		rustup update
+		rustup self update
 	fi
 }
 
@@ -70,7 +73,7 @@ setup::copilot() {
 		gh extension install github/gh-copilot --force
 	fi
 
-	echo "Start Vim/Neovim and invoke :Copilot setup."
+	echo "Start Vim/Neovim and invoke ':Copilot setup' ."
 	git clone https://github.com/github/copilot.vim.git \
 		~/.vim/pack/github/start/copilot.vim
 }
@@ -143,8 +146,8 @@ setup::completion() {
 	cd ~/setup/argc-completions
 	./scripts/download-tools.sh
 
-	# argc generate git
-	# git retore completions
+	argc generate git
+	git restore completions/
 
 	./scripts/setup-shell.sh zsh
 	cd -
@@ -155,30 +158,57 @@ setup::gcloud() {
 	:
 }
 
+# @cmd setup gcloud cli
+setup::gcloud::install() {
+	# TODO
+	:
+}
+
 # @cmd setup gcloud fzf
 setup::gcloud::fzf() {
 	if ! [ -d "./zsh/plugins" ]; then
-		echo "current directry is invalid. move parent './zsh/plugins' "
+		echo "current directory is invalid. move parent './zsh/plugins' "
 	else
 		curl https://raw.githubusercontent.com/mbhynes/fzf-gcloud/main/fzf-gcloud.plugin.zsh > ./zsh/plugins/.fzf-gcloud.plugin.zsh
-		echo "donwload gcloud-fzf script"
+		echo "download gcloud-fzf script"
 	fi
 }
 
-# @cmd setup environments and tools quickly.
-# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
-setup::slim() {
-	setup::devbox
-	setup::dotfiles $argc_path
-	setup::completion $argc_path
-	setup::copilot
+# @cmd setup terraform-target with fzf
+setup::terraform-fzf() {
+	if ! [ -d "$HOME/setup/bin" ]; then
+		mkdir $HOME/setup/bin
+	fi
+	curl -o $HOME/setup/bin/terraform-target https://raw.githubusercontent.com/soar/terraform-target/refs/heads/main/terraform-target
+	echo "download terraform-fzf script"
 }
 
-# @cmd setup full environments and tools. need some time.
-# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
-setup::full() {
-	setup::slim $argc_path
-	setup::rust::bins
+# @cmd setup binary from github releases
+setup::bin-gh() {
+	cat bin_github.txt | grep -v -e '^#' -e '^$' | xargs -I {} uvx --with setuptools install-release get {} -y
+}
+
+
+# @cmd Make setup easy.
+#
+# Selecting 'large' will take longer. Recommend not to use the 'large' option
+# @flag  	-l		--large      					It takes a long time by 'cargo install'
+lazy-setup() {
+
+	setup::devbox
+	setup::dotfiles
+	setup::completion
+	setup::rust
+	setup::copilot
+	setup::bin-gh	
+
+	if [ $argc_large -eq 1 ]; then
+		echo "start cargo binary"
+		setup::rust::bins
+		echo "finish cargo binary"
+	else
+		echo "skip install cargo binary"
+	fi
 }
 
 # See more details at https://github.com/sigoden/argc
@@ -211,8 +241,9 @@ Setup environment and tools
 USAGE: Argcfile <COMMAND>
 
 COMMANDS:
-  setup  setup environments and tools
-  clean  unset environments and tools
+  setup       setup each environments and each tools
+  clean       unset environments and tools
+  lazy-setup  Make setup easy.
 EOF
     exit
 }
@@ -224,7 +255,7 @@ _argc_version() {
 
 _argc_parse() {
     local _argc_key _argc_action
-    local _argc_subcmds="setup, clean"
+    local _argc_subcmds="setup, clean, lazy-setup"
     while [[ $_argc_index -lt $_argc_len ]]; do
         _argc_item="${argc__args[_argc_index]}"
         _argc_key="${_argc_item%%=*}"
@@ -251,6 +282,11 @@ _argc_parse() {
             _argc_action=_argc_parse_clean
             break
             ;;
+        lazy-setup)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_lazy-setup
+            break
+            ;;
         help)
             local help_arg="${argc__args[$((_argc_index + 1))]:-}"
             case "$help_arg" in
@@ -259,6 +295,9 @@ _argc_parse() {
                 ;;
             clean)
                 _argc_usage_clean
+                ;;
+            lazy-setup)
+                _argc_usage_lazy-setup
                 ;;
             "")
                 _argc_usage
@@ -282,27 +321,27 @@ _argc_parse() {
 
 _argc_usage_setup() {
     cat <<-'EOF'
-setup environments and tools
+setup each environments and each tools
 
 USAGE: Argcfile setup <COMMAND>
 
 COMMANDS:
-  devbox      setup devbox
-  rust        setup rust and cargo
-  copilot     setup github copilot [aliases: gh-copilot]
-  cuda        setup cuda
-  dotfiles    setup dotfiles
-  completion  completion shell
-  gcloud      setup gcloud
-  slim        setup environments and tools quickly.
-  full        setup full environments and tools. need some time.
+  devbox         setup devbox
+  rust           setup rust and cargo
+  copilot        setup github copilot [aliases: gh-copilot]
+  cuda           setup cuda
+  dotfiles       setup dotfiles
+  completion     completion shell
+  gcloud         setup gcloud
+  terraform-fzf  setup terraform-target with fzf
+  bin-gh         setup binary from github releases
 EOF
     exit
 }
 
 _argc_parse_setup() {
     local _argc_key _argc_action
-    local _argc_subcmds="devbox, rust, copilot, gh-copilot, cuda, dotfiles, completion, gcloud, slim, full"
+    local _argc_subcmds="devbox, rust, copilot, gh-copilot, cuda, dotfiles, completion, gcloud, terraform-fzf, bin-gh"
     while [[ $_argc_index -lt $_argc_len ]]; do
         _argc_item="${argc__args[_argc_index]}"
         _argc_key="${_argc_item%%=*}"
@@ -351,14 +390,14 @@ _argc_parse_setup() {
             _argc_action=_argc_parse_setup_gcloud
             break
             ;;
-        slim)
+        terraform-fzf)
             _argc_index=$((_argc_index + 1))
-            _argc_action=_argc_parse_setup_slim
+            _argc_action=_argc_parse_setup_terraform-fzf
             break
             ;;
-        full)
+        bin-gh)
             _argc_index=$((_argc_index + 1))
-            _argc_action=_argc_parse_setup_full
+            _argc_action=_argc_parse_setup_bin-gh
             break
             ;;
         help)
@@ -385,11 +424,11 @@ _argc_parse_setup() {
             gcloud)
                 _argc_usage_setup_gcloud
                 ;;
-            slim)
-                _argc_usage_setup_slim
+            terraform-fzf)
+                _argc_usage_setup_terraform-fzf
                 ;;
-            full)
-                _argc_usage_setup_full
+            bin-gh)
+                _argc_usage_setup_bin-gh
                 ;;
             "")
                 _argc_usage_setup
@@ -860,14 +899,15 @@ setup gcloud
 USAGE: Argcfile setup gcloud <COMMAND>
 
 COMMANDS:
-  fzf  setup gcloud fzf
+  install  setup gcloud cli
+  fzf      setup gcloud fzf
 EOF
     exit
 }
 
 _argc_parse_setup_gcloud() {
     local _argc_key _argc_action
-    local _argc_subcmds="fzf"
+    local _argc_subcmds="install, fzf"
     while [[ $_argc_index -lt $_argc_len ]]; do
         _argc_item="${argc__args[_argc_index]}"
         _argc_key="${_argc_item%%=*}"
@@ -881,6 +921,11 @@ _argc_parse_setup_gcloud() {
             _argc_index=$_argc_len
             break
             ;;
+        install)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_setup_gcloud_install
+            break
+            ;;
         fzf)
             _argc_index=$((_argc_index + 1))
             _argc_action=_argc_parse_setup_gcloud_fzf
@@ -889,6 +934,9 @@ _argc_parse_setup_gcloud() {
         help)
             local help_arg="${argc__args[$((_argc_index + 1))]:-}"
             case "$help_arg" in
+            install)
+                _argc_usage_setup_gcloud_install
+                ;;
             fzf)
                 _argc_usage_setup_gcloud_fzf
                 ;;
@@ -909,6 +957,47 @@ _argc_parse_setup_gcloud() {
         $_argc_action
     else
         _argc_usage_setup_gcloud
+    fi
+}
+
+_argc_usage_setup_gcloud_install() {
+    cat <<-'EOF'
+setup gcloud cli
+
+USAGE: Argcfile setup gcloud install
+EOF
+    exit
+}
+
+_argc_parse_setup_gcloud_install() {
+    local _argc_key _argc_action
+    local _argc_subcmds=""
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_setup_gcloud_install
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        *)
+            argc__positionals+=("$_argc_item")
+            _argc_index=$((_argc_index + 1))
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        argc__fn=setup::gcloud::install
+        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
+            _argc_usage_setup_gcloud_install
+        fi
     fi
 }
 
@@ -953,19 +1042,16 @@ _argc_parse_setup_gcloud_fzf() {
     fi
 }
 
-_argc_usage_setup_slim() {
+_argc_usage_setup_terraform-fzf() {
     cat <<-'EOF'
-setup environments and tools quickly.
+setup terraform-target with fzf
 
-USAGE: Argcfile setup slim [PATH]
-
-ARGS:
-  [PATH]  path to git clone for dotfiles [default: ~/setup/dotfiles]
+USAGE: Argcfile setup terraform-fzf
 EOF
     exit
 }
 
-_argc_parse_setup_slim() {
+_argc_parse_setup_terraform-fzf() {
     local _argc_key _argc_action
     local _argc_subcmds=""
     while [[ $_argc_index -lt $_argc_len ]]; do
@@ -973,7 +1059,7 @@ _argc_parse_setup_slim() {
         _argc_key="${_argc_item%%=*}"
         case "$_argc_key" in
         --help | -help | -h)
-            _argc_usage_setup_slim
+            _argc_usage_setup_terraform-fzf
             ;;
         --)
             _argc_dash="${#argc__positionals[@]}"
@@ -990,35 +1076,23 @@ _argc_parse_setup_slim() {
     if [[ -n "${_argc_action:-}" ]]; then
         $_argc_action
     else
-        argc__fn=setup::slim
+        argc__fn=setup::terraform-fzf
         if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
-            _argc_usage_setup_slim
-        fi
-        _argc_match_positionals 0
-        local values_index values_size
-        IFS=: read -r values_index values_size <<<"${_argc_match_positionals_values[0]:-}"
-        if [[ -n "$values_index" ]]; then
-            argc_path="${argc__positionals[values_index]}"
-        else
-            argc_path=~/setup/dotfiles
-            argc__positionals+=("$argc_path")
+            _argc_usage_setup_terraform-fzf
         fi
     fi
 }
 
-_argc_usage_setup_full() {
+_argc_usage_setup_bin-gh() {
     cat <<-'EOF'
-setup full environments and tools. need some time.
+setup binary from github releases
 
-USAGE: Argcfile setup full [PATH]
-
-ARGS:
-  [PATH]  path to git clone for dotfiles [default: ~/setup/dotfiles]
+USAGE: Argcfile setup bin-gh
 EOF
     exit
 }
 
-_argc_parse_setup_full() {
+_argc_parse_setup_bin-gh() {
     local _argc_key _argc_action
     local _argc_subcmds=""
     while [[ $_argc_index -lt $_argc_len ]]; do
@@ -1026,7 +1100,7 @@ _argc_parse_setup_full() {
         _argc_key="${_argc_item%%=*}"
         case "$_argc_key" in
         --help | -help | -h)
-            _argc_usage_setup_full
+            _argc_usage_setup_bin-gh
             ;;
         --)
             _argc_dash="${#argc__positionals[@]}"
@@ -1043,18 +1117,9 @@ _argc_parse_setup_full() {
     if [[ -n "${_argc_action:-}" ]]; then
         $_argc_action
     else
-        argc__fn=setup::full
+        argc__fn=setup::bin-gh
         if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
-            _argc_usage_setup_full
-        fi
-        _argc_match_positionals 0
-        local values_index values_size
-        IFS=: read -r values_index values_size <<<"${_argc_match_positionals_values[0]:-}"
-        if [[ -n "$values_index" ]]; then
-            argc_path="${argc__positionals[values_index]}"
-        else
-            argc_path=~/setup/dotfiles
-            argc__positionals+=("$argc_path")
+            _argc_usage_setup_bin-gh
         fi
     fi
 }
@@ -1159,6 +1224,67 @@ _argc_parse_clean_dotfiles() {
     fi
 }
 
+_argc_usage_lazy-setup() {
+    cat <<-'EOF'
+Make setup easy.
+
+Selecting 'large' will take longer. Recommend not to use the 'large' option
+
+USAGE: Argcfile lazy-setup [OPTIONS]
+
+OPTIONS:
+  -l, --large  It takes a long time by 'cargo install'
+  -h, --help   Print help
+EOF
+    exit
+}
+
+_argc_parse_lazy-setup() {
+    local _argc_key _argc_action
+    local _argc_subcmds=""
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_lazy-setup
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        --large | -l)
+            if [[ "$_argc_item" == *=* ]]; then
+                _argc_die "error: flag \`--large\` don't accept any value"
+            fi
+            _argc_index=$((_argc_index + 1))
+            if [[ -n "${argc_large:-}" ]]; then
+                _argc_die "error: the argument \`--large\` cannot be used multiple times"
+            else
+                argc_large=1
+            fi
+            ;;
+        *)
+            if _argc_maybe_flag_option "-" "$_argc_item"; then
+                _argc_die "error: unexpected argument \`$_argc_key\` found"
+            fi
+            argc__positionals+=("$_argc_item")
+            _argc_index=$((_argc_index + 1))
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        argc__fn=lazy-setup
+        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
+            _argc_usage_lazy-setup
+        fi
+    fi
+}
+
 _argc_match_positionals() {
     _argc_match_positionals_values=()
     _argc_match_positionals_len=0
@@ -1200,6 +1326,31 @@ _argc_match_positionals() {
         local index="${_argc_match_positionals_values[params_len]%%:*}"
         _argc_die "error: unexpected argument \`${argc__positionals[index]}\` found"
     fi
+}
+
+_argc_maybe_flag_option() {
+    local signs="$1" arg="$2"
+    if [[ -z "$signs" ]]; then
+        return 1
+    fi
+    local cond=false
+    if [[ "$signs" == *"+"* ]]; then
+        if [[ "$arg" =~ ^\+[^+].* ]]; then
+            cond=true
+        fi
+    elif [[ "$arg" == -* ]]; then
+        if (( ${#arg} < 3 )) || [[ ! "$arg" =~ ^---.* ]]; then
+            cond=true
+        fi
+    fi
+    if [[ "$cond" == "false" ]]; then
+        return 1
+    fi
+    local value="${arg%%=*}"
+    if [[ "$value" =~ [[:space:]] ]]; then
+        return 1
+    fi
+    return 0
 }
 
 _argc_die() {
