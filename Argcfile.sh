@@ -168,7 +168,14 @@ setup::gcloud::fzf() {
 	fi
 }
 
-# TODO:ir
+# @cmd setup terraform-target with fzf
+setup::terraform-fzf() {
+	if ! [ -d "$HOME/setup/bin" ]; then
+		mkdir $HOME/setup/bin
+	fi
+	curl -o $HOME/setup/bin/terraform-target https://raw.githubusercontent.com/soar/terraform-target/refs/heads/main/terraform-target
+	echo "download terraform-fzf script"
+}
 
 # @cmd Make setup easy.
 #
