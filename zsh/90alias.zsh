@@ -34,7 +34,10 @@ alias ir='uvx --with setuptools install-release'
 alias h='fc -lt '%F %T' 1'
 
 # mcfly
-alias ms='mcfly search -r 30'
+alias ms='mcfly search -r 30 -f 1'
+
+# mcfly-fzf
+alias mf='mcfly-fzf-history-widget'
 
 # fzf + bat
 alias fb="fzf --preview 'bat --style=numbers --color=always --line-range :500 {}'"
