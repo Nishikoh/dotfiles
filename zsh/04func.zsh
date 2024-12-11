@@ -17,3 +17,21 @@ _rfv() (
 		--query "$*"
 )
 alias rfv='_rfv'
+
+# fd -> fzf -> cd
+_cdf(){
+	_cdf_run(){
+		dir=$(fd -t d $1 $2 | fzf --preview 'exa -T -L 2 -a -I ".git" {}' ) || return
+		echo $dir
+		cd $dir
+	}
+	if [ $# -ge 2 ]; then
+		_cdf_run $1 $2
+		return
+	elif [ $# -eq 1 ]; then
+		_cdf_run $1 .
+	elif [ $# -eq 0 ]; then
+		_cdf_run '' .
+  	fi
+}
+alias cdf='_cdf'
