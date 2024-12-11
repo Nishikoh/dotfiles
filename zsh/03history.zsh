@@ -55,3 +55,5 @@ function zle-line-init zle-keymap-select {
 
 eval "$(mcfly init zsh)"
 export MCFLY_RESULTS=30
+export MCFLY_FUZZY=1
+eval "$(mcfly-fzf init zsh)"
