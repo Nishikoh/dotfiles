@@ -19,9 +19,9 @@ _rfv() (
 alias rfv='_rfv'
 
 # fd -> fzf -> cd
-_cdf(){
-	_cdf_run(){
-		dir=$(fd -t d $1 $2 | fzf --preview 'exa -T -L 2 -a -I ".git" {}' ) || return
+_cdf() {
+	_cdf_run() {
+		dir=$(fd -t d $1 $2 | fzf --preview 'exa -T -L 2 -a -I ".git" {}') || return
 		echo $dir
 		cd $dir
 	}
@@ -32,6 +32,10 @@ _cdf(){
 		_cdf_run $1 .
 	elif [ $# -eq 0 ]; then
 		_cdf_run '' .
-  	fi
+	fi
 }
 alias cdf='_cdf'
+
+git-completion() {
+	bash $ORIGIN_DOTFILES_DIR/setup.sh setup completion
+}

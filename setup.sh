@@ -5,7 +5,6 @@ set -e
 
 # @describe Setup environment and tools
 
-
 # @cmd setup each environments and each tools
 setup() {
 	:
@@ -141,9 +140,14 @@ clean::dotfiles() {
 # @cmd completion shell
 # @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::completion() {
-	setup::dotfiles $argc_path
-	git clone https://github.com/sigoden/argc-completions.git ~/setup/argc-completions
-	cd ~/setup/argc-completions
+	# setup::dotfiles $argc_path
+	argc_completions_path=~/setup/argc-completions
+	if [ -d $argc_completions_path ]; then
+		echo "skip git clone"
+	else
+		git clone https://github.com/sigoden/argc-completions.git $argc_completions_path
+	fi
+	cd $argc_completions_path
 	./scripts/download-tools.sh
 
 	argc generate git
@@ -169,7 +173,7 @@ setup::gcloud::fzf() {
 	if ! [ -d "./zsh/plugins" ]; then
 		echo "current directory is invalid. move parent './zsh/plugins' "
 	else
-		curl https://raw.githubusercontent.com/mbhynes/fzf-gcloud/main/fzf-gcloud.plugin.zsh > ./zsh/plugins/.fzf-gcloud.plugin.zsh
+		curl https://raw.githubusercontent.com/mbhynes/fzf-gcloud/main/fzf-gcloud.plugin.zsh >./zsh/plugins/.fzf-gcloud.plugin.zsh
 		echo "download gcloud-fzf script"
 	fi
 }
@@ -188,7 +192,6 @@ setup::bin-gh() {
 	cat bin_github.txt | grep -v -e '^#' -e '^$' | xargs -I {} uvx --with setuptools install-release get {} -y
 }
 
-
 # @cmd Make setup easy.
 #
 # Selecting 'large' will take longer. Recommend not to use the 'large' option
@@ -200,7 +203,7 @@ lazy-setup() {
 	setup::completion
 	setup::rust
 	setup::copilot
-	setup::bin-gh	
+	setup::bin-gh
 
 	if [ $argc_large -eq 1 ]; then
 		echo "start cargo binary"
