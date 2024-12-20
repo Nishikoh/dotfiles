@@ -63,6 +63,11 @@ setup::rust::bins() {
 	cargo binstall xcp
 }
 
+# @cmd setup .config/ directory
+setup::config() {
+	cp -r .config/ ~/.config/
+}
+
 # @cmd setup github copilot
 # @alias gh-copilot
 setup::copilot() {

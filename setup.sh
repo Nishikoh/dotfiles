@@ -63,6 +63,11 @@ setup::rust::bins() {
 	cargo binstall xcp
 }
 
+# @cmd setup .config/ directory
+setup::config() {
+	cp -r .config/ ~/.config/
+}
+
 # @cmd setup github copilot
 # @alias gh-copilot
 setup::copilot() {
@@ -331,6 +336,7 @@ USAGE: Argcfile setup <COMMAND>
 COMMANDS:
   devbox         setup devbox
   rust           setup rust and cargo
+  config         setup .config/ directory
   copilot        setup github copilot [aliases: gh-copilot]
   cuda           setup cuda
   dotfiles       setup dotfiles
@@ -344,7 +350,7 @@ EOF
 
 _argc_parse_setup() {
     local _argc_key _argc_action
-    local _argc_subcmds="devbox, rust, copilot, gh-copilot, cuda, dotfiles, completion, gcloud, terraform-fzf, bin-gh"
+    local _argc_subcmds="devbox, rust, config, copilot, gh-copilot, cuda, dotfiles, completion, gcloud, terraform-fzf, bin-gh"
     while [[ $_argc_index -lt $_argc_len ]]; do
         _argc_item="${argc__args[_argc_index]}"
         _argc_key="${_argc_item%%=*}"
@@ -366,6 +372,11 @@ _argc_parse_setup() {
         rust)
             _argc_index=$((_argc_index + 1))
             _argc_action=_argc_parse_setup_rust
+            break
+            ;;
+        config)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_setup_config
             break
             ;;
         copilot | gh-copilot)
@@ -411,6 +422,9 @@ _argc_parse_setup() {
                 ;;
             rust)
                 _argc_usage_setup_rust
+                ;;
+            config)
+                _argc_usage_setup_config
                 ;;
             copilot | gh-copilot)
                 _argc_usage_setup_copilot
@@ -643,6 +657,47 @@ _argc_parse_setup_rust_bins() {
         argc__fn=setup::rust::bins
         if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
             _argc_usage_setup_rust_bins
+        fi
+    fi
+}
+
+_argc_usage_setup_config() {
+    cat <<-'EOF'
+setup .config/ directory
+
+USAGE: Argcfile setup config
+EOF
+    exit
+}
+
+_argc_parse_setup_config() {
+    local _argc_key _argc_action
+    local _argc_subcmds=""
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_setup_config
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        *)
+            argc__positionals+=("$_argc_item")
+            _argc_index=$((_argc_index + 1))
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        argc__fn=setup::config
+        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
+            _argc_usage_setup_config
         fi
     fi
 }
