@@ -9,7 +9,7 @@ $hostname\
 $localip\
 $shlvl\
 $singularity\
-$kubernetes
+$kubernetes\
 $directory\
 $vcsh\
 $fossil_branch\
@@ -606,7 +606,8 @@ detect_folders = []
 
 [kubernetes]
 symbol = "☸ "
-format = '[$symbol$context( \($namespace\))]($style) in '
+format = '''[$symbol$context( \($namespace\))]($style) in k8s
+'''
 style = "cyan bold"
 disabled = false
 detect_extensions = []
