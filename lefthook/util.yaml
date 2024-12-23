@@ -21,13 +21,15 @@ lint: &lint
     typos:
       run: typos --force-exclude {staged_files}
       exclude: &files .*\.(jpg|jpeg|png|gif|svg)$
-    block-branch:  # block commit to main branch and master branch
+    block-branch: # block commit to main branch and master branch
+      env:
+        invalid_branches: main master develop
       run: |
         branch=$(git symbolic-ref HEAD 2>/dev/null)
         branch=${branch##refs/heads/}
         echo "Current branch is $branch"
-        if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
-          echo "You are not allowed to commit to $branch branch"
+        if echo "$invalid_branches" | grep -w "$branch" > /dev/null; then
+          echo "You cannot commit to $branch"
           exit 1
         fi
     end-of-file-fixer:
