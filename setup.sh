@@ -15,16 +15,24 @@ clean() {
 	:
 }
 
+# @cmd setup uv
+setup::uv() {
+	# uvのアップデートが早く、nix repositoryは最新版の反映が遅れる
+	# devboxでインストールすると、`uv self update`で更新できない
+	# そのため、curlでインストールする
+	curl -LsSf https://astral.sh/uv/install.sh | sh
+}
+
 # @cmd setup devbox
 setup::devbox() {
 	# devboxがインストールされていない場合はインストールする
-	if ! command -v devbox 2>&1 >/dev/null; then
+	if ! command -v devbox >/dev/null 2>&1; then
 		curl -fsSL https://get.jetify.com/devbox | bash -s -- -f
 	else
 		echo "devbox is already installed"
 	fi
 
-	if ! (command -v git 2>&1 >/dev/null && command -v xz 2>&1 >/dev/null); then
+	if ! (command -v git >/dev/null 2>&1 && command -v xz >/dev/null 2>&1); then
 		echo "git or xz are not found. install them."
 		exit 1
 	fi
@@ -45,7 +53,7 @@ setup::rust() {
 # @meta default-subcommand
 setup::rust::install() {
 	# rustがインストールされていない場合はインストールする
-	if ! command -v cargo 2>&1 >/dev/null; then
+	if ! command -v cargo >/dev/null 2>&1; then
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 	else
 		echo "rust is already installed"
@@ -109,7 +117,7 @@ setup::dotfiles() {
 	if [ -d "$argc_path" ]; then
 		echo "skip git clone"
 	else
-		git clone https://github.com/Nishikoh/dotfiles.git ${argc_path}
+		git clone https://github.com/Nishikoh/dotfiles.git "${argc_path}"
 	fi
 
 	ORIGINAL_DOTFILES_PATH=$( (cd "${argc_path}" && pwd))
@@ -161,7 +169,7 @@ setup::completion() {
 	# lefthook wrapperの補完を追加
 	cp completions/lefthook.sh completions/lh.sh
 	# ${argc__args[0]} という文字列をlefthookに置き換える
-	sed -i -e 's|\${argc__args\[0\]}|lefthook|g' completions/lh.sh
+	sed -i -e "s|\${argc__args\[0\]}|lefthook|g" completions/lh.sh
 
 	./scripts/setup-shell.sh zsh
 	cd -
@@ -191,15 +199,20 @@ setup::gcloud::fzf() {
 # @cmd setup terraform-target with fzf
 setup::terraform-fzf() {
 	if ! [ -d "$HOME/setup/bin" ]; then
-		mkdir $HOME/setup/bin
+		mkdir "$HOME"/setup/bin
 	fi
-	curl -o $HOME/setup/bin/terraform-target https://raw.githubusercontent.com/soar/terraform-target/refs/heads/main/terraform-target
+	curl -o "$HOME"/setup/bin/terraform-target https://raw.githubusercontent.com/soar/terraform-target/refs/heads/main/terraform-target
 	echo "download terraform-fzf script"
 }
 
 # @cmd setup binary from github releases
 setup::bin-gh() {
-	cat bin_github.txt | grep -v -e '^#' -e '^$' | xargs -I {} uvx --with setuptools install-release get {} -y
+
+	if [ "$(uname)" == 'Darwin' ]; then
+		# macだと依存関係の問題でエラーになる
+		brew install libmagic
+	fi
+	grep -v -e '^#' -e '^$' bin_github.txt | xargs -I {} uvx --with setuptools install-release get {} -y
 }
 
 # @cmd Make setup easy.
@@ -210,12 +223,14 @@ lazy-setup() {
 
 	setup::devbox
 	setup::dotfiles
+	setup::uv
+	setup::config
 	setup::completion
 	setup::rust
 	setup::copilot
 	setup::bin-gh
 
-	if [ $argc_large -eq 1 ]; then
+	if [ "$argc_large" -eq 1 ]; then
 		echo "start cargo binary"
 		setup::rust::bins
 		echo "finish cargo binary"
@@ -339,6 +354,7 @@ setup each environments and each tools
 USAGE: Argcfile setup <COMMAND>
 
 COMMANDS:
+  uv             setup uv
   devbox         setup devbox
   rust           setup rust and cargo
   config         setup .config/ directory
@@ -355,7 +371,7 @@ EOF
 
 _argc_parse_setup() {
     local _argc_key _argc_action
-    local _argc_subcmds="devbox, rust, config, copilot, gh-copilot, cuda, dotfiles, completion, gcloud, terraform-fzf, bin-gh"
+    local _argc_subcmds="uv, devbox, rust, config, copilot, gh-copilot, cuda, dotfiles, completion, gcloud, terraform-fzf, bin-gh"
     while [[ $_argc_index -lt $_argc_len ]]; do
         _argc_item="${argc__args[_argc_index]}"
         _argc_key="${_argc_item%%=*}"
@@ -367,6 +383,11 @@ _argc_parse_setup() {
             _argc_dash="${#argc__positionals[@]}"
             argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
             _argc_index=$_argc_len
+            break
+            ;;
+        uv)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_setup_uv
             break
             ;;
         devbox)
@@ -422,6 +443,9 @@ _argc_parse_setup() {
         help)
             local help_arg="${argc__args[$((_argc_index + 1))]:-}"
             case "$help_arg" in
+            uv)
+                _argc_usage_setup_uv
+                ;;
             devbox)
                 _argc_usage_setup_devbox
                 ;;
@@ -469,6 +493,47 @@ _argc_parse_setup() {
         $_argc_action
     else
         _argc_usage_setup
+    fi
+}
+
+_argc_usage_setup_uv() {
+    cat <<-'EOF'
+setup uv
+
+USAGE: Argcfile setup uv
+EOF
+    exit
+}
+
+_argc_parse_setup_uv() {
+    local _argc_key _argc_action
+    local _argc_subcmds=""
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_setup_uv
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        *)
+            argc__positionals+=("$_argc_item")
+            _argc_index=$((_argc_index + 1))
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        argc__fn=setup::uv
+        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
+            _argc_usage_setup_uv
+        fi
     fi
 }
 
