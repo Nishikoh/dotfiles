@@ -3,24 +3,6 @@
 # -----------------------------
 plugins=(docker docker-compose kubectl)
 
-# brew 　の場合
-fpath=($(brew --prefix)/share/zsh/site-functions "$fpath")
-
-# brew じゃない
-fpath=(~/.zsh/completion "$fpath")
-
-#zsh-completions 補完
-if [ -e /usr/local/share/zsh-completions ]; then
-	fpath=(/usr/local/share/zsh-completions "$fpath")
-fi
-
-if type brew &>/dev/null; then
-	FPATH=$(brew --prefix)/share/zsh-completions:$FPATH
-
-	autoload -Uz compinit
-	compinit
-fi
-
 # 自動補完を有効にする
 autoload -Uz compinit
 compinit -u
