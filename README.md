@@ -1,4 +1,5 @@
 # dotfiles
+
 [![CI](https://github.com/Nishikoh/dotfiles/actions/workflows/setup.yml/badge.svg?branch=master)](https://github.com/Nishikoh/dotfiles/actions/workflows/setup.yml)
 
 ```sh
@@ -7,7 +8,7 @@ cd dotfiles
 bash setup.sh
 ```
 
-or 
+or
 
 ```sh
 curl -sSf https://raw.githubusercontent.com/Nishikoh/dotfiles/refs/heads/master/setup.sh | bash -s -- lazy-setup
@@ -15,9 +16,8 @@ curl -sSf https://raw.githubusercontent.com/Nishikoh/dotfiles/refs/heads/master/
 
 ## develop shell file
 
-
 ```
-argc
+argc -h
 ```
 
 ## build standalone shell file
@@ -26,8 +26,15 @@ argc
 argc --argc-build Argcfile.sh setup.sh
 ```
 
-run 
+run
+
 ```
 bash setup.sh
 ```
 
+## test
+
+```sh
+lefthook run lint --all-files
+lefthook run test
+```

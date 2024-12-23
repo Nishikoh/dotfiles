@@ -1,0 +1,49 @@
+pre-commit:
+  exclude_tags:
+    - unstable
+
+test:
+  parallel: true
+  commands: &test_commands
+    lefthook-fix-no-parallel:
+      run: |
+        if ! lefthook dump | yq .fix.parallel | grep "null" ; then
+          echo "fix.parallel is not null."
+          exit 1
+        fi
+    lefthook-fix-commands-parallel:
+      run: |
+        if [ $( lefthook dump | yq ".fix.jobs[0].group.parallel" ) != "true" ] ; then
+          echo "fix.jobs.parallel is not true."
+          exit 1
+        fi
+
+    lefthook-lint-enable-parallel:
+      run: |
+        if ! lefthook dump | yq .lint.parallel | grep "true" ; then
+          echo "lint.parallel is not true."
+          exit 1
+        fi
+    lefthook-fix-commands-length:
+      run: |
+        if [ $( lefthook dump | yq ".fix.jobs | length" ) -ne 1 ]  ; then
+          echo "fix.jobs length is not 1."
+          exit 1
+        fi
+        if [ $( lefthook dump | yq ".fix.jobs[0].group.jobs | length" ) -lt 6 ] ; then
+          echo "fix.jobs[0].group.jobs length is less than 6."
+          exit 1
+        fi
+
+pre-push:
+  parallel: true
+  commands:
+    check-argc-diff:
+      glob: "Argcfile.sh"
+      run: |
+        argc --argc-build Argcfile.sh setup.sh
+        # setup.shに変更があれば失敗
+        if [ -n "$(git diff --name-only HEAD)" ]; then
+          echo "setup.sh has been changed."
+          exit 1
+        fi
