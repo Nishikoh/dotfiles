@@ -1,0 +1,26 @@
+lint: &lint
+  parallel: true
+  skip:
+    - merge
+    - merge-commit
+    - rebase
+  commands:
+    yamlfmt:  # TODO: yamlfmtはあまり柔軟性がない。yamlfixは柔軟性があるが、バグがある。 https://github.com/lyz-code/yamlfix/issues/252
+      glob: &yaml_file "*.{yaml,yml}"
+      run: yamlfmt -lint -formatter retain_line_breaks=true {staged_files} > /dev/null 2>&1
+    yamlfix:
+      glob: *yaml_file
+      run: YAMLFIX_WHITELINES="1" uvx yamlfix --check {staged_files} > /dev/null 2>&1
+
+pre-commit: *lint
+
+fix:
+  commands:
+    yamlfmt:
+      tags: unstable
+      glob: *yaml_file
+      run: yamlfmt -formatter retain_line_breaks=true {staged_files}
+    yamlfix:
+      tags: unstable
+      glob: *yaml_file
+      run: YAMLFIX_WHITELINES="1" uvx yamlfix {staged_files}

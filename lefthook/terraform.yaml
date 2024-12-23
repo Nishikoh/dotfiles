@@ -1,0 +1,36 @@
+lint: &lint
+  parallel: true
+  skip:
+    - merge
+    - merge-commit
+    - rebase
+  commands:
+    terraform-fmt:
+      glob: &tf_file "*.{tf,tfvars}"
+      run: terraform fmt -check {staged_files}
+    terraform-validate:
+      glob: *tf_file
+      run: terraform validate {staged_files}
+    tflint:
+      glob: *tf_file
+      run: tflint --format compact {staged_files}
+      # TODO: trivy
+
+pre-commit: *lint
+
+fix:
+  jobs:
+    - name: parallel-fix
+      group:
+        parallel: true
+        jobs:
+          - name: terraform-fix
+            group:
+              parallel: false  # 値を設定しているが、v1.10の時点では無視されている
+              jobs:  # 何度か実行したみたが、上から順に実行されてそう
+                - name: terraform-fmt
+                  run: terraform fmt -write {staged_files}
+                  glob: *tf_file
+                - name: tflint
+                  run: tflint --format compact --fix {staged_files}
+                  glob: *tf_file

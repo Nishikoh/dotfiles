@@ -1,0 +1,33 @@
+lint: &lint
+  parallel: true
+  skip:
+    - merge
+    - merge-commit
+    - rebase
+  commands:
+    ruff-check: # TODO: 採用するruleの見直し. see: https://docs.astral.sh/ruff/configuration/#the-config-cli-flag
+      glob: &py_file '*.py'
+      run: uvx ruff check {staged_files}
+    ruff-format:
+      glob: *py_file
+      run: uvx ruff format --check {staged_files}
+      # TODO: type-checking
+
+pre-commit: *lint
+
+fix:
+  jobs:
+    - name: parallel-fix
+      group:
+        parallel: true
+        jobs:
+          - name: python-fix
+            group:
+              parallel: false
+              jobs:
+                - name: ruff-format
+                  run: uvx ruff format {staged_files}
+                  glob: *py_file
+                - name: ruff-fix # TODO: 採用するruleの見直し
+                  run: uvx ruff check --fix {staged_files}
+                  glob: *py_file

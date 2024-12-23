@@ -1,0 +1,14 @@
+lint: &lint
+  parallel: true
+  skip:
+    - merge
+    - merge-commit
+    - rebase
+  commands:
+    hadolint:
+      tags: lint docker
+      glob: "[Dd]ockerfile*"
+      run: hadolint {staged_files} --failure-threshold warning
+      # TODO: docker公式のコマンド
+
+pre-commit: *lint

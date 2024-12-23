@@ -1,0 +1,22 @@
+lint: &lint
+  parallel: true
+  skip:
+    - merge
+    - merge-commit
+    - rebase
+  commands:
+    taplo:
+      glob: &toml_file '*.toml'
+      run: taplo lint {staged_files}
+
+pre-commit: *lint
+
+fix:
+  jobs:
+    - name: parallel-fix
+      group:
+        parallel: true
+        jobs:  # CAUTION: アンカーを使ってDRYにしようとすると、他のジョブが上書きされてしまう
+          - name: taplo
+            run: taplo format {staged_files}
+            glob: *toml_file

@@ -1,0 +1,97 @@
+skip_output:
+  - meta  # Skips lefthook version printing
+  - empty_summary  # Skips summary heading when there are no steps to run
+  # - execution  # Skips printing any execution logs (but prints if the execution failed)
+  - execution_out  # Skips printing execution output (but still prints failed commands output)
+  # - skips  # Skips "skip" printing (i.e. no files matched)
+# ref
+# - https://github.com/mcereda/oam/blob/5b8a9f6e035709454cb43e5f9661b3d110a0ea5c/lefthook/markdown.yml#L14
+# https://pre-commit.com/hooks.html
+
+# TODO:
+# secret
+
+lint: &lint
+  parallel: true
+  skip:
+    - merge
+    - merge-commit
+    - rebase
+  commands:
+    typos:
+      run: typos --force-exclude {staged_files}
+      exclude: &files .*\.(jpg|jpeg|png|gif|svg)$
+    block-branch:  # block commit to main branch and master branch
+      run: |
+        branch=$(git symbolic-ref HEAD 2>/dev/null)
+        branch=${branch##refs/heads/}
+        echo "Current branch is $branch"
+        if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+          echo "You are not allowed to commit to $branch branch"
+          exit 1
+        fi
+    end-of-file-fixer:
+      run: |
+        for file in $(git diff --name-only --cached); do
+          if [ -f "$file" ]; then
+            if [ "$(tail -c 1 "$file" | wc -l)" -eq 0 ]; then
+              echo "File $file has no end of file newline"
+              exit 1
+            fi
+          fi
+        done
+    trailing-whitespace:
+      run: |
+        for file in $(git diff --name-only --cached); do
+          if [ -f "$file" ]; then
+            if rg " $" "$file"; then
+              echo "File $file has trailing whitespace"
+              exit 1
+            fi
+          fi
+        done
+    block-large-size-file:  # 容量が大きいファイルをコミットさせない
+      run: |
+        for file in $(git diff --name-only --cached); do
+          if [ -f "$file" ]; then
+            if [ "$(du -k "$file" | cut -f 1)" -gt 1000 ]; then
+              echo "File $file is too large"
+              exit 1
+            fi
+          fi
+        done
+    trivy:  # TODO: severityの設定
+      run: trivy fs --scanners vuln,secret,misconfig ./
+
+    detect-secrets:
+      run: exit 1
+
+pre-commit: *lint
+
+fix:
+  commands:
+    typos:
+      run: typos --force-exclude -w {staged_files}
+      exclude: *files
+    end-of-file-fixer:
+      run: |
+        for file in {staged_files}; do
+          if [ -f "$file" ]; then
+            if [ "$(tail -c 1 "$file" | wc -l)" -eq 0 ]; then
+              echo "File $file has no end of file newline"
+              echo "Fixing $file"
+              echo >> "$file"
+            fi
+          fi
+        done
+    trailing-whitespace:
+      run: |
+        for file in {staged_files}; do
+          if [ -f "$file" ]; then
+            if rg " $" "$file"; then
+              echo "File $file has trailing whitespace"
+              echo "Fixing $file"
+              sed -i 's/[[:space:]]*$//' "$file"
+            fi
+          fi
+        done

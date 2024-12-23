@@ -1,0 +1,35 @@
+lint: &lint
+  parallel: true
+  skip:
+    - merge
+    - merge-commit
+    - rebase
+  commands:
+    go-vet:
+      glob: &go_file "*.go"
+      run: go vet {staged_files}
+    go-fmt:
+      glob: *go_file
+      run: go fmt {staged_files}
+    go-lint:
+      glob: *go_file
+      run: golangci-lint run {staged_files}
+
+pre-commit: *lint
+
+fix:
+  jobs:
+    - name: parallel-fix
+      group:
+        parallel: true
+        jobs:
+          - name: go-fix
+            group:
+              parallel: false
+              jobs:
+                - name: go-fmt
+                  run: go fmt -w {staged_files}
+                  glob: *go_file
+                - name: go-fix
+                  run: go fix {staged_files}
+                  glob: *go_file

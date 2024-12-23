@@ -1,0 +1,36 @@
+lint: &lint
+  parallel: true
+  skip:
+    - merge
+    - merge-commit
+    - rebase
+  commands:
+    clippy:
+      glob: &rs_file "*.rs"
+      run: cargo clippy --all-targets --all-features -- -D warnings
+      skip: &is_exists # Cargo.tomlがない場合は、スキップする
+        - run: |
+            rg --files | rg Cargo.toml
+            if [ $? -ne 1 ]; then
+              exit 1
+            fi
+            exit 0
+    cargo-check:
+      glob: *rs_file
+      run: cargo check --all-targets --all-features
+      skip: *is_exists
+    rustfmt:
+      glob: *rs_file
+      run: rustfmt --check {staged_files}
+
+pre-commit: *lint
+
+fix:
+  jobs:
+    - name: parallel-fix
+      group:
+        parallel: true
+        jobs:
+          - name: rustfmt
+            run: rustfmt {staged_files}
+            glob: *rs_file
