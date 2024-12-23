@@ -218,6 +218,8 @@ lazy-setup() {
 
 	setup::devbox
 	setup::dotfiles
+	setup::uv
+	setup::config
 	setup::completion
 	setup::rust
 	setup::copilot
