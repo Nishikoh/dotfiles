@@ -41,3 +41,6 @@ alias mf='mcfly-fzf-history-widget'
 
 # fzf + bat
 alias fb="fzf --preview 'bat --style=numbers --color=always --line-range :500 {}'"
+
+# devbox pull global
+alias devbox-pull='devbox global pull https://github.com/Nishikoh/devbox.git'
