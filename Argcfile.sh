@@ -207,7 +207,12 @@ setup::terraform-fzf() {
 
 # @cmd setup binary from github releases
 setup::bin-gh() {
-	cat bin_github.txt | grep -v -e '^#' -e '^$' | xargs -I {} uvx --with setuptools install-release get {} -y
+
+	if [ "$(uname)" == 'Darwin' ]; then
+		# macだと依存関係の問題でエラーになる
+		brew install libmagic
+	fi
+	grep -v -e '^#' -e '^$' bin_github.txt | xargs -I {} uvx --with setuptools install-release get {} -y
 }
 
 # @cmd Make setup easy.
