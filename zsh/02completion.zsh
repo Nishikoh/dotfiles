@@ -4,14 +4,14 @@
 plugins=(docker docker-compose kubectl)
 
 # brew 　の場合
-fpath=($(brew --prefix)/share/zsh/site-functions $fpath)
+fpath=($(brew --prefix)/share/zsh/site-functions "$fpath")
 
 # brew じゃない
-fpath=(~/.zsh/completion $fpath)
+fpath=(~/.zsh/completion "$fpath")
 
 #zsh-completions 補完
 if [ -e /usr/local/share/zsh-completions ]; then
-	fpath=(/usr/local/share/zsh-completions $fpath)
+	fpath=(/usr/local/share/zsh-completions "$fpath")
 fi
 
 if type brew &>/dev/null; then
@@ -64,7 +64,7 @@ zstyle ':completion:*:manuals' separate-sections true
 setopt magic_equal_subst
 
 # brew path
-eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 #starship
 eval "$(starship init zsh)"
@@ -75,5 +75,6 @@ eval "$(mcfly init zsh)"
 eval "$(zoxide init zsh)"
 
 eval "$(devbox global shellenv)"
+eval "$(devbox shellenv)"
 
 source <(fzf --zsh)
