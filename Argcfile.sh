@@ -158,6 +158,11 @@ setup::completion() {
 	argc generate git
 	git restore completions/
 
+	# lefthook wrapperの補完を追加
+	cp completions/lefthook.sh completions/lh.sh
+	# ${argc__args[0]} という文字列をlefthookに置き換える
+	sed -i -e "s|\${argc__args\[0\]}|lefthook|g" completions/lh.sh
+
 	./scripts/setup-shell.sh zsh
 	cd -
 }
