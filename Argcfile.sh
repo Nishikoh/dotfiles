@@ -15,6 +15,14 @@ clean() {
 	:
 }
 
+# @cmd setup uv
+setup::uv() {
+	# uvのアップデートが早く、nix repositoryには最新版の反映が遅れる
+	# devboxでインストールすると、`uv self update`で更新できない
+	# そのため、curlでインストールする
+	curl -LsSf https://astral.sh/uv/install.sh | sh
+}
+
 # @cmd setup devbox
 setup::devbox() {
 	# devboxがインストールされていない場合はインストールする
