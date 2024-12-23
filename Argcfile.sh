@@ -17,7 +17,7 @@ clean() {
 
 # @cmd setup uv
 setup::uv() {
-	# uvのアップデートが早く、nix repositoryには最新版の反映が遅れる
+	# uvのアップデートが早く、nix repositoryは最新版の反映が遅れる
 	# devboxでインストールすると、`uv self update`で更新できない
 	# そのため、curlでインストールする
 	curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -26,13 +26,13 @@ setup::uv() {
 # @cmd setup devbox
 setup::devbox() {
 	# devboxがインストールされていない場合はインストールする
-	if ! command -v devbox 2>&1 >/dev/null; then
+	if ! command -v devbox >/dev/null 2>&1; then
 		curl -fsSL https://get.jetify.com/devbox | bash -s -- -f
 	else
 		echo "devbox is already installed"
 	fi
 
-	if ! (command -v git 2>&1 >/dev/null && command -v xz 2>&1 >/dev/null); then
+	if ! (command -v git >/dev/null 2>&1 && command -v xz >/dev/null 2>&1); then
 		echo "git or xz are not found. install them."
 		exit 1
 	fi
@@ -53,7 +53,7 @@ setup::rust() {
 # @meta default-subcommand
 setup::rust::install() {
 	# rustがインストールされていない場合はインストールする
-	if ! command -v cargo 2>&1 >/dev/null; then
+	if ! command -v cargo >/dev/null 2>&1; then
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 	else
 		echo "rust is already installed"
@@ -117,7 +117,7 @@ setup::dotfiles() {
 	if [ -d "$argc_path" ]; then
 		echo "skip git clone"
 	else
-		git clone https://github.com/Nishikoh/dotfiles.git ${argc_path}
+		git clone https://github.com/Nishikoh/dotfiles.git "${argc_path}"
 	fi
 
 	ORIGINAL_DOTFILES_PATH=$( (cd "${argc_path}" && pwd))
@@ -199,9 +199,9 @@ setup::gcloud::fzf() {
 # @cmd setup terraform-target with fzf
 setup::terraform-fzf() {
 	if ! [ -d "$HOME/setup/bin" ]; then
-		mkdir $HOME/setup/bin
+		mkdir "$HOME"/setup/bin
 	fi
-	curl -o $HOME/setup/bin/terraform-target https://raw.githubusercontent.com/soar/terraform-target/refs/heads/main/terraform-target
+	curl -o "$HOME"/setup/bin/terraform-target https://raw.githubusercontent.com/soar/terraform-target/refs/heads/main/terraform-target
 	echo "download terraform-fzf script"
 }
 
@@ -230,7 +230,7 @@ lazy-setup() {
 	setup::copilot
 	setup::bin-gh
 
-	if [ $argc_large -eq 1 ]; then
+	if [ "$argc_large" -eq 1 ]; then
 		echo "start cargo binary"
 		setup::rust::bins
 		echo "finish cargo binary"
