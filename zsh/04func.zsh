@@ -54,7 +54,8 @@ lh() {
 	if [ ! -f "$project_root/.lefthook-local.yaml" ]; then
 		echo "creating .lefthook-local.yaml"
 		touch "$project_root/.lefthook-local.yaml"
-		yq -ny '.extends[0] = "'"$ORIGIN_DOTFILES_DIR"'/lefthook/*.yaml"' >|"$project_root/.lefthook-local.yaml"
+		yq -ny '.extends[0] = "'"$ORIGIN_DOTFILES_DIR"'/lefthook/*.yaml" |
+			."pre-commit"."exclude_tags"[0]="unstable"' >|"$project_root/.lefthook-local.yaml"
 	fi
 
 	lefthook "$@"
