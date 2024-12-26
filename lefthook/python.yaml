@@ -2,7 +2,6 @@ lint: &lint
   parallel: true
   skip:
     - merge
-    - merge-commit
     - rebase
   commands:
     ruff-check: # TODO: 採用するruleの見直し. see: https://docs.astral.sh/ruff/configuration/#the-config-cli-flag

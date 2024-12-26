@@ -2,7 +2,6 @@ lint: &lint
   parallel: true
   skip:
     - merge
-    - merge-commit
     - rebase
   commands:
     shellcheck:
