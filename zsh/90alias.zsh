@@ -44,3 +44,5 @@ alias fb="fzf --preview 'bat --style=numbers --color=always --line-range :500 {}
 
 # devbox pull global
 alias devbox-pull='devbox global pull https://github.com/Nishikoh/devbox.git'
+
+alias ai-msg='gh copilot suggest "Give me the proper commit message for the following diff /n $(git diff --staged)"'
