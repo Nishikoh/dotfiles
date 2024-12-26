@@ -7,9 +7,12 @@ lint: &lint
     ruff-check: # TODO: 採用するruleの見直し. see: https://docs.astral.sh/ruff/configuration/#the-config-cli-flag
       glob: &py_file '*.py'
       run: uvx ruff check {staged_files}
+      env: &env
+        CONFIG_OPTION: ~/setup/dotfiles/python/ruff.toml
     ruff-format:
       glob: *py_file
       run: uvx ruff format --check {staged_files}
+      env: *env
       # TODO: type-checking
 
 pre-commit: *lint
@@ -27,6 +30,8 @@ fix:
                 - name: ruff-format
                   run: uvx ruff format {staged_files}
                   glob: *py_file
+                  env: *env
                 - name: ruff-fix # TODO: 採用するruleの見直し
                   run: uvx ruff check --fix {staged_files}
                   glob: *py_file
+                  env: *env
