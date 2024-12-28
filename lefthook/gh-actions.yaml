@@ -6,8 +6,11 @@ lint: &lint
   commands:
     actionlint:
       tags: lint build
-      glob: &gh_file ".github/workflows/*"
+      glob: &gh_file ".github/*/*.{yml,yaml}"
       run: actionlint {staged_files}
       # TODO: permission, timeout, etc.
+    # https://github.com/woodruffw/zizmor
+    # https://github.com/suzuki-shunsuke/ghalint
+    # https://github.com/suzuki-shunsuke/ghatm
 
 pre-commit: *lint
