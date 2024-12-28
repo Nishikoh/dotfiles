@@ -18,6 +18,8 @@ bootstrap:
         done
         pueue wait -g "terraform-init"
 
+# TODO: filter by pants
+
 lint: &lint
   parallel: true
   skip:
