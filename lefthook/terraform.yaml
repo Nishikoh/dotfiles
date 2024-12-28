@@ -1,3 +1,23 @@
+bootstrap:
+  parallel: true
+  commands:
+    terraform-init:
+      glob: &tf_entry_point "*/{dev,stg,prod}/main.tf"
+      env: &env
+        TENV_AUTO_INSTALL: "true"
+      run: |
+        echo {files}
+        dirs=$(for file in {files}; do dirname "$file"; done | sort | uniq)
+        parent_dir=$(git rev-parse --show-toplevel)
+        pueue group add terraform-init
+        pueue parallel -g "terraform-init" 0
+        for dir in $dirs; do
+          cd $parent_dir/$dir
+          pueue add -g "terraform-init" -- 'terraform init'
+          echo dir: $dir
+        done
+        pueue wait -g "terraform-init"
+
 lint: &lint
   parallel: true
   skip:
@@ -7,13 +27,35 @@ lint: &lint
     terraform-fmt:
       glob: &tf_file "*.{tf,tfvars}"
       run: terraform fmt -check {staged_files}
+      env: *env
     terraform-validate:
+      env: *env
+      glob: *tf_entry_point
+      run: |
+        dirs=$(for file in {files}; do dirname "$file"; done | sort | uniq)
+        parent_dir=$(git rev-parse --show-toplevel)
+        pueue group add terraform-validate
+        pueue parallel -g "terraform-validate" 0
+        for dir in $dirs; do
+          cd $parent_dir/$dir
+          pueue add -g "terraform-validate" -- 'terraform validate'
+          echo dir: $dir
+        done
+        pueue wait -g "terraform-validate"
+
+    tflint: # TODO: https://future-architect.github.io/articles/20211223a/
       glob: *tf_file
-      run: terraform validate {staged_files}
-    tflint:
-      glob: *tf_file
-      run: tflint --format compact {staged_files}
+      run: |
+        dirs=$(for file in {staged_files}; do dirname "$file"; done | sort | uniq)
+        for dir in $dirs; do
+          cd $dir
+          tflint
+        done
+      env: *env
       # TODO: trivy
+      # TODO: checkov
+      # TODO: terrascan
+      # これらはk8sでも使えるので別ファイルに切り出しても良さそう
 
 pre-commit: *lint
 
@@ -30,6 +72,13 @@ fix:
                 - name: terraform-fmt
                   run: terraform fmt -write {staged_files}
                   glob: *tf_file
+                  env: *env
                 - name: tflint
-                  run: tflint --format compact --fix {staged_files}
+                  run: |
+                    dirs=$(for file in {staged_files}; do dirname "$file"; done | sort | uniq)
+                    for dir in $dirs; do
+                      cd $dir
+                      tflint --fix
+                    done
                   glob: *tf_file
+                  env: *env
