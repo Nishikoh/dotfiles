@@ -2,26 +2,29 @@ lint: &lint
   parallel: true
   skip: [merge, rebase]
   commands:
-    kube-score:
-      files: &k8s_files |
-        maybe_k8s_yaml_list=$(rg 'apiVersion:' -l $(git diff --cached --name-only))
-        for file in $maybe_k8s_yaml_list; do
-          kubeconform -strict $file > /dev/null
-          if [ $? -eq 0 ]; then
-            echo ${file}
-          fi
-        done
-      glob: &yaml_file '*.{yaml,yml}'
+    kube-score: &kube_config
+      glob: '**/{base,overlays,dev,stg,prod}/*/*.{yaml,yml}'
+      exclude:
+        - "*lefthook*/.{yaml,yml}"
+        - ".github/*/*.{yaml,yml}"
       run: kube-score score {files}
+    kubeconform:
+      run: kubeconform -strict {staged_files} 
+      <<: *kube_config
     kube-linter:
-      files: *k8s_files
-      glob: *yaml_file
       run: kube-linter lint {files}
+      <<: *kube_config
     trivy-k8s:
       tags: unstable
       run: trivy k8s --report summary
+      <<: *kube_config
     helm-lint:
-      files: *k8s_files
       run: helm lint {files}
+      <<: *kube_config
+# TODO:
+# https://github.com/Checkmarx/kics
+# https://github.com/FairwindsOps/pluto
+# https://github.com/aquasecurity/kube-bench
+# https://github.com/controlplaneio
 
 pre-commit: *lint
