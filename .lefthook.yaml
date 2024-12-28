@@ -5,13 +5,13 @@ pre-commit:
 test:
   parallel: true
   commands: &test_commands
-    lefthook-fix-no-parallel:
+    lefthook-fix-no-parallel: # fix全体ではparallelが設定されていことを確認
       run: |
         if ! lefthook dump | yq .fix.parallel | grep "null" ; then
           echo "fix.parallel is not null."
           exit 1
         fi
-    lefthook-fix-commands-parallel:
+    lefthook-fix-commands-parallel: # fix.commandsではparallelが設定されていことを確認
       run: |
         if [ $( lefthook dump | yq ".fix.jobs[0].group.parallel" ) != "true" ] ; then
           echo "fix.jobs.parallel is not true."
@@ -32,6 +32,18 @@ test:
         fi
         if [ $( lefthook dump | yq ".fix.jobs[0].group.jobs | length" ) -lt 6 ] ; then
           echo "fix.jobs[0].group.jobs length is less than 6."
+          exit 1
+        fi
+    lefthook-no-files: # 全体にfilesがオーバーライドされていないか確認
+      run: |
+        if  [ $( lefthook dump | yq ".lint.files") != "null"  ] ; then
+          echo "lint.files is not null."
+          echo debug: $( lefthook dump | yq ".lint.files")
+          exit 1
+        fi
+        if [ $( lefthook dump | yq ".fix.files") != "null" ] ; then
+          echo "fix.files is not null."
+          echo debug: $( lefthook dump | yq ".fix.files")
           exit 1
         fi
 
