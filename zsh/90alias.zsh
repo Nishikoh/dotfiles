@@ -49,3 +49,5 @@ alias ai-msg='gh copilot suggest "Give me the proper commit message for the foll
 
 alias set-aws-profile='export AWS_PROFILE=$(aws configure list-profiles | fzf)'
 # alias aws='uvx --from awscli aws' # pypiからインストールするとv1が入るので、v2を使うには公式インストーラーからインストールする必要がある
+
+alias beep='for i in {1..3}; do afplay /System/Library/Sounds/Submarine.aiff; done'
