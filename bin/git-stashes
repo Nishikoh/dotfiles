@@ -1,0 +1,44 @@
+#!/usr/bin/env zsh
+
+# ref: https://github.com/shibayu36/config-file/blob/d4e35204a5d83f58093a674328769cbd9929524a/bin/git-stashes
+
+while out=$(git stash list "$@" |
+            fzf --ansi --no-sort --reverse --print-query --query="$query" \
+                --expect=enter,bspace \
+                --bind="ctrl-space:preview-page-up" \
+                --bind="space:preview-page-down" \
+                --bind="k:preview-up" \
+                --bind="j:preview-down" \
+                --preview="echo {} | cut -d':' -f1 | xargs -I {STASH} sh -c 'git stash show --color=always -p {STASH}; git show --color=always --format="" -p {STASH}^3'" \
+                --preview-window='down:85%');
+do
+    # Tokenize selection by newline
+    selection=("${(f)out}")
+
+    # Keep the query accross fzf calls
+    query="$selection[1]"
+    # Represents the key pressed
+    key="$selection[2]"
+    # Represents the stash, e.g. stash{1}
+    reflog_selector=$(echo "$selection[3]" | cut -d ':' -f 1)
+
+    case "$key" in
+        # enter applies the stash to the current tree
+        enter)
+            echo -n "Apply stash $reflog_selector? [y/N]: "
+            read answer
+            if [[ "$answer" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
+                git stash apply "$reflog_selector"
+                break
+            fi
+            ;;
+        # backspace will drop the stash
+        bspace)
+            echo -n "Drop stash $reflog_selector? [y/N]: "
+            read answer
+            if [[ "$answer" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
+                git stash drop "$reflog_selector"
+            fi
+            ;;
+    esac
+done

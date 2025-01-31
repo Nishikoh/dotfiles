@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -uvx
+
+terminal_width=$(tput cols)
+git diff $@ --name-only | fzf -m --ansi --preview-window='down:85%' --preview="git diff $@ --color=always -- {-1} | delta --width=$((terminal_width * 95 / 100))"

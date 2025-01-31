@@ -60,3 +60,8 @@ lh() {
 
 	lefthook "$@"
 }
+
+# fzf-diff() {
+#   preview="git diff $@ --color=always -- {-1} | delta"
+#   git diff $@ --name-only | fzf -m --ansi --preview-window='down:85%' --preview $preview
+# }

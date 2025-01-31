@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+# ref: https://github.com/shibayu36/config-file/blob/d4e35204a5d83f58093a674328769cbd9929524a/bin/git-stash-select
+
+# Get the root directory of the Git repository
+git_repo_root=$(git rev-parse --show-toplevel)
+
+# Add instructions to the list of modified files
+instructions="Select multiple files by TAB, and then press Enter to stash them."
+
+# Use fzf to select multiple files
+selected_files=$(git -C "$git_repo_root" status --porcelain --untracked-files=all |
+                 fzf --multi \
+                     --header="$instructions" \
+                     --preview-window='down:70%' \
+                     --preview="
+                        if [[ {} =~ '^\?\?' ]]; then
+                          cat $git_repo_root/{2};
+                        else
+                          git -C $git_repo_root diff --color=always {2};
+                        fi
+                     " |
+                 awk '{ print $2 }'
+                )
+
+# Check if any files were selected
+if [ -z "$selected_files" ]; then
+    echo "No files selected. Exiting."
+    exit 1
+fi
+
+# Store the selected files in an array
+IFS=$'\n' read -rd '' -a files_array <<<"$selected_files"
+
+# Filter out the instructions from the array
+filtered_files_array=()
+for file in "${files_array[@]}"; do
+    if [[ $file != *"==="* ]]; then
+        filtered_files_array+=("$file")
+    fi
+done
+
+# Prompt for a stash message
+echo "Enter a stash message:"
+read stash_message
+
+# Stash the selected files
+git -C $git_repo_root stash push -u -m "$stash_message" -- "${filtered_files_array[@]}"
