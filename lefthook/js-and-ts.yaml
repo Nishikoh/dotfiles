@@ -1,3 +1,29 @@
-# TODO:
-# biome
-# esbuild...etc
+lint: &lint
+  parallel: true
+  skip:
+    - merge
+    - rebase
+  commands:
+    biome:
+      glob: &js_ts 
+        - "*.js"
+        - "*.ts"
+        - "*.tsx"
+        - "*.jsx"
+      run: biome check {staged_files}
+
+pre-commit: *lint
+
+fix:
+  jobs:
+    - name: parallel-fix
+      group:
+        parallel: true
+        jobs:
+          - name: biome-fix
+            group:
+              parallel: false
+              jobs:
+                - name: biome-fix
+                  run: biome check --fix {staged_files}
+                  glob: *js_ts
