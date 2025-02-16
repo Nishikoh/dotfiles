@@ -5,11 +5,7 @@ lint: &lint
     - rebase
   commands:
     biome:
-      glob: &js_ts 
-        - "*.js"
-        - "*.ts"
-        - "*.tsx"
-        - "*.jsx"
+      glob: &js_ts "*.{js,ts,tsx,jsx}"
       run: biome check {staged_files}
 
 pre-commit: *lint
