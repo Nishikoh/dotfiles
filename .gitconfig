@@ -26,6 +26,8 @@
     navigate = true
 	line-numbers = true
     side-by-side = true
+[diff]
+  indentHeuristic = true
 [interactive]
     diffFilter = delta --color-only
 [color]
@@ -38,8 +40,8 @@
 	smudge = git-lfs smudge -- %f
 	process = git-lfs filter-process
 [credential "https://github.com"]
-	helper = 
 	helper = !gh auth git-credential
 [credential "https://gist.github.com"]
-	helper = 
 	helper = !gh auth git-credential
+[init]
+	defaultBranch = main
