@@ -1,9 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.15.1/.schema/devbox.schema.json",
   "packages": [
-    "ctop@latest",
-    "lazydocker@latest",
-    "hadolint@latest"
+    "dua@latest",
+    "fcp@latest",
+    "dust@latest",
+    "diskonaut@latest"
   ],
   "shell": {
     "init_hook": [

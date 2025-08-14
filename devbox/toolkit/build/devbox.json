@@ -1,10 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.15.1/.schema/devbox.schema.json",
-  "packages": [
-    "ctop@latest",
-    "lazydocker@latest",
-    "hadolint@latest"
-  ],
+  "packages": {
+    "sccache": "latest",
+    "mold": {
+      "version":            "latest",
+      "excluded_platforms": ["aarch64-darwin"]
+    }
+  },
   "shell": {
     "init_hook": [
       "echo 'Welcome to devbox!' > /dev/null"

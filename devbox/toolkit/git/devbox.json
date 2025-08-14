@@ -1,10 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.15.1/.schema/devbox.schema.json",
-  "packages": [
-    "ctop@latest",
-    "lazydocker@latest",
-    "hadolint@latest"
-  ],
+  "$schema":  "https://raw.githubusercontent.com/jetify-com/devbox/0.15.1/.schema/devbox.schema.json",
+  "packages": ["git-lfs@latest"],
   "shell": {
     "init_hook": [
       "echo 'Welcome to devbox!' > /dev/null"
