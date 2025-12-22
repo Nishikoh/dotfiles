@@ -5,7 +5,7 @@ for f in $ZSH_CONFIG_PATH/*.zsh; do
     # echo load $f
 done
 
-SHELL=$(which zsh) # fzf対応
+export SHELL=$(command -v zsh) # fzf対応
 
 echo "done setup base zsh config"
 
