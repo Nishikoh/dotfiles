@@ -1,0 +1,81 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "mold@latest": {
+      "last_modified": "2025-08-01T06:30:45Z",
+      "resolved": "github:NixOS/nixpkgs/a7822a17050fedda63794775b9090880c8214290#mold",
+      "source": "devbox-search",
+      "version": "2.40.3",
+      "systems": {
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/gz6fi7d9fk0wnxisdj1pvrikg96fas66-mold-2.40.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/gz6fi7d9fk0wnxisdj1pvrikg96fas66-mold-2.40.3"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/3iw14hj9wv43l2vbsgj4skdiwdkj1s6n-mold-2.40.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/3iw14hj9wv43l2vbsgj4skdiwdkj1s6n-mold-2.40.3"
+        }
+      }
+    },
+    "sccache@latest": {
+      "last_modified": "2025-07-28T17:09:23Z",
+      "resolved": "github:NixOS/nixpkgs/648f70160c03151bc2121d179291337ad6bc564b#sccache",
+      "source": "devbox-search",
+      "version": "0.10.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/m0pk4lz303c9z3f98g099b82glwwkpfm-sccache-0.10.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/m0pk4lz303c9z3f98g099b82glwwkpfm-sccache-0.10.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/kwaxgdbdf2m41h7p0xlcbydcaal129c3-sccache-0.10.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/kwaxgdbdf2m41h7p0xlcbydcaal129c3-sccache-0.10.0"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/q9i7sh7q0q5npq1saydygvsxwqw116n5-sccache-0.10.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/q9i7sh7q0q5npq1saydygvsxwqw116n5-sccache-0.10.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/bxx1k63daj8vks5wwqnclpndacyzak09-sccache-0.10.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/bxx1k63daj8vks5wwqnclpndacyzak09-sccache-0.10.0"
+        }
+      }
+    }
+  }
+}

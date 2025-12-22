@@ -5,6 +5,8 @@ for f in $ZSH_CONFIG_PATH/*.zsh; do
     # echo load $f
 done
 
+export SHELL=$(command -v zsh) # fzf対応
+
 echo "done setup base zsh config"
 
 echo "\nalias list"

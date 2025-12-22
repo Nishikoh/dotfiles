@@ -1,0 +1,53 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "tenv@latest": {
+      "last_modified": "2025-07-28T17:09:23Z",
+      "resolved": "github:NixOS/nixpkgs/648f70160c03151bc2121d179291337ad6bc564b#tenv",
+      "source": "devbox-search",
+      "version": "4.7.6",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/qwacn0nswfynisihwka1adagl5q4vh0p-tenv-4.7.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/qwacn0nswfynisihwka1adagl5q4vh0p-tenv-4.7.6"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/k1n0sigjlshyd4grdz1a0ws043vgdkn6-tenv-4.7.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/k1n0sigjlshyd4grdz1a0ws043vgdkn6-tenv-4.7.6"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/hbcw4dixf45376ln29d5h7n3amp9v5iz-tenv-4.7.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/hbcw4dixf45376ln29d5h7n3amp9v5iz-tenv-4.7.6"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/yzgbb5cf49c7zfq21zmpkvmbmm8k0j4v-tenv-4.7.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/yzgbb5cf49c7zfq21zmpkvmbmm8k0j4v-tenv-4.7.6"
+        }
+      }
+    }
+  }
+}

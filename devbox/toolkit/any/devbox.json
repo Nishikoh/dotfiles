@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.15.1/.schema/devbox.schema.json",
+  "packages": [
+    "nushell@latest",
+    "pueue@latest",
+    "k6@latest",
+    "grex@latest",
+    "actionlint@latest",
+    "await@latest",
+    "topgrade@latest",
+    "shfmt@latest",
+    "shellcheck@latest",
+    "taplo@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'Welcome to devbox!' > /dev/null"
+    ],
+    "scripts": {
+      "test": [
+        "echo \"Error: no test specified\" && exit 1"
+      ]
+    }
+  }
+}

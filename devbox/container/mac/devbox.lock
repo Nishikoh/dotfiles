@@ -1,0 +1,101 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "colima@latest": {
+      "last_modified": "2025-08-03T19:18:05Z",
+      "resolved": "github:NixOS/nixpkgs/bf9fa86a9b1005d932f842edf2c38eeecc98eef3#colima",
+      "source": "devbox-search",
+      "version": "0.8.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/wxm71k2yw96ky4hrwiiizvsnr2a5qch9-colima-0.8.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/wxm71k2yw96ky4hrwiiizvsnr2a5qch9-colima-0.8.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ywxgq8c2m93la7nxjcbvpj4bils05hdf-colima-0.8.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/ywxgq8c2m93la7nxjcbvpj4bils05hdf-colima-0.8.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/limc6cjgqbhx4rdc550p75wqirihczx3-colima-0.8.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/limc6cjgqbhx4rdc550p75wqirihczx3-colima-0.8.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/nxzwf49k5iflibcrysj2cfl7j2k20i9m-colima-0.8.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/nxzwf49k5iflibcrysj2cfl7j2k20i9m-colima-0.8.1"
+        }
+      }
+    },
+    "docker@latest": {
+      "last_modified": "2025-08-05T11:35:34Z",
+      "resolved": "github:NixOS/nixpkgs/a683adc19ff5228af548c6539dbc3440509bfed3#docker",
+      "source": "devbox-search",
+      "version": "28.3.3",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/6x679ch4cqa5aywjsrnplsasv5rp0mak-docker-28.3.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/6x679ch4cqa5aywjsrnplsasv5rp0mak-docker-28.3.3"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8jb799sr948h68avj9k3xkvznv10f470-docker-28.3.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/8jb799sr948h68avj9k3xkvznv10f470-docker-28.3.3"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/g3h7m6qsx5rkb908qcqi4a6kflvcriz5-docker-28.3.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/g3h7m6qsx5rkb908qcqi4a6kflvcriz5-docker-28.3.3"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/r0vqz3dsdhw31gyk098qgrw61vwmc7a1-docker-28.3.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/r0vqz3dsdhw31gyk098qgrw61vwmc7a1-docker-28.3.3"
+        }
+      }
+    }
+  }
+}

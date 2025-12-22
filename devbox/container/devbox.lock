@@ -1,0 +1,157 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "ctop@latest": {
+      "last_modified": "2025-07-28T17:09:23Z",
+      "resolved": "github:NixOS/nixpkgs/648f70160c03151bc2121d179291337ad6bc564b#ctop",
+      "source": "devbox-search",
+      "version": "0.7.7",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/kr4wsq98h7r6vn974a4gz2hpjil52kpw-ctop-0.7.7",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/kr4wsq98h7r6vn974a4gz2hpjil52kpw-ctop-0.7.7"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/2gkb95am3wr55lihwpwvgd3bprzvhvbw-ctop-0.7.7",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/2gkb95am3wr55lihwpwvgd3bprzvhvbw-ctop-0.7.7"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/zmrjadhjy77b1yqx3wcxblqjw2xgyhww-ctop-0.7.7",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/zmrjadhjy77b1yqx3wcxblqjw2xgyhww-ctop-0.7.7"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/3ajizh9fx8nv0z7nrm31hclm8r888i2c-ctop-0.7.7",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/3ajizh9fx8nv0z7nrm31hclm8r888i2c-ctop-0.7.7"
+        }
+      }
+    },
+    "github:NixOS/nixpkgs/nixpkgs-unstable": {
+      "last_modified": "2025-08-12T17:37:07Z",
+      "resolved": "github:NixOS/nixpkgs/695d5db1b8b20b73292501683a524e0bd79074fb?lastModified=1755020227&narHash=sha256-gGmm%2Bh0t6rY88RPTaIm3su95QvQIVjAJx558YUG4Id8%3D"
+    },
+    "hadolint@latest": {
+      "last_modified": "2025-07-28T17:09:23Z",
+      "resolved": "github:NixOS/nixpkgs/648f70160c03151bc2121d179291337ad6bc564b#hadolint",
+      "source": "devbox-search",
+      "version": "2.12.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/49jfn82k3cpn3js168vxcffanlz4acim-hadolint-2.12.0",
+              "default": true
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/crg8qnjayfvlspgqcizf1fabb0lrlzjz-hadolint-2.12.0-doc"
+            }
+          ],
+          "store_path": "/nix/store/49jfn82k3cpn3js168vxcffanlz4acim-hadolint-2.12.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/a9ijpw4albqw02nfgrsg81vik598qdip-hadolint-2.12.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/a9ijpw4albqw02nfgrsg81vik598qdip-hadolint-2.12.0"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/gjgpcgb99fcfyv8pwlb15ygh715xhwpb-hadolint-2.12.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/gjgpcgb99fcfyv8pwlb15ygh715xhwpb-hadolint-2.12.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ajwwnaak8yv1b2hz1b1z0gxxgnqy2s47-hadolint-2.12.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/ajwwnaak8yv1b2hz1b1z0gxxgnqy2s47-hadolint-2.12.0"
+        }
+      }
+    },
+    "lazydocker@latest": {
+      "last_modified": "2025-07-28T17:09:23Z",
+      "resolved": "github:NixOS/nixpkgs/648f70160c03151bc2121d179291337ad6bc564b#lazydocker",
+      "source": "devbox-search",
+      "version": "0.24.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/1935d20f991yx65aldbzkv6h8a19h4wh-lazydocker-0.24.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/1935d20f991yx65aldbzkv6h8a19h4wh-lazydocker-0.24.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/clp4jpwxfc1kaxzp2h9yq299jdfpj558-lazydocker-0.24.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/clp4jpwxfc1kaxzp2h9yq299jdfpj558-lazydocker-0.24.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/59a19yd1a0al77gvkkiymcqwi8384ahi-lazydocker-0.24.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/59a19yd1a0al77gvkkiymcqwi8384ahi-lazydocker-0.24.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/wk89ki4wcyvlmjn35w7l4fmpvk0yqv85-lazydocker-0.24.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/wk89ki4wcyvlmjn35w7l4fmpvk0yqv85-lazydocker-0.24.1"
+        }
+      }
+    }
+  }
+}
