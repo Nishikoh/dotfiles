@@ -1,0 +1,40 @@
+#!/usr/bin/env zsh
+# 対象の bin ディレクトリを NUL 区切りで取得
+dirs=()
+while IFS= read -r -d '' d; do
+  dirs+=("$d")
+done < <(fd --hidden --no-ignore --full-path -L '\.devbox/.*/bin/?$' -t d -0 ~)
+
+if [[ ${#dirs[@]} -eq 0 ]]; then
+  echo "No bin directories found" >&2
+  exit 1
+fi
+
+# 引数なしならディレクトリ一覧を出す
+if [[ $# -eq 0 ]]; then
+  printf '%s\n' "${dirs[@]}"
+  exit 0
+fi
+
+overall_exit=0
+
+for name in "$@"; do
+  found=false
+  for dir in "${dirs[@]}"; do
+    # dir 配下で名前が一致するファイルを探し、実行可能なら表示
+    while IFS= read -r -d '' file; do
+      if [[ -x "$file" ]]; then
+        echo "$file"
+        found=true
+      fi
+    done < <(fd -L $name $dir -0)
+    # done < <(find "$dir" -type f -name "$name" -print0 2>/dev/null)
+  done
+
+  if ! $found; then
+    echo "${name}: not found" >&2
+    overall_exit=1
+  fi
+done
+
+exit $overall_exit
