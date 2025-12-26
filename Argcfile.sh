@@ -16,6 +16,7 @@ clean() {
 }
 
 # @cmd setup uv
+# @meta require-tools curl
 setup::uv() {
 	# uvのアップデートが早く、nix repositoryは最新版の反映が遅れる
 	# devboxでインストールすると、`uv self update`で更新できない
@@ -23,7 +24,23 @@ setup::uv() {
 	curl -LsSf https://astral.sh/uv/install.sh | sh
 }
 
+# @cmd setup bun
+# @meta require-tools curl,unzip
+setup::bun() {
+	# bunのアップデートが早く、nix repositoryは最新版の反映が遅れる
+	# そのため、curlでインストールする
+	curl -fsSL https://bun.sh/install | bash
+}
+
+# @cmd setup volta
+# @meta require-tools curl
+setup::volta() {
+	curl https://get.volta.sh | bash
+}
+
 # @cmd setup devbox
+# @flag	-g	--global	setup devbox global
+# @meta require-tools curl
 setup::devbox() {
 	# devboxがインストールされていない場合はインストールする
 	if ! command -v devbox >/dev/null 2>&1; then
@@ -32,6 +49,14 @@ setup::devbox() {
 		echo "devbox is already installed"
 	fi
 
+	if [ "$argc_global" -eq 1 ]; then
+		_argc_run setup devbox-global
+	fi
+}
+
+# @cmd setup devbox global
+# @meta require-tools curl,git,devbox
+setup::devbox-global() {
 	if ! (command -v git >/dev/null 2>&1 && command -v xz >/dev/null 2>&1); then
 		echo "git or xz are not found. install them."
 		exit 1
@@ -41,17 +66,24 @@ setup::devbox() {
 	# apt update
 	# apt install curl git xz-utils
 	yes | devbox global pull https://github.com/Nishikoh/devbox.git
-	eval "$(devbox global shellenv)"
+	eval "$(devbox global shellenv --preserve-path-stack -r)" && hash -r
+}
+
+# @cmd setup zsh login shell
+setup::zsh-login() {
+	# zshがインストールされていない場合はインストールする
+	if ! command -v zsh >/dev/null 2>&1; then
+		echo "zsh is not installed. installing..."
+		devbox global add zsh
+		eval "$(devbox global shellenv --preserve-path-stack -r)" && hash -r
+	fi
+	# zshをログインシェルに設定する
+	chsh -s "$(which zsh)"
 }
 
 # @cmd setup rust and cargo
+# @meta require-tools curl
 setup::rust() {
-	:
-}
-
-# @cmd setup rust and cargo
-# @meta default-subcommand
-setup::rust::install() {
 	# rustがインストールされていない場合はインストールする
 	if ! command -v cargo >/dev/null 2>&1; then
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -63,8 +95,9 @@ setup::rust::install() {
 }
 
 # @cmd install cargo binary. need some time.
-setup::rust::bins() {
-	setup::rust::install
+# @meta require-tools cargo
+setup::rust-bins() {
+	_argc_run setup rust
 	cargo install cargo-binstall
 	cargo binstall cpz
 	cargo binstall rmz
@@ -72,12 +105,15 @@ setup::rust::bins() {
 }
 
 # @cmd setup .config/ directory
+# @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::config() {
+	cd "$argc_path"
 	cp -r .config/ ~/.config/
 }
 
 # @cmd setup github copilot
 # @alias gh-copilot
+# @meta require-tools git,gh
 setup::copilot() {
 
 	if ! gh copilot --version; then
@@ -90,6 +126,18 @@ setup::copilot() {
 		~/.vim/pack/github/start/copilot.vim
 }
 
+# @cmd setup binary from github releases
+# @meta require-tools uvx,gh
+setup::gh-bins() {
+
+	if [ "$(uname)" == 'Darwin' ]; then
+		# macだと依存関係の問題でエラーになる
+		brew install libmagic
+	fi
+	uvx --with setuptools install-release config --token $(gh auth token)
+	grep -v -e '^#' -e '^$' bin_github.txt | xargs -I {} uvx --with setuptools install-release get {} -y
+}
+
 # @cmd setup cuda
 setup::cuda() {
 	echo "TODO:"
@@ -97,16 +145,11 @@ setup::cuda() {
 	# disable auto upgrade
 }
 
-# @cmd
-# @meta default-subcommand
-setup::cuda::install() {
-	echo "TODO: install CUDA"
-}
-
 link_targets_list=(".gitconfig" ".vimrc" ".zshrc")
 
 # @cmd setup dotfiles
 # @arg path=~/setup/dotfiles 		path to git clone for dotfiles
+# @meta require-tools git
 setup::dotfiles() {
 
 	if [ "$argc_path" = "$HOME" ]; then
@@ -152,6 +195,7 @@ clean::dotfiles() {
 
 # @cmd completion shell
 # @arg path=~/setup/dotfiles 		path to git clone for dotfiles
+# @meta require-tools git,argc
 setup::completion() {
 	# setup::dotfiles $argc_path
 	argc_completions_path=~/setup/argc-completions
@@ -180,14 +224,8 @@ setup::gcloud() {
 	:
 }
 
-# @cmd setup gcloud cli
-setup::gcloud::install() {
-	# TODO
-	:
-}
-
 # @cmd setup gcloud fzf
-setup::gcloud::fzf() {
+setup::gcloud-fzf() {
 	if ! [ -d "./zsh/plugins" ]; then
 		echo "current directory is invalid. move parent './zsh/plugins' "
 	else
@@ -197,6 +235,7 @@ setup::gcloud::fzf() {
 }
 
 # @cmd setup terraform-target with fzf
+# @meta require-tools curl
 setup::terraform-fzf() {
 	if ! [ -d "$HOME/setup/bin" ]; then
 		mkdir "$HOME"/setup/bin
@@ -205,38 +244,49 @@ setup::terraform-fzf() {
 	echo "download terraform-fzf script"
 }
 
-# @cmd setup binary from github releases
-setup::bin-gh() {
-
-	if [ "$(uname)" == 'Darwin' ]; then
-		# macだと依存関係の問題でエラーになる
-		brew install libmagic
-	fi
-	grep -v -e '^#' -e '^$' bin_github.txt | xargs -I {} uvx --with setuptools install-release get {} -y
-}
-
 # @cmd Make setup easy.
 #
 # Selecting 'large' will take longer. Recommend not to use the 'large' option
-# @flag  	-l		--large      					It takes a long time by 'cargo install'
+# @flag  	--install-rust-bins	Install rust binaries
+# @flag  	--install-gh-bins		Install gh binaries
 lazy-setup() {
 
-	setup::devbox
-	setup::dotfiles
-	setup::uv
-	setup::config
-	setup::completion
-	setup::rust
-	setup::copilot
-	setup::bin-gh
+	_argc_run setup dotfiles
+	_argc_run setup devbox
+	_argc_run setup zsh-login
+	_argc_run setup uv
+	_argc_run setup bun
+	_argc_run setup config
+	_argc_run setup completion
+	_argc_run setup rust
 
-	if [ "$argc_large" -eq 1 ]; then
+	if [ "$argc_install_gh_bins" -eq 1 ]; then
+		echo "start gh binary"
+		_argc_run setup copilot
+		_argc_run setup gh-bins
+		echo "finish gh binary"
+	else
+		echo "skip install gh binary"
+	fi
+
+	if [ "$argc_install_rust_bins" -eq 1 ]; then
 		echo "start cargo binary"
-		setup::rust::bins
+		_argc_run setup rust-bins
 		echo "finish cargo binary"
 	else
 		echo "skip install cargo binary"
 	fi
+}
+
+_argc_run() {
+	# setup:xxx のような実行の仕方だと、argcで設定したパラメータやフラグのデフォルトの値が無効になる
+	# これを回避する為にargc経由で実行する必要があるが、　`--argc-build`で生成したスクリプトは`argc`バイナリに依存しない
+	# 生成された`_argc_run`の関数がargcの代わりとなる。
+	# ファイル生成する前のargcと生成した後の`_argc_run`の挙動を同じにするための関数
+	# 生成したファイルではoverrideされる
+
+	# echo debug
+	argc "$@"
 }
 
 # See more details at https://github.com/sigoden/argc
