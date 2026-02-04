@@ -1,0 +1,13 @@
+# in languages.toml
+[[language]]
+name = "python"
+language-servers = ["ty"]
+
+[language-server.ty]
+command = "uvx"
+args = ["ty","server"]
+
+[language-server.ty.config]
+inlayHints.callArgumentNames = true
+experimental.rename = true
+experimental.autoImport = true
