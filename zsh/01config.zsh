@@ -10,7 +10,7 @@ export LESSCHARSET=utf-8
 autoload -Uz colors ; colors
 
 # エディタをvimに設定
-export EDITOR=vim
+export EDITOR=hx
 
 # Ctrl+Dでログアウトしてしまうことを防ぐ
 setopt IGNOREEOF
