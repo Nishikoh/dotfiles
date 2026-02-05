@@ -1,33 +1,7 @@
 [tools]
-"asdf:mise-plugins/mise-gcloud" = "latest"
-aws = { version = "latest", symlink_bins = "true" }
 bun = "latest"
 gh = "latest"
-jq = "latest"
 uv = "latest"
-helix = "latest"
-lefthook = "latest"
-bat = "latest"
-rg = "latest"
-fzf = "latest"
-typos = "latest"
-starship = "latest"
-delta = "latest"
-fd = "latest"
-zoxide = "latest"
-yq = "latest"
-eza = "latest"
-"nix:tldr" = "latest"
-"nix:mcfly" = "latest"
-"nix:htop" = "latest"
-"nix:tenv" = "latest"
-colima = "latest"
-lima = "latest"
-docker-cli = "latest"
-zellij = "latest"
-jj = "latest"
-jjui = "latest"
-yazi = "latest"
 
 [settings]
 experimental = true
