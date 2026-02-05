@@ -9,7 +9,7 @@ export LESSCHARSET=utf-8
 # 色を使用
 autoload -Uz colors ; colors
 
-# エディタをvimに設定
+# エディタをheilixに設定
 export EDITOR=hx
 
 # Ctrl+Dでログアウトしてしまうことを防ぐ
