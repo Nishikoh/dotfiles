@@ -21,7 +21,7 @@
 # mise.path = "./node_modules/.bin" # add a directory to PATH
 #
 [tools]
-liima = "latest"
+lima = "latest"
 colima = "latest"
 docker-cli = "latest"
 # terraform = '1.0.0'       # specify a single version
