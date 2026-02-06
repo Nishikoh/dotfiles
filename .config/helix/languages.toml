@@ -1,13 +1,34 @@
 # in languages.toml
+[language-server.copilot]
+command = "npx"
+args = ["@github/copilot-language-server", "--stdio"]
+
 [[language]]
 name = "python"
-language-servers = ["ty"]
+language-servers = ["ty","ruff","copilot"]
+auto-format = true
 
 [language-server.ty]
-command = "uvx"
-args = ["ty","server"]
+command = "ty"
+args = ["server"]
 
 [language-server.ty.config]
 inlayHints.callArgumentNames = true
 experimental.rename = true
 experimental.autoImport = true
+
+[[language]]
+name = "hcl"
+language-servers = ["terraform-ls", "copilot"]
+language-id = "terraform"
+auto-format = true
+
+[[language]]
+name = "tfvars"
+language-servers = ["terraform-ls", "copilot"]
+language-id = "terraform-vars"
+
+[language-server.terraform-ls]
+command = "terraform-ls"
+args = ["serve"]
+# config.indexing.ignorePaths = ["ignore.hcl"]
