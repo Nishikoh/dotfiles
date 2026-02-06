@@ -61,3 +61,6 @@ eval "$(mcfly init zsh)"
 eval "$(zoxide init zsh)"
 
 source <(fzf --zsh)
+
+# bun completions
+[ -s "~/.bun/_bun" ] && source "~/.bun/_bun"
