@@ -1,5 +1,12 @@
-theme = "onedarker"
+theme = "catppuccin_macchiato"
 
-[keys.select]
+[editor]
+true-color = true
+
+[keys.normal]
 y = ["yank", ":clipboard-yank"]
+C-y = ":sh zellij run -n Yazi -c -f -x 10%% -y 10%% --width 80%% --height 80%% -- bash ~/.config/helix/yazi-picker.sh"
+
+[editor.cursor-shape]
+insert = "bar" # 日本語入力で表示がおかしくならない設定
 
