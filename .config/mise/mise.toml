@@ -29,6 +29,11 @@ yq = "latest"
 terraform-ls = "latest"
 node = "latest"
 jj = "latest"
+btop = "latest"
+duckdb = "latest"
+marksman = "latest"
+rclone = "latest"
+"nix:pueue" = "latest"
 
 [settings]
 experimental = true
