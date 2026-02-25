@@ -1,0 +1,11 @@
+[tools]
+bun = "latest"
+gh = "latest"
+uv = "latest"
+
+[settings]
+experimental = true
+npm.bun = true
+npm.package_manager = "bun"
+pipx.uvx = true
+python.uv_venv_auto = true
