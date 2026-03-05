@@ -103,6 +103,7 @@ setup::cuda::install() {
 	echo "TODO: install CUDA"
 }
 
+# TODO: mise対応
 link_targets_list=(".gitconfig" ".vimrc" ".zshrc")
 
 # @cmd setup dotfiles
