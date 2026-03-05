@@ -45,7 +45,7 @@ alias fb="fzf --preview 'bat --style=numbers --color=always --line-range :500 {}
 # devbox pull global
 alias devbox-pull='devbox global pull https://github.com/Nishikoh/devbox.git'
 
-alias ai-msg='gh copilot suggest "Give me the proper commit message for the following diff /n $(git diff --staged)"'
+alias ai-msg='bunx copilot --model gpt-5-mini -p "`git --no-pager diff --staged`の内容からcommit messageを日本語で考えて。実際にcommitはしないで"'
 
 alias set-aws-profile='export AWS_PROFILE=$(aws configure list-profiles | fzf)'
 # alias aws='uvx --from awscli aws' # pypiからインストールするとv1が入るので、v2を使うには公式インストーラーからインストールする必要がある
