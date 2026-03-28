@@ -42,6 +42,7 @@ name = "sql"
 language-servers = [ "sqls" ] 
 auto-format = true
 
+# TODO: 補完が効かない
 # [[language]]
 # name = "typescript"
 # language-servers = ["oxfmt","oxlint", "typescript-language-server"]
