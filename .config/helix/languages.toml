@@ -42,11 +42,10 @@ name = "sql"
 language-servers = [ "sqls" ] 
 auto-format = true
 
-# TODO: 補完が効かない
-# [[language]]
-# name = "typescript"
-# language-servers = ["oxfmt","oxlint", "typescript-language-server"]
-# auto-format = true
+[[language]]
+name = "typescript"
+language-servers = ["typescript-language-server", "oxfmt", "oxlint", "copilot"]
+auto-format = true
 
 [language-server.oxfmt]
 command = "sh"
@@ -56,9 +55,3 @@ args =["-c","bunx oxfmt --lsp"]
 command = "sh"
 args =["-c","bunx oxlint --lsp"]
 
-# [language-server.tsls]
-# command = "sh"
-# args =["-c","bunx typescript-language-server --stdio"]
-[language-server.typescript-language-server]
-command = "typescript-language-server"
-args = ["--stdio"]
