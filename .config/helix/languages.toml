@@ -32,3 +32,32 @@ language-id = "terraform-vars"
 command = "terraform-ls"
 args = ["serve"]
 # config.indexing.ignorePaths = ["ignore.hcl"]
+
+[language-server.sqls]
+command = "sh"
+args =["-c","mise exec github:sqls-server/sqls -- sqls"]
+
+[[language]]
+name = "sql"
+language-servers = [ "sqls" ] 
+auto-format = true
+
+# [[language]]
+# name = "typescript"
+# language-servers = ["oxfmt","oxlint", "typescript-language-server"]
+# auto-format = true
+
+[language-server.oxfmt]
+command = "sh"
+args =["-c","bunx oxfmt --lsp"]
+
+[language-server.oxlint]
+command = "sh"
+args =["-c","bunx oxlint --lsp"]
+
+# [language-server.tsls]
+# command = "sh"
+# args =["-c","bunx typescript-language-server --stdio"]
+[language-server.typescript-language-server]
+command = "typescript-language-server"
+args = ["--stdio"]
