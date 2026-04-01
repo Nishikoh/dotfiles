@@ -1,0 +1,9 @@
+[flavor]
+dark = "catppuccin-macchiato"
+
+# [theme]
+# # カラーテーマの設定
+# primary = "darkgray"
+# # secondary = "#C678DD"
+# # background = "#282C34"
+# # foreground = "#ABB2BF"

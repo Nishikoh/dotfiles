@@ -1,0 +1,6 @@
+[mgr]
+show_hidden = true
+sort_by = "natural"
+sort_dir_first = true
+cwd = { fg = "#94e2d5" }
+ratio = [1, 3, 5]
