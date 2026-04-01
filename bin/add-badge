@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# 処理対象のディレクトリを引数から取得
+dir=$1
+
+if [ -z "$dir" ]; then
+  echo "使用法: $0 ディレクトリ名"
+  exit 1
+fi
+
+# ディレクトリが存在するか確認
+if [ ! -d "$dir" ]; then
+  echo "エラー: ディレクトリ '$dir' が見つかりません"
+  exit 1
+fi
+
+# ディレクトリ内のMarkdownファイルを検索して処理
+find "$dir" -type f -name "*.md" | while read -r file; do
+  echo "処理中: $file"
+
+  # ファイル処理ロジック (上記と同じ)
+  temp_file=$(mktemp)
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    if [[ $line =~ ^[[:space:]]*-[[:space:]]*.*\]\(https://github\.com/([^/]+/[^/]+)\) ]]; then
+      repo="${BASH_REMATCH[1]}"
+      has_stars=false
+      has_last_commit=false
+
+      if [[ $line =~ \!\[GitHub\ Repo\ stars\] ]]; then
+        has_stars=true
+      fi
+      if [[ $line =~ \!\[GitHub\ last\ commit\] ]]; then
+        has_last_commit=true
+      fi
+
+      new_line="$line"
+      if [[ $has_stars == false ]]; then
+        new_line+=" ![GitHub Repo stars](https://img.shields.io/github/stars/$repo)"
+      fi
+      if [[ $has_last_commit == false ]]; then
+        new_line+=" ![GitHub last commit](https://img.shields.io/github/last-commit/$repo)"
+      fi
+
+      echo "$new_line" >> "$temp_file"
+    else
+      echo "$line" >> "$temp_file"
+    fi
+  done < "$file"
+
+  mv "$temp_file" "$file"
+  echo "完了: '$file'"
+done
+
+echo "すべてのファイルの処理が完了しました"

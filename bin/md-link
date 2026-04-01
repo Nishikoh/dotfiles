@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: $(basename "$0") <dir-or-file>" >&2
+  exit 1
+}
+
+[[ $# -eq 1 ]] || usage
+
+target="$1"
+
+# Collect .md files
+md_files=()
+if [[ -d "$target" ]]; then
+  while IFS= read -r -d '' f; do
+    md_files+=("$f")
+  done < <(find "$target" -name '*.md' -type f -print0)
+elif [[ -f "$target" && "$target" == *.md ]]; then
+  md_files+=("$target")
+else
+  echo "Error: '$target' is not a .md file or directory" >&2
+  exit 1
+fi
+
+if [[ ${#md_files[@]} -eq 0 ]]; then
+  echo "No .md files found in '$target'" >&2
+  exit 1
+fi
+
+fetch_title() {
+  local url="$1"
+  local title
+  title=$(curl -fsSL --max-time 10 "$url" 2>/dev/null \
+    | grep -oPi '<title[^>]*>\K[^<]+' | head -1 \
+    | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  echo "$title"
+}
+
+for file in "${md_files[@]}"; do
+  changed=false
+  tmpfile=$(mktemp)
+
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^(-[[:space:]]+)(https?://[^[:space:]]+)$ ]]; then
+      prefix="${BASH_REMATCH[1]}"
+      url="${BASH_REMATCH[2]}"
+      title=$(fetch_title "$url")
+      if [[ -n "$title" ]]; then
+        echo "${prefix}[${title}](${url})" >> "$tmpfile"
+        echo "Replaced: $url -> [$title]($url)" >&2
+        changed=true
+      else
+        echo "Warning: Could not fetch title for $url, skipping" >&2
+        echo "$line" >> "$tmpfile"
+      fi
+    else
+      echo "$line" >> "$tmpfile"
+    fi
+  done < "$file"
+
+  if $changed; then
+    mv "$tmpfile" "$file"
+    echo "Updated: $file" >&2
+  else
+    rm "$tmpfile"
+  fi
+done
