@@ -5,7 +5,7 @@ true-color = true
 
 [keys.normal]
 y = ["yank", ":clipboard-yank"]   
-C-y = ":sh zellij run -n Yazi -c -f -x 10%% -y 10%% --width 90%% --height 90%% -- bash ~/.config/helix/yazi-picker.sh"
+C-y = ":sh zellij run -n Yazi -c -f -x 5%% -y 10%% --width 90%% --height 90%% -- bash ~/.config/helix/yazi-picker.sh"
 
 [editor.file-picker]
 hidden = false
@@ -16,3 +16,8 @@ git-exclude = false
 [editor.cursor-shape]
 insert = "bar" # 日本語入力で表示がおかしくならない設定
 
+[editor.soft-wrap]
+enable = true
+max-wrap = 20
+max-indent-retain = 40
+# wrap-indicator = "|>|> " 
