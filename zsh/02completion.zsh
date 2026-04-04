@@ -48,10 +48,6 @@ setopt magic_equal_subst
 # brew path
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
-# devbox
-eval "$(devbox global shellenv)"
-eval "$(devbox shellenv)"
-
 #starship
 eval "$(starship init zsh)"
 
