@@ -14,7 +14,7 @@ inherits = "sonokai"
 # "ui.highlight" = { fg = "blue", bg = "blue"}
 # "ui.cursor" = { fg = "blue", bg = "red"}
 
-# TODO
+# TODO # <- TODO が識別されるかの確認用の文字
 # 選択部分のスタイル定義
 # "ui.selection" = { fg = "red", bg = "green", modifiers = ["bold"] }
 # "ui.selection.primary" = { fg = "cyan", bg = "black", modifiers = ["bold"] }
