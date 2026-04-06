@@ -1,4 +1,9 @@
-theme = "catppuccin_macchiato"
+# theme = "catppuccin_macchiato"
+# theme = "sonokai"
+# thtme = "pop-dark"
+# theme = "catppuccin_frappe"
+theme = "my-theme"
+
 
 [editor]
 true-color = true

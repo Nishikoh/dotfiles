@@ -1,0 +1,25 @@
+# 既存のテーマを継承して選択範囲をカスタマイズする場合
+inherits = "sonokai"
+# inherits = "pop-dark"
+
+"ui.linenr.selected" = { fg = "black", bg = "light-green"} # 確定
+# "ui.cursor.select" = { fg = "blue", bg = "red"}
+"ui.cursor.primary" = { bg = "red"}
+# "ui.cursor.primary" = { fg = "blue", bg = "red"}
+"ui.selection.primary" = { fg = "light-green", bg = "default", modifiers = ["bold"] }
+
+# "ui.cursor.primary.select" = { fg = "green", bg = "green"}
+# "ui.cursor.primary.normal" = { fg = "green", bg = "green"}
+# ui.cursor.match = { fg = "green", bg = "green"}
+# "ui.highlight" = { fg = "blue", bg = "blue"}
+# "ui.cursor" = { fg = "blue", bg = "red"}
+
+# TODO
+# 選択部分のスタイル定義
+# "ui.selection" = { fg = "red", bg = "green", modifiers = ["bold"] }
+# "ui.selection.primary" = { fg = "cyan", bg = "black", modifiers = ["bold"] }
+# "ui.selection.secondary" = { fg = "red", bg = "blue" }
+
+# 選択された行のハイライト（カーソルライン）
+# "ui.cursorline.primary" = { fg = "red", bg = "blue" }
+# "ui.cursorline.secondary" = { fg = "red", bg = "blue" }
