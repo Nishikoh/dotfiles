@@ -1,4 +1,3 @@
-# in languages.toml
 [language-server.copilot]
 command = "npx"
 args = ["@github/copilot-language-server", "--stdio"]
@@ -9,13 +8,17 @@ language-servers = ["ty","ruff","copilot"]
 auto-format = true
 
 [language-server.ty]
-command = "ty"
-args = ["server"]
+command = "sh"
+args = ["-c", "mise exec ty -- ty server"]
 
 [language-server.ty.config]
 inlayHints.callArgumentNames = true
 experimental.rename = true
 experimental.autoImport = true
+
+[language-server.ruff]
+command = "sh"
+args = ["-c", "mise exec ruff -- ruff server"]
 
 [[language]]
 name = "hcl"
@@ -29,8 +32,8 @@ language-servers = ["terraform-ls", "copilot"]
 language-id = "terraform-vars"
 
 [language-server.terraform-ls]
-command = "terraform-ls"
-args = ["serve"]
+command = "sh"
+args = ["-c","mise exec terraform-ls -- terraform-ls serve"]
 # config.indexing.ignorePaths = ["ignore.hcl"]
 
 [language-server.sqls]
@@ -39,7 +42,7 @@ args =["-c","mise exec github:sqls-server/sqls -- sqls"]
 
 [[language]]
 name = "sql"
-language-servers = [ "sqls" ] 
+language-servers = [ "sqls" ]
 auto-format = true
 
 [[language]]
@@ -55,3 +58,20 @@ args =["-c","bunx oxfmt --lsp"]
 command = "sh"
 args =["-c","bunx oxlint --lsp"]
 
+[language-server.marksman]
+command = "sh"
+args =["-c","mise exec marksman -- marksman server"]
+
+[[language]]
+name = "markdown"
+language-servers = ["marksman"]
+auto-format = true
+
+[language-server.bash-language-server]
+command = "sh"
+args =["-c","mise exec npm:bash-language-server -- bash-language-server start"]
+
+[[language]]
+name = "bash"
+language-servers = ["bash-language-server"]
+auto-format = true

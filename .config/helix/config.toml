@@ -9,7 +9,7 @@ theme = "my-theme"
 true-color = true
 
 [keys.normal]
-y = ["yank", ":clipboard-yank"]   
+y = ["yank", ":clipboard-yank"]
 C-y = ":sh zellij run -n Yazi -c -f -x 5%% -y 10%% --width 90%% --height 90%% -- bash ~/.config/helix/yazi-picker.sh"
 
 [editor.file-picker]
@@ -25,4 +25,7 @@ insert = "bar" # 日本語入力で表示がおかしくならない設定
 enable = true
 max-wrap = 20
 max-indent-retain = 40
-# wrap-indicator = "|>|> " 
+# wrap-indicator = "|>|> "
+
+[editor.lsp]
+display-inlay-hints = true
