@@ -21,7 +21,7 @@ alias rfv='_rfv'
 # fd -> fzf -> cd
 _cdf() {
 	_cdf_run() {
-		dir=$(fd -t d "$1" "$2" | fzf --preview 'exa -T -L 2 -a -I ".git" {}') || return
+		dir=$(fd -t d "$1" "$2" | fzf --preview 'eza -T -L 2 -a -I ".git" {}') || return
 		echo "$dir"
 		cd "$dir" || return
 	}
