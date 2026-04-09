@@ -1,4 +1,15 @@
-.*/
-.*
 *lefthook*
 *.log
+mise.toml
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+node_modules/
+dist/
+target/
+out/
+.DS_Store
+.env*
+*key*
+*secret*
