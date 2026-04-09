@@ -15,6 +15,7 @@
 	ck = checkout
 	graph = log --date=short  --decorate --graph --branches --tags --remotes
 	top = rev-parse --show-toplevel
+	wdiff = diff --color-words
 [pager]
     diff = delta
     log = delta
@@ -26,8 +27,9 @@
     navigate = true
 	line-numbers = true
     side-by-side = true
+	word-diff-regex = "[a-zA-Z0-9_]+|\\p{Hiragana}+|[\\p{Katakana}ー]+|[\\p{Han}〆]+|."
 [diff]
-  indentHeuristic = true
+  	indentHeuristic = true
 [interactive]
     diffFilter = delta --color-only
 [color]
