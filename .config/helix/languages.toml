@@ -50,6 +50,10 @@ name = "typescript"
 language-servers = ["typescript-language-server", "oxfmt", "oxlint", "copilot"]
 auto-format = true
 
+[language-server.typecript-language-server]
+command = "sh"
+args =["-c","mise exec npm:typescript npm:typescript-language-server -- typescript-language-server --stdio"]
+
 [language-server.oxfmt]
 command = "sh"
 args =["-c","bunx oxfmt --lsp"]
