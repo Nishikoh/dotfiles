@@ -42,9 +42,6 @@ alias mf='mcfly-fzf-history-widget'
 # fzf + bat
 alias fb="fzf --preview 'bat --style=numbers --color=always --line-range :500 {}'"
 
-# devbox pull global
-alias devbox-pull='devbox global pull https://github.com/Nishikoh/devbox.git'
-
 alias ai-msg='bunx copilot --model gpt-5-mini -p "`git --no-pager diff --staged`の内容からcommit messageを日本語で考えて。実際にcommitはしないで"'
 
 alias set-aws-profile='export AWS_PROFILE=$(aws configure list-profiles | fzf)'
