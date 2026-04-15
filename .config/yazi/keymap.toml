@@ -7,3 +7,8 @@ desc = "Search file by content (rg)"
 # on = ["f", "a"]
 # run = "plugin fr rga"
 # desc = "Search file by content (rga)"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "i" ]
+run  = "plugin lazygit"
+desc = "run lazygit"
