@@ -1,15 +1,10 @@
-skip_output:
-  - meta  # Skips lefthook version printing
-  - empty_summary  # Skips summary heading when there are no steps to run
-  # - execution  # Skips printing any execution logs (but prints if the execution failed)
-  - execution_out  # Skips printing execution output (but still prints failed commands output)
-  # - skips  # Skips "skip" printing (i.e. no files matched)
+output:
+  - execution_info
+  - failure
+
 # ref
 # - https://github.com/mcereda/oam/blob/5b8a9f6e035709454cb43e5f9661b3d110a0ea5c/lefthook/markdown.yml#L14
 # https://pre-commit.com/hooks.html
-
-# TODO:
-# secret
 
 lint: &lint
   parallel: true
@@ -29,7 +24,8 @@ lint: &lint
         branch=${branch##refs/heads/}
         echo "Current branch is $branch"
         if echo "$invalid_branches" | grep -w "$branch" > /dev/null; then
-          echo "You cannot commit to $branch"
+          echo "You can't commit to $branch branch"
+          echo "use git worktree and switch branch"
           exit 1
         fi
     end-of-file-fixer:
@@ -66,7 +62,7 @@ lint: &lint
       run: trivy fs --scanners vuln,secret,misconfig ./
 
     detect-secrets:
-      run: exit 1
+      run: mise exec gitleaks -- gitleaks git --staged
 
 pre-commit: *lint
 
