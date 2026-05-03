@@ -29,3 +29,6 @@ max-indent-retain = 40
 
 [editor.lsp]
 display-inlay-hints = true
+
+[editor.inline-diagnostics]
+cursor-line = "hint" # エラーメッセージなどをインラインにする

@@ -7,6 +7,7 @@ inherits = "sonokai"
 "ui.cursor.primary" = { bg = "red"}
 # "ui.cursor.primary" = { fg = "blue", bg = "red"}
 "ui.selection.primary" = { fg = "light-green", bg = "default", modifiers = ["bold"] }
+"ui.virtual.inlay-hint" = { fg = "white", bg = "gray" }
 
 # "ui.cursor.primary.select" = { fg = "green", bg = "green"}
 # "ui.cursor.primary.normal" = { fg = "green", bg = "green"}
