@@ -62,3 +62,5 @@ source <(fzf --zsh)
 [ -s "~/.bun/_bun" ] && source "~/.bun/_bun"
 
 if [ -e ~/.nix-profile/etc/profile.d/nix.sh ]; then . ~/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
+
+if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
