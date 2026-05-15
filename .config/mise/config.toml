@@ -9,3 +9,4 @@ npm.bun = true
 npm.package_manager = "bun"
 pipx.uvx = true
 python.uv_venv_auto = true
+install_before = "10d"
