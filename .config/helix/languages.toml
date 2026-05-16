@@ -82,15 +82,15 @@ auto-format = true
 
 [language-server.gopls]
 command = "sh"
-args =["-c","mise exec go:golang.org/x/tools/gopls -- gopls"]
+args =["-c","CGO_ENABLED=0 mise exec go:golang.org/x/tools/gopls -- gopls"]
 
 [language-server.golangci-lint-lsp]
 command = "sh"
-args =["-c","mise exec go:github.com/nametake/golangci-lint-langserver -- golangci-lint-langserver"]
+args =["-c","CGO_ENABLED=0 mise exec go:github.com/nametake/golangci-lint-langserver -- golangci-lint-langserver"]
 
 [language-server.golangci-lint-lsp.config]
 command = "sh"
-args =["-c","mise exec go: github.com/golangci/golangci-lint/v2/cmd/golangci-lint -- golangci-lint run --output.json.path=stdout --show-stats=false --issues-exit-code=1"]
+args =["-c","CGO_ENABLED=0 mise exec go: github.com/golangci/golangci-lint/v2/cmd/golangci-lint -- golangci-lint run --output.json.path=stdout --show-stats=false --issues-exit-code=1"]
 
 [[language]]
 name = "go"
