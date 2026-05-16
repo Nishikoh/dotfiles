@@ -15,6 +15,8 @@
 	ck = checkout
 	graph = log --date=short  --decorate --graph --branches --tags --remotes
 	top = rev-parse --show-toplevel
+	root = rev-parse --show-toplevel
+	origin-dir = !git rev-parse --path-format=absolute --git-common-dir | xargs dirname
 	wdiff = diff --color-words
 [pager]
     diff = delta
