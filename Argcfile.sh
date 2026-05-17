@@ -73,7 +73,29 @@ setup::rust::bins() {
 
 # @cmd setup .config/ directory
 setup::config() {
-	cp -r .config/ ~/.config/
+	# 現在のディレクトリの .config
+	SRC_DIR="$(pwd)/.config"
+	# ホームディレクトリの .config
+	DEST_DIR="$HOME/.config"
+	
+	# DEST_DIR が存在しなければ作成
+	mkdir -p "$DEST_DIR"
+	
+	# SRC_DIR 配下の全てのアイテムをループ
+	for item in "$SRC_DIR"/*; do
+	    # ベースネームだけ取り出す
+	    name=$(basename "$item")
+	    # シンボリックリンク先
+	    link="$DEST_DIR/$name"
+	
+	    # 既にリンクやファイルが存在する場合はスキップ
+	    if [ -e "$link" ]; then
+	        echo "スキップ: $link は既に存在します"
+	    else
+	        ln -s "$item" "$link"
+	        echo "リンク作成: $link -> $item"
+	    fi
+	done
 }
 
 # @cmd setup github copilot
