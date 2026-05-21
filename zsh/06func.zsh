@@ -1,3 +1,10 @@
+# -----------------------------
+# Functions
+# -----------------------------
+
+# dotfilesディレクトリのパス
+ORIGIN_DOTFILES_DIR="${ORIGIN_DOTFILES_DIR:-$HOME/setup/dotfiles}"
+
 # ripgrep->fzf->vim [QUERY]
 _rfv() (
 	RELOAD='reload:rg --column --color=always --smart-case {q} || :'
@@ -20,19 +27,12 @@ alias rfv='_rfv'
 
 # fd -> fzf -> cd
 _cdf() {
-	_cdf_run() {
-		dir=$(fd -t d "$1" "$2" | fzf --preview 'eza -T -L 2 -a -I ".git" {}') || return
-		echo "$dir"
-		cd "$dir" || return
-	}
-	if [ $# -ge 2 ]; then
-		_cdf_run "$1" "$2"
-		return
-	elif [ $# -eq 1 ]; then
-		_cdf_run "$1" .
-	elif [ $# -eq 0 ]; then
-		_cdf_run '' .
-	fi
+	local pattern="${1:-}"
+	local search_dir="${2:-.}"
+	local dir
+	dir=$(fd -t d "$pattern" "$search_dir" | fzf --preview 'eza -T -L 2 -a -I ".git" {}') || return
+	echo "$dir"
+	cd "$dir" || return
 }
 alias cdf='_cdf'
 
