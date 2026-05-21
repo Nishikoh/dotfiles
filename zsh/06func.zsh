@@ -1,3 +1,10 @@
+# -----------------------------
+# Functions
+# -----------------------------
+
+# dotfilesディレクトリのパス
+ORIGIN_DOTFILES_DIR="${ORIGIN_DOTFILES_DIR:-$HOME/setup/dotfiles}"
+
 # ripgrep->fzf->vim [QUERY]
 _rfv() (
 	RELOAD='reload:rg --column --color=always --smart-case {q} || :'
