@@ -16,18 +16,6 @@ if command -v starship >/dev/null 2>&1; then
     eval "$(starship init zsh)"
 fi
 
-# mcfly
-if command -v mcfly >/dev/null 2>&1; then
-    eval "$(mcfly init zsh)"
-    export MCFLY_RESULTS=30
-    export MCFLY_FUZZY=1
-fi
-
-# mcfly-fzf
-if command -v mcfly-fzf >/dev/null 2>&1; then
-    eval "$(mcfly-fzf init zsh)"
-fi
-
 # zoxide
 if command -v zoxide >/dev/null 2>&1; then
     eval "$(zoxide init zsh)"
@@ -41,4 +29,9 @@ fi
 # wt
 if command -v wt >/dev/null 2>&1; then
     eval "$(command wt config shell init zsh)"
+fi
+
+# atuin
+if command -v atuin >/dev/null 2>&1; then
+    eval "$(atuin init zsh)"
 fi

@@ -28,10 +28,9 @@ btop = "latest"
 duckdb = "latest"
 marksman = "latest"
 rclone = "latest"
-"github:cantino/mcfly" = "latest"
+atuin = "latest"
 "github:tofuutils/tenv" = "latest"
 "github:htop-dev/htop" = "latest"
-"github:bnprks/mcfly-fzf" = "latest"
 "pipx:tldr" = "latest"
 # "nix:pueue" = "latest" # pueuedがgithub backendからのインストールに対応していない
 
