@@ -16,7 +16,7 @@ export TERM=xterm-256color
 # 色を使用
 autoload -Uz colors ; colors
 
-# エディタをheilixに設定
+# エディタをhelixに設定
 export EDITOR=hx
 
 # Ctrl+Dでログアウトしてしまうことを防ぐ
@@ -27,9 +27,6 @@ setopt auto_pushd
 
 # ディレクトリスタックへの追加の際に重複させない
 setopt pushd_ignore_dups
-
-# emacsキーバインド
-#bindkey -e
 
 # viキーバインド
 bindkey -v
@@ -46,20 +43,11 @@ setopt auto_cd
 # コマンドラインがどのように展開され実行されたかを表示するようになる
 #setopt xtrace
 
-# 自動でpushdを実行
-setopt auto_pushd
-
-# pushdから重複を削除
-setopt pushd_ignore_dups
-
 # ビープ音を鳴らさないようにする
 #setopt no_beep
 
 # カッコの対応などを自動的に補完する
 setopt auto_param_keys
-
-# ディレクトリ名の入力のみで移動する
-setopt auto_cd
 
 # bgプロセスの状態変化を即時に知らせる
 setopt notify

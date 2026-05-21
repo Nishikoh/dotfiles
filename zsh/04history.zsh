@@ -15,21 +15,14 @@ setopt share_history
 # すでにhistoryにあるコマンドは残さない
 setopt hist_ignore_all_dups
 
-
-
 # ヒストリに保存するときに余分なスペースを削除する
 setopt hist_reduce_blanks
 
 # 履歴をすぐに追加する
 setopt inc_append_history
 
-setopt SHARE_HISTORY             # Share history between all sessions.
-
 # ヒストリを呼び出してから実行する間に一旦編集できる状態になる
 setopt hist_verify
-
-#余分なスペースを削除してヒストリに記録する
-setopt hist_reduce_blanks
 
 # historyコマンドは残さない
 setopt hist_save_no_dups
@@ -48,12 +41,6 @@ function zle-line-init zle-keymap-select {
 # show vim mode
 # zle -N zle-line-init
 # zle -N zle-keymap-selec
-
 # ^P,^Nを検索へ割り当て
 #bindkey "^P" history-beginning-search-backward-end
 #bindkey "^N" history-beginning-search-forward-end
-
-eval "$(mcfly init zsh)"
-export MCFLY_RESULTS=30
-export MCFLY_FUZZY=1
-eval "$(mcfly-fzf init zsh)"

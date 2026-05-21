@@ -31,7 +31,7 @@ alias lg='lazygit'
 alias ir='uvx --with setuptools install-release'
 
 # historyに日付を表示
-alias h='fc -lt '%F %T' 1'
+alias h="fc -lt '%F %T' 1"
 
 # mcfly
 alias ms='mcfly search -r 30 -f 1'
@@ -45,6 +45,8 @@ alias fb="fzf --preview 'bat --style=numbers --color=always --line-range :500 {}
 alias ai-msg='bunx copilot --model gpt-5-mini -p "`git --no-pager diff --staged`の内容からcommit messageを日本語で考えて。実際にcommitはしないで"'
 
 alias set-aws-profile='export AWS_PROFILE=$(aws configure list-profiles | fzf)'
-# alias aws='uvx --from awscli aws' # pypiからインストールするとv1が入るので、v2を使うには公式インストーラーからインストールする必要がある
 
-alias beep='for i in {1..3}; do afplay /System/Library/Sounds/Submarine.aiff; done'
+# beep (macOS only)
+if [[ "$(uname)" == "Darwin" ]]; then
+	alias beep='for i in {1..3}; do afplay /System/Library/Sounds/Submarine.aiff; done'
+fi

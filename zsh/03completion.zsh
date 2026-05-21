@@ -1,7 +1,6 @@
 # -----------------------------
 # Completion
 # -----------------------------
-plugins=(docker docker-compose kubectl)
 
 # 自動補完を有効にする
 autoload -Uz compinit
@@ -35,7 +34,6 @@ zstyle ':completion::complete:*' use-cache true
 autoload -U colors
 colors
 zstyle ':completion:*' list-colors "${LS_COLORS}"
-#zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 
 # 大文字・小文字を区別しない(大文字を入力した場合は区別する)
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
@@ -45,22 +43,8 @@ zstyle ':completion:*:manuals' separate-sections true
 # --prefix=/usr などの = 以降でも補完
 setopt magic_equal_subst
 
-# brew path
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-
-#starship
-eval "$(starship init zsh)"
-
-# mcfly
-eval "$(mcfly init zsh)"
-
-eval "$(zoxide init zsh)"
-
-source <(fzf --zsh)
-
 # bun completions
-[ -s "~/.bun/_bun" ] && source "~/.bun/_bun"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
-if [ -e ~/.nix-profile/etc/profile.d/nix.sh ]; then . ~/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
-
-if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
+# nix
+if [ -e ~/.nix-profile/etc/profile.d/nix.sh ]; then . ~/.nix-profile/etc/profile.d/nix.sh; fi
