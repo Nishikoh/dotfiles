@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Extract tools where installed=false AND active=true
+# Extract tools where requested_version exists AND installed=false AND active=false
 missing_tools=$(mise ls -J | jq -r '
   to_entries[]
-  | select(.value[] | .installed == false and .active == true)
-  | "\(.key)@\(.value[] | select(.installed == false and .active == true) | .requested_version)"
+  | select(.value[] | has("requested_version") and .installed == false and .active == false)
+  | "\(.key)@\(.value[] | select(has("requested_version") and .installed == false and .active == false) | .requested_version)"
 ' | sort -u)
 
 if [[ -z "$missing_tools" ]]; then
