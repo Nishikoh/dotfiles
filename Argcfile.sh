@@ -72,9 +72,29 @@ setup::rust::bins() {
 }
 
 # @cmd setup .config/ directory
+# @arg path=~/setup/dotfiles 		path to dotfiles directory
 setup::config() {
-	# 現在のディレクトリの .config
-	SRC_DIR="$(pwd)/.config"
+	# 優先順位: 引数 > 環境変数 > スクリプトの場所 > デフォルト
+	if [ -n "$argc_path" ] && [ "$argc_path" != "$HOME/setup/dotfiles" ]; then
+		DOTFILES_DIR="$argc_path"
+	elif [ -n "$DOTFILES_DIR" ]; then
+		DOTFILES_DIR="$DOTFILES_DIR"
+	elif [ -f "$0" ]; then
+		DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
+	else
+		DOTFILES_DIR="$HOME/setup/dotfiles"
+	fi
+
+	SRC_DIR="$DOTFILES_DIR/.config"
+
+	if [ ! -d "$SRC_DIR" ]; then
+		echo "エラー: $SRC_DIR が存在しません"
+		echo "ヒント: DOTFILES_DIR 環境変数を設定するか、引数でパスを指定してください"
+		echo "  例: DOTFILES_DIR=/path/to/dotfiles curl ... | bash"
+		echo "  例: argc setup::config /path/to/dotfiles"
+		exit 1
+	fi
+
 	# ホームディレクトリの .config
 	DEST_DIR="$HOME/.config"
 	
