@@ -1,8 +1,5 @@
 [tools]
 bat = "latest"
-"nix:mcfly" = "latest"
-"nix:tldr" = "latest"
-"nix:htop" = "latest"
 fd = "latest"
 lefthook = "latest"
 jq = "latest"
@@ -12,10 +9,8 @@ typos = "latest"
 rg = "latest"
 zoxide = "latest"
 fzf = "latest"
-"nix:mcfly-fzf" = "latest"
 helix = "latest"
 # gcloud = "552.0.0"
-"nix:tenv" = "latest"
 eza = "latest"
 argc = "latest"
 dust = "latest"
@@ -33,7 +28,12 @@ btop = "latest"
 duckdb = "latest"
 marksman = "latest"
 rclone = "latest"
-"nix:pueue" = "latest"
+"github:cantino/mcfly" = "latest"
+"github:tofuutils/tenv" = "latest"
+"github:htop-dev/htop" = "latest"
+"github:bnprks/mcfly-fzf" = "latest"
+"pipx:tldr" = "latest"
+# "nix:pueue" = "latest" # pueuedがgithub backendからのインストールに対応していない
 
 [settings]
 experimental = true
