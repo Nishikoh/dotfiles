@@ -6,9 +6,6 @@ HISTFILE=$HOME/.zsh_history
 HISTSIZE=100000
 SAVEHIST=1000000
 
-# ヒストリーに重複を表示しない
-setopt histignorealldups
-
 # 他のターミナルとヒストリーを共有
 setopt share_history
 

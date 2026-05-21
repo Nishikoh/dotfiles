@@ -72,9 +72,29 @@ setup::rust::bins() {
 }
 
 # @cmd setup .config/ directory
+# @arg path=~/setup/dotfiles 		path to dotfiles directory
 setup::config() {
-	# 現在のディレクトリの .config
-	SRC_DIR="$(pwd)/.config"
+	# 優先順位: 引数 > 環境変数 > スクリプトの場所 > デフォルト
+	if [ -n "$argc_path" ] && [ "$argc_path" != "$HOME/setup/dotfiles" ]; then
+		DOTFILES_DIR="$argc_path"
+	elif [ -n "$DOTFILES_DIR" ]; then
+		DOTFILES_DIR="$DOTFILES_DIR"
+	elif [ -f "$0" ]; then
+		DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
+	else
+		DOTFILES_DIR="$HOME/setup/dotfiles"
+	fi
+
+	SRC_DIR="$DOTFILES_DIR/.config"
+
+	if [ ! -d "$SRC_DIR" ]; then
+		echo "エラー: $SRC_DIR が存在しません"
+		echo "ヒント: DOTFILES_DIR 環境変数を設定するか、引数でパスを指定してください"
+		echo "  例: DOTFILES_DIR=/path/to/dotfiles curl ... | bash"
+		echo "  例: argc setup::config /path/to/dotfiles"
+		exit 1
+	fi
+
 	# ホームディレクトリの .config
 	DEST_DIR="$HOME/.config"
 	
@@ -758,7 +778,10 @@ _argc_usage_setup_config() {
     cat <<-'EOF'
 setup .config/ directory
 
-USAGE: Argcfile setup config
+USAGE: Argcfile setup config [PATH]
+
+ARGS:
+  [PATH]  path to dotfiles directory [default: ~/setup/dotfiles]
 EOF
     exit
 }
@@ -791,6 +814,15 @@ _argc_parse_setup_config() {
         argc__fn=setup::config
         if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
             _argc_usage_setup_config
+        fi
+        _argc_match_positionals 0
+        local values_index values_size
+        IFS=: read -r values_index values_size <<<"${_argc_match_positionals_values[0]:-}"
+        if [[ -n "$values_index" ]]; then
+            argc_path="${argc__positionals[values_index]}"
+        else
+            argc_path=~/setup/dotfiles
+            argc__positionals+=("$argc_path")
         fi
     fi
 }

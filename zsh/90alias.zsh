@@ -12,8 +12,8 @@ set_alias_if_command_exists "rmz" "rm"
 alias mv='mv -i'
 
 #eza
-set_alias_if_command_exists "eza" "ls"
 if command -v eza &>/dev/null; then
+	alias lsi='eza'
 	alias l='eza  --group-directories-first --binary --inode --classify --header --tree --level=1 --long --git --color always --icons --time-style long-iso'
 	alias lsis='eza --time-style=long-iso -g'
 	alias ll='eza --git --time-style=long-iso -gl'

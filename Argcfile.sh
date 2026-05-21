@@ -66,9 +66,7 @@ setup::rust::install() {
 setup::rust::bins() {
 	setup::rust::install
 	cargo install cargo-binstall
-	cargo binstall cpz
-	cargo binstall rmz
-	cargo binstall xcp
+	cargo binstall cpz rmz xcp
 }
 
 # @cmd setup .config/ directory
@@ -78,7 +76,7 @@ setup::config() {
 	if [ -n "$argc_path" ] && [ "$argc_path" != "$HOME/setup/dotfiles" ]; then
 		DOTFILES_DIR="$argc_path"
 	elif [ -n "$DOTFILES_DIR" ]; then
-		DOTFILES_DIR="$DOTFILES_DIR"
+		: # DOTFILES_DIR is already set from environment
 	elif [ -f "$0" ]; then
 		DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
 	else
@@ -203,19 +201,20 @@ setup::completion() {
 	else
 		git clone https://github.com/sigoden/argc-completions.git $argc_completions_path
 	fi
-	cd $argc_completions_path
-	./scripts/download-tools.sh
+	(
+		cd "$argc_completions_path" || exit 1
+		./scripts/download-tools.sh
 
-	argc generate git
-	git restore completions/
+		argc generate git
+		git restore completions/
 
-	# lefthook wrapperの補完を追加
-	cp completions/lefthook.sh completions/lh.sh
-	# ${argc__args[0]} という文字列をlefthookに置き換える
-	sed -i -e "s|\${argc__args\[0\]}|lefthook|g" completions/lh.sh
+		# lefthook wrapperの補完を追加
+		cp completions/lefthook.sh completions/lh.sh
+		# ${argc__args[0]} という文字列をlefthookに置き換える
+		sed -i -e "s|\${argc__args\[0\]}|lefthook|g" completions/lh.sh
 
-	./scripts/setup-shell.sh zsh
-	cd -
+		./scripts/setup-shell.sh zsh
+	)
 }
 
 # @cmd setup gcloud
@@ -255,7 +254,7 @@ setup::bin-gh() {
 		# macだと依存関係の問題でエラーになる
 		brew install libmagic
 	fi
-	grep -v -e '^#' -e '^$' bin_github.txt | xargs -I {} uvx --with setuptools install-release get {} -y
+	grep -v -e '^#' -e '^$' bin_github.txt | xargs -P 4 -I {} uvx --with setuptools install-release get {} -y
 }
 
 # @cmd Make setup easy.

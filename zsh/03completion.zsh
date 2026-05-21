@@ -9,9 +9,6 @@ compinit -u
 # 単語の入力途中でもTab補完を有効化
 setopt complete_in_word
 
-# コマンドミスを修正
-setopt correct
-
 # 補完の選択を楽にする
 zstyle ':completion:*' menu select
 
@@ -31,8 +28,6 @@ export LS_COLORS='di=01;34:ln=01;35:so=01;32:ex=01;31:bd=46;34:cd=43;34:su=41;30
 zstyle ':completion::complete:*' use-cache true
 
 # 補完候補に色つける
-autoload -U colors
-colors
 zstyle ':completion:*' list-colors "${LS_COLORS}"
 
 # 大文字・小文字を区別しない(大文字を入力した場合は区別する)
