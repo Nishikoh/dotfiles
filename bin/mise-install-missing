@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Extract tools where installed=false AND active=true
+missing_tools=$(mise ls -J | jq -r '
+  to_entries[]
+  | select(.value[] | .installed == false and .active == true)
+  | "\(.key)@\(.value[] | select(.installed == false and .active == true) | .requested_version)"
+' | sort -u)
+
+if [[ -z "$missing_tools" ]]; then
+  echo "No missing active tools found."
+  exit 0
+fi
+
+selected=$(echo "$missing_tools" | fzf --multi --header="Select tools to install (TAB to select, ENTER to confirm)")
+
+if [[ -z "$selected" ]]; then
+  echo "No tools selected."
+  exit 0
+fi
+
+echo "Installing:"
+echo "$selected"
+echo
+
+mise install $selected
