@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Extract tools where requested_version exists AND installed=false AND active=false
+missing_tools=$(mise ls -J | jq -r '
+  to_entries[]
+  | select(.value[] | has("requested_version") and .installed == false and .active == false)
+  | "\(.key)@\(.value[] | select(has("requested_version") and .installed == false and .active == false) | .requested_version)"
+' | sort -u)
+
+if [[ -z "$missing_tools" ]]; then
+  echo "No missing active tools found."
+  exit 0
+fi
+
+# fzfの--multiモードでは、TABで何も選択せずにENTERを押すとカーソル行が返される。
+# また、fzfの{+}プレースホルダーも同様に、明示的に選択がない場合はカーソル行を返す。
+# これにより「何も選択しない」という意図が正しく反映されない。
+#
+# この問題を回避するため、TABを押すたびに選択状態を独自にファイルで管理する：
+# - TABで選択時：アイテムをファイルに追加
+# - TABで選択解除時：アイテムをファイルから削除
+# ENTERではfzfの出力を使わず、ファイルの内容を最終的な選択結果として使用する。
+selected_file="/tmp/fzf_mise_selected_$$"
+rm -f "$selected_file"
+
+echo "$missing_tools" | fzf --multi \
+  --header="Select tools to install (TAB to select, ENTER to confirm)" \
+  --bind 'tab:toggle+execute-silent(
+    item={};
+    if grep -qxF "$item" '"$selected_file"' 2>/dev/null; then
+      grep -vxF "$item" '"$selected_file"' > '"$selected_file"'.tmp;
+      mv '"$selected_file"'.tmp '"$selected_file"';
+    else
+      echo "$item" >> '"$selected_file"';
+    fi
+  )+down' \
+  --bind 'enter:abort' || true
+
+if [[ -s "$selected_file" ]]; then
+  selected=$(cat "$selected_file")
+else
+  selected=""
+fi
+rm -f "$selected_file" "${selected_file}.tmp" 2>/dev/null
+
+if [[ -z "$selected" ]]; then
+  echo "No tools selected."
+  exit 0
+fi
+
+echo "Installing:"
+echo "$selected"
+echo
+
+mise install $selected
