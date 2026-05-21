@@ -3,6 +3,13 @@
 #export LANG=ja_JP.UTF-8
 export LESSCHARSET=utf-8
 
+# zshだとstarshipの絵文字が文字化けする
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+# backspaceの挙動が壊れるのを防ぐ
+export TERM=xterm-256color
+
 # -----------------------------
 # General
 # -----------------------------
