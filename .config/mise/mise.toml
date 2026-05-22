@@ -32,6 +32,7 @@ atuin = "latest"
 "github:tofuutils/tenv" = "latest"
 "github:htop-dev/htop" = "latest"
 "pipx:tldr" = "latest"
+worktrunk = "latest"
 # "nix:pueue" = "latest" # pueuedがgithub backendからのインストールに対応していない
 
 [settings]
