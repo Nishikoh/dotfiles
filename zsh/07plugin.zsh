@@ -15,7 +15,7 @@ if [[ -z "$ZSH_HELIX_MODE_DISABLE" ]]; then
 	ZHM_DIR="$ZSH_CONFIG_PATH/plugins/zsh-helix-mode"
 	if [[ ! -d "$ZHM_DIR" ]]; then
 		echo "Installing zsh-helix-mode..."
-		git clone --depth 1 https://github.com/Multirious/zsh-helix-mode "$ZHM_DIR"
+		git clone -b fix-utf-8-handling --depth 1 https://github.com/Nishikoh/zsh-helix-mode.git "$ZHM_DIR"
 	fi
 	# macOS clipboard settings
 	if [[ "$OSTYPE" == darwin* ]]; then
