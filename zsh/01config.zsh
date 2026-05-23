@@ -1,14 +1,14 @@
 # Lang
 # -----------------------------
-#export LANG=ja_JP.UTF-8
 export LESSCHARSET=utf-8
 
 # zshだとstarshipの絵文字が文字化けする
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
+# locale -aで確認
+export LANG=C.utf8
+unset LC_ALL
 
 # backspaceの挙動が壊れるのを防ぐ
-export TERM=xterm-256color
+# export TERM=xterm-256color
 
 # -----------------------------
 # General
@@ -29,7 +29,7 @@ setopt auto_pushd
 setopt pushd_ignore_dups
 
 # viキーバインド
-bindkey -v
+# bindkey -v
 
 # フローコントロールを無効にする
 setopt no_flow_control
@@ -89,7 +89,7 @@ export RSYNC_RSH=ssh
 # その他
 umask 022
 ulimit -c 0
-                
+
 # -----------------------------
 # Prompt
 # -----------------------------
