@@ -10,7 +10,15 @@ true-color = true
 
 [keys.normal]
 y = ["yank", ":clipboard-yank"]
-C-y = ":sh zellij run -n Yazi -c -f -x 5%% -y 10%% --width 90%% --height 90%% -- bash ~/.config/helix/yazi-picker.sh"
+C-y = [
+	':sh rm -f /tmp/unique-ca1ea106',
+	':insert-output yazi "%{buffer_name}" --chooser-file=/tmp/unique-ca1ea106',
+	':sh printf "\x1b[?1049h\x1b[?2004h" > /dev/tty',
+	':open %sh{cat /tmp/unique-ca1ea106}',
+	':redraw',
+	':set mouse false',
+  ':set mouse true',
+]
 
 [editor.file-picker]
 hidden = false
