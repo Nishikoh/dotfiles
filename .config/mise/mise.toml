@@ -32,7 +32,9 @@ rclone = "latest"
 "github:htop-dev/htop" = "latest"
 "pipx:tldr" = "latest"
 worktrunk = "latest"
-# "nix:pueue" = "latest" # pueuedがgithub backendからのインストールに対応していない
+"nix:pueue" = "latest" # pueuedがgithub backendからのインストールに対応していない
+go = "latest"
+herdr = "latest"
 
 [settings]
 experimental = true
