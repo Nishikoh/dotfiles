@@ -1,10 +1,21 @@
+# [[language]]
+# # https://github.com/helix-editor/helix/discussions/8850 既存の言語のlsp設定が上書きされてしまう
+# name = "all-files"
+# scope = ""
+# file-types = [{glob = "*"}]
+# language-servers = ["typos-lsp"]
+
+[language-server.typos-lsp]
+command = "sh"
+args = ["-c", "mise exec github:tekumara/typos-lsp -- typos-lsp"]
+
 [language-server.copilot]
 command = "npx"
 args = ["@github/copilot-language-server", "--stdio"]
 
 [[language]]
 name = "python"
-language-servers = ["ty","ruff","copilot"]
+language-servers = ["ty","ruff","copilot", "typos-lsp"]
 auto-format = true
 
 [language-server.ty]
@@ -22,13 +33,13 @@ args = ["-c", "mise exec ruff -- ruff server"]
 
 [[language]]
 name = "hcl"
-language-servers = ["terraform-ls", "copilot"]
+language-servers = ["terraform-ls", "copilot", "typos-lsp"]
 language-id = "terraform"
 auto-format = true
 
 [[language]]
 name = "tfvars"
-language-servers = ["terraform-ls", "copilot"]
+language-servers = ["terraform-ls", "copilot", "typos-lsp"]
 language-id = "terraform-vars"
 
 [language-server.terraform-ls]
@@ -42,12 +53,12 @@ args =["-c","mise exec github:sqls-server/sqls -- sqls"]
 
 [[language]]
 name = "sql"
-language-servers = [ "sqls" ]
-auto-format = true
+language-servers = [ "sqls" , "typos-lsp"]
+auto-format = false
 
 [[language]]
 name = "typescript"
-language-servers = ["typescript-language-server", "oxfmt", "oxlint", "copilot"]
+language-servers = ["typescript-language-server", "oxfmt", "oxlint", "copilot", "typos-lsp"]
 auto-format = true
 
 [language-server.typescript-language-server]
@@ -68,7 +79,9 @@ args =["-c","mise exec marksman -- marksman server"]
 
 [[language]]
 name = "markdown"
-language-servers = ["marksman"]
+language-servers = ["marksman", "typos-lsp"]
+scope = ""
+file-types = [{glob = "*.md"}]
 auto-format = true
 
 [language-server.bash-language-server]
@@ -77,7 +90,7 @@ args =["-c","mise exec npm:bash-language-server -- bash-language-server start"]
 
 [[language]]
 name = "bash"
-language-servers = ["bash-language-server"]
+language-servers = ["bash-language-server", "typos-lsp"]
 auto-format = true
 
 [language-server.gopls]
