@@ -40,3 +40,6 @@ display-inlay-hints = true
 
 [editor.inline-diagnostics]
 cursor-line = "hint" # エラーメッセージなどをインラインにする
+
+[editor.statusline]
+center = ["file-type"]
