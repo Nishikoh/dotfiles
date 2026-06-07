@@ -21,9 +21,10 @@
 # mise.path = "./node_modules/.bin" # add a directory to PATH
 #
 [tools]
-lima = "latest"
-colima = "latest"
-docker-cli = "latest"
+lima = { "latest", os = ["macos"]}
+colima = { "latest", os = ["macos"]}
+docker-compose = { version = "latest", postinstall = "mkdir -p ~/.docker/cli-plugins; ln -s $(which docker-cli-plugin-docker-compose) ~/.docker/cli-plugins/docker-compose", os = ["macos"] }
+docker-cli = { "latest", os = ["macos"]}
 # terraform = '1.0.0'       # specify a single version
 # erlang = '26'             # specify a major version only
 # node = 'ref:master'       # build from a git ref
