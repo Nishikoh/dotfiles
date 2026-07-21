@@ -23,7 +23,7 @@ jnv = "latest"
 yq = "latest"
 terraform-ls = "latest"
 node = "latest"
-jj = "latest"
+# jj = "latest"
 btop = "latest"
 duckdb = "latest"
 marksman = "latest"
@@ -35,6 +35,7 @@ worktrunk = "latest"
 "nix:pueue" = "latest" # pueuedがgithub backendからのインストールに対応していない
 go = "latest"
 herdr = "latest"
+hunk = "latest"
 
 [settings]
 experimental = true
