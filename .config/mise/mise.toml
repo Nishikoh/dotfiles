@@ -36,6 +36,7 @@ worktrunk = "latest"
 go = "latest"
 herdr = "latest"
 hunk = "latest"
+claude = "latest"
 
 [settings]
 experimental = true
