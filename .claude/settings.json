@@ -8,7 +8,7 @@
       "Read(//**/.env.*)",
       "Edit(//**/.env)",
       "Edit(//**/.env.*)",
-      "Read(//home/nishikoh/.claude/.credentials.json)",
+      "Read(//**/.claude/.credentials.json)",
       "Read(//**/.credentials.json)"
     ],
     "defaultMode": "default"
