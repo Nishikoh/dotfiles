@@ -36,8 +36,6 @@ alias h="fc -lt '%F %T' 1"
 # fzf + bat
 alias fb="fzf --preview 'bat --style=numbers --color=always --line-range :500 {}'"
 
-alias ai-msg='bunx copilot --model gpt-5-mini -p "`git --no-pager diff --staged`の内容からcommit messageを日本語で考えて。実際にcommitはしないで"'
-
 alias set-aws-profile='export AWS_PROFILE=$(aws configure list-profiles | fzf)'
 
 # beep (macOS only)
