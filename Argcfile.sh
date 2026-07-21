@@ -146,6 +146,9 @@ setup::cuda::install() {
 # TODO: mise対応
 link_targets_list=(".gitconfig" ".vimrc" ".zshrc")
 
+# ~/.claude 配下にsymlinkするアイテム (.claude/ からの相対パス)
+claude_link_targets_list=("settings.json" "hooks" "statusline-command.sh" "skills/dev-lsp")
+
 # @cmd setup dotfiles
 # @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::dotfiles() {
@@ -187,6 +190,69 @@ clean::dotfiles() {
 		if [ -L ~/"${f}" ]; then
 			echo "$f"
 			unlink ~/"${f}"
+		fi
+	done
+}
+
+# @cmd setup ~/.claude symlinks (settings.json/hooks/statusline-command.sh/skills/dev-lsp)
+# @arg path=~/setup/dotfiles 		path to dotfiles directory
+setup::claude() {
+	# 優先順位: 引数 > 環境変数 > スクリプトの場所 > デフォルト
+	# argcは @arg のデフォルト値をチルダ展開しないため、未指定時は argc_path に
+	# リテラル文字列 "~/setup/dotfiles" が入る。展開済みパスと比較すると常に不一致になり
+	# 誤ってその壊れた値を使ってしまうため、比較対象は展開前のデフォルト文字列にする。
+	if [ -n "$argc_path" ] && [ "$argc_path" != "~/setup/dotfiles" ]; then
+		DOTFILES_DIR="$argc_path"
+	elif [ -n "$DOTFILES_DIR" ]; then
+		: # DOTFILES_DIR is already set from environment
+	elif [ -f "$0" ]; then
+		DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
+	else
+		DOTFILES_DIR="$HOME/setup/dotfiles"
+	fi
+
+	SRC_DIR="$DOTFILES_DIR/.claude"
+
+	if [ ! -d "$SRC_DIR" ]; then
+		echo "エラー: $SRC_DIR が存在しません"
+		exit 1
+	fi
+
+	# ln -f は非空の実ディレクトリを置き換えられない(中にリンクを作ってしまう)ため、
+	# 既存が real file/dir の場合は diff で内容一致を確認してから rm -rf → ln -s する
+	for f in "${claude_link_targets_list[@]}"; do
+		src="$SRC_DIR/$f"
+		dest="$HOME/.claude/$f"
+
+		if [ ! -e "$src" ]; then
+			echo "スキップ: $src が存在しません"
+			continue
+		fi
+
+		if [ -L "$dest" ]; then
+			rm "$dest"
+		elif [ -e "$dest" ]; then
+			if diff -ru "$src" "$dest"; then
+				rm -rf "$dest"
+			else
+				echo "スキップ: $dest は内容が異なるため上書きしません"
+				continue
+			fi
+		fi
+
+		mkdir -p "$(dirname "$dest")"
+		ln -s "$src" "$dest"
+		echo "リンク作成: $dest -> $src"
+	done
+}
+
+# @cmd unset ~/.claude symlinks
+clean::claude() {
+	for f in "${claude_link_targets_list[@]}"; do
+		dest="$HOME/.claude/$f"
+		if [ -L "$dest" ]; then
+			echo "$f"
+			unlink "$dest"
 		fi
 	done
 }

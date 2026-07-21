@@ -66,9 +66,7 @@ setup::rust::install() {
 setup::rust::bins() {
 	setup::rust::install
 	cargo install cargo-binstall
-	cargo binstall cpz
-	cargo binstall rmz
-	cargo binstall xcp
+	cargo binstall cpz rmz xcp
 }
 
 # @cmd setup .config/ directory
@@ -78,7 +76,7 @@ setup::config() {
 	if [ -n "$argc_path" ] && [ "$argc_path" != "$HOME/setup/dotfiles" ]; then
 		DOTFILES_DIR="$argc_path"
 	elif [ -n "$DOTFILES_DIR" ]; then
-		DOTFILES_DIR="$DOTFILES_DIR"
+		: # DOTFILES_DIR is already set from environment
 	elif [ -f "$0" ]; then
 		DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
 	else
@@ -148,6 +146,9 @@ setup::cuda::install() {
 # TODO: mise対応
 link_targets_list=(".gitconfig" ".vimrc" ".zshrc")
 
+# ~/.claude 配下にsymlinkするアイテム (.claude/ からの相対パス)
+claude_link_targets_list=("settings.json" "hooks" "statusline-command.sh" "skills/dev-lsp")
+
 # @cmd setup dotfiles
 # @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::dotfiles() {
@@ -193,6 +194,69 @@ clean::dotfiles() {
 	done
 }
 
+# @cmd setup ~/.claude symlinks (settings.json/hooks/statusline-command.sh/skills/dev-lsp)
+# @arg path=~/setup/dotfiles 		path to dotfiles directory
+setup::claude() {
+	# 優先順位: 引数 > 環境変数 > スクリプトの場所 > デフォルト
+	# argcは @arg のデフォルト値をチルダ展開しないため、未指定時は argc_path に
+	# リテラル文字列 "~/setup/dotfiles" が入る。展開済みパスと比較すると常に不一致になり
+	# 誤ってその壊れた値を使ってしまうため、比較対象は展開前のデフォルト文字列にする。
+	if [ -n "$argc_path" ] && [ "$argc_path" != "~/setup/dotfiles" ]; then
+		DOTFILES_DIR="$argc_path"
+	elif [ -n "$DOTFILES_DIR" ]; then
+		: # DOTFILES_DIR is already set from environment
+	elif [ -f "$0" ]; then
+		DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
+	else
+		DOTFILES_DIR="$HOME/setup/dotfiles"
+	fi
+
+	SRC_DIR="$DOTFILES_DIR/.claude"
+
+	if [ ! -d "$SRC_DIR" ]; then
+		echo "エラー: $SRC_DIR が存在しません"
+		exit 1
+	fi
+
+	# ln -f は非空の実ディレクトリを置き換えられない(中にリンクを作ってしまう)ため、
+	# 既存が real file/dir の場合は diff で内容一致を確認してから rm -rf → ln -s する
+	for f in "${claude_link_targets_list[@]}"; do
+		src="$SRC_DIR/$f"
+		dest="$HOME/.claude/$f"
+
+		if [ ! -e "$src" ]; then
+			echo "スキップ: $src が存在しません"
+			continue
+		fi
+
+		if [ -L "$dest" ]; then
+			rm "$dest"
+		elif [ -e "$dest" ]; then
+			if diff -ru "$src" "$dest"; then
+				rm -rf "$dest"
+			else
+				echo "スキップ: $dest は内容が異なるため上書きしません"
+				continue
+			fi
+		fi
+
+		mkdir -p "$(dirname "$dest")"
+		ln -s "$src" "$dest"
+		echo "リンク作成: $dest -> $src"
+	done
+}
+
+# @cmd unset ~/.claude symlinks
+clean::claude() {
+	for f in "${claude_link_targets_list[@]}"; do
+		dest="$HOME/.claude/$f"
+		if [ -L "$dest" ]; then
+			echo "$f"
+			unlink "$dest"
+		fi
+	done
+}
+
 # @cmd completion shell
 # @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::completion() {
@@ -203,19 +267,20 @@ setup::completion() {
 	else
 		git clone https://github.com/sigoden/argc-completions.git $argc_completions_path
 	fi
-	cd $argc_completions_path
-	./scripts/download-tools.sh
+	(
+		cd "$argc_completions_path" || exit 1
+		./scripts/download-tools.sh
 
-	argc generate git
-	git restore completions/
+		argc generate git
+		git restore completions/
 
-	# lefthook wrapperの補完を追加
-	cp completions/lefthook.sh completions/lh.sh
-	# ${argc__args[0]} という文字列をlefthookに置き換える
-	sed -i -e "s|\${argc__args\[0\]}|lefthook|g" completions/lh.sh
+		# lefthook wrapperの補完を追加
+		cp completions/lefthook.sh completions/lh.sh
+		# ${argc__args[0]} という文字列をlefthookに置き換える
+		sed -i -e "s|\${argc__args\[0\]}|lefthook|g" completions/lh.sh
 
-	./scripts/setup-shell.sh zsh
-	cd -
+		./scripts/setup-shell.sh zsh
+	)
 }
 
 # @cmd setup gcloud
@@ -255,7 +320,7 @@ setup::bin-gh() {
 		# macだと依存関係の問題でエラーになる
 		brew install libmagic
 	fi
-	grep -v -e '^#' -e '^$' bin_github.txt | xargs -I {} uvx --with setuptools install-release get {} -y
+	grep -v -e '^#' -e '^$' bin_github.txt | xargs -P 4 -I {} uvx --with setuptools install-release get {} -y
 }
 
 # @cmd Make setup easy.
@@ -298,6 +363,8 @@ _argc_run() {
     argc__positionals=()
     _argc_index=1
     _argc_len="${#argc__args[@]}"
+    _argc_required_flag_options=()
+    _argc_required_envs=()
     _argc_tools=()
     _argc_parse
     if [ -n "${argc__fn:-}" ]; then
@@ -404,6 +471,7 @@ COMMANDS:
   copilot        setup github copilot [aliases: gh-copilot]
   cuda           setup cuda
   dotfiles       setup dotfiles
+  claude         setup ~/.claude symlinks (settings.json/hooks/statusline-command.sh/skills/dev-lsp)
   completion     completion shell
   gcloud         setup gcloud
   terraform-fzf  setup terraform-target with fzf
@@ -414,7 +482,7 @@ EOF
 
 _argc_parse_setup() {
     local _argc_key _argc_action
-    local _argc_subcmds="uv, devbox, rust, config, copilot, gh-copilot, cuda, dotfiles, completion, gcloud, terraform-fzf, bin-gh"
+    local _argc_subcmds="uv, devbox, rust, config, copilot, gh-copilot, cuda, dotfiles, claude, completion, gcloud, terraform-fzf, bin-gh"
     while [[ $_argc_index -lt $_argc_len ]]; do
         _argc_item="${argc__args[_argc_index]}"
         _argc_key="${_argc_item%%=*}"
@@ -463,6 +531,11 @@ _argc_parse_setup() {
             _argc_action=_argc_parse_setup_dotfiles
             break
             ;;
+        claude)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_setup_claude
+            break
+            ;;
         completion)
             _argc_index=$((_argc_index + 1))
             _argc_action=_argc_parse_setup_completion
@@ -506,6 +579,9 @@ _argc_parse_setup() {
                 ;;
             dotfiles)
                 _argc_usage_setup_dotfiles
+                ;;
+            claude)
+                _argc_usage_setup_claude
                 ;;
             completion)
                 _argc_usage_setup_completion
@@ -781,7 +857,7 @@ setup .config/ directory
 USAGE: Argcfile setup config [PATH]
 
 ARGS:
-  [PATH]  path to dotfiles directory [default: ~/setup/dotfiles]
+  [PATH]  path to dotfiles directory [default: '~/setup/dotfiles']
 EOF
     exit
 }
@@ -821,7 +897,7 @@ _argc_parse_setup_config() {
         if [[ -n "$values_index" ]]; then
             argc_path="${argc__positionals[values_index]}"
         else
-            argc_path=~/setup/dotfiles
+            argc_path='~/setup/dotfiles'
             argc__positionals+=("$argc_path")
         fi
     fi
@@ -976,7 +1052,7 @@ setup dotfiles
 USAGE: Argcfile setup dotfiles [PATH]
 
 ARGS:
-  [PATH]  path to git clone for dotfiles [default: ~/setup/dotfiles]
+  [PATH]  path to git clone for dotfiles [default: '~/setup/dotfiles']
 EOF
     exit
 }
@@ -1016,7 +1092,60 @@ _argc_parse_setup_dotfiles() {
         if [[ -n "$values_index" ]]; then
             argc_path="${argc__positionals[values_index]}"
         else
-            argc_path=~/setup/dotfiles
+            argc_path='~/setup/dotfiles'
+            argc__positionals+=("$argc_path")
+        fi
+    fi
+}
+
+_argc_usage_setup_claude() {
+    cat <<-'EOF'
+setup ~/.claude symlinks (settings.json/hooks/statusline-command.sh/skills/dev-lsp)
+
+USAGE: Argcfile setup claude [PATH]
+
+ARGS:
+  [PATH]  path to dotfiles directory [default: '~/setup/dotfiles']
+EOF
+    exit
+}
+
+_argc_parse_setup_claude() {
+    local _argc_key _argc_action
+    local _argc_subcmds=""
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_setup_claude
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        *)
+            argc__positionals+=("$_argc_item")
+            _argc_index=$((_argc_index + 1))
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        argc__fn=setup::claude
+        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
+            _argc_usage_setup_claude
+        fi
+        _argc_match_positionals 0
+        local values_index values_size
+        IFS=: read -r values_index values_size <<<"${_argc_match_positionals_values[0]:-}"
+        if [[ -n "$values_index" ]]; then
+            argc_path="${argc__positionals[values_index]}"
+        else
+            argc_path='~/setup/dotfiles'
             argc__positionals+=("$argc_path")
         fi
     fi
@@ -1029,7 +1158,7 @@ completion shell
 USAGE: Argcfile setup completion [PATH]
 
 ARGS:
-  [PATH]  path to git clone for dotfiles [default: ~/setup/dotfiles]
+  [PATH]  path to git clone for dotfiles [default: '~/setup/dotfiles']
 EOF
     exit
 }
@@ -1069,7 +1198,7 @@ _argc_parse_setup_completion() {
         if [[ -n "$values_index" ]]; then
             argc_path="${argc__positionals[values_index]}"
         else
-            argc_path=~/setup/dotfiles
+            argc_path='~/setup/dotfiles'
             argc__positionals+=("$argc_path")
         fi
     fi
@@ -1315,13 +1444,14 @@ USAGE: Argcfile clean <COMMAND>
 
 COMMANDS:
   dotfiles  unset dotfiles
+  claude    unset ~/.claude symlinks
 EOF
     exit
 }
 
 _argc_parse_clean() {
     local _argc_key _argc_action
-    local _argc_subcmds="dotfiles"
+    local _argc_subcmds="dotfiles, claude"
     while [[ $_argc_index -lt $_argc_len ]]; do
         _argc_item="${argc__args[_argc_index]}"
         _argc_key="${_argc_item%%=*}"
@@ -1340,11 +1470,19 @@ _argc_parse_clean() {
             _argc_action=_argc_parse_clean_dotfiles
             break
             ;;
+        claude)
+            _argc_index=$((_argc_index + 1))
+            _argc_action=_argc_parse_clean_claude
+            break
+            ;;
         help)
             local help_arg="${argc__args[$((_argc_index + 1))]:-}"
             case "$help_arg" in
             dotfiles)
                 _argc_usage_clean_dotfiles
+                ;;
+            claude)
+                _argc_usage_clean_claude
                 ;;
             "")
                 _argc_usage_clean
@@ -1403,6 +1541,47 @@ _argc_parse_clean_dotfiles() {
         argc__fn=clean::dotfiles
         if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
             _argc_usage_clean_dotfiles
+        fi
+    fi
+}
+
+_argc_usage_clean_claude() {
+    cat <<-'EOF'
+unset ~/.claude symlinks
+
+USAGE: Argcfile clean claude
+EOF
+    exit
+}
+
+_argc_parse_clean_claude() {
+    local _argc_key _argc_action
+    local _argc_subcmds=""
+    while [[ $_argc_index -lt $_argc_len ]]; do
+        _argc_item="${argc__args[_argc_index]}"
+        _argc_key="${_argc_item%%=*}"
+        case "$_argc_key" in
+        --help | -help | -h)
+            _argc_usage_clean_claude
+            ;;
+        --)
+            _argc_dash="${#argc__positionals[@]}"
+            argc__positionals+=("${argc__args[@]:$((_argc_index + 1))}")
+            _argc_index=$_argc_len
+            break
+            ;;
+        *)
+            argc__positionals+=("$_argc_item")
+            _argc_index=$((_argc_index + 1))
+            ;;
+        esac
+    done
+    if [[ -n "${_argc_action:-}" ]]; then
+        $_argc_action
+    else
+        argc__fn=clean::claude
+        if [[ "${argc__positionals[0]:-}" == "help" ]] && [[ "${#argc__positionals[@]}" -eq 1 ]]; then
+            _argc_usage_clean_claude
         fi
     fi
 }
