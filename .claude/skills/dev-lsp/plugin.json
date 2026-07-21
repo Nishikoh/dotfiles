@@ -1,0 +1,6 @@
+{
+  "name": "dev-lsp",
+  "description": "Helix と同等の言語サーバー群を Claude Code の LSP ツールに接続する (mise exec 経由で起動)",
+  "version": "0.1.0",
+  "lspServers": "./.lsp.json"
+}

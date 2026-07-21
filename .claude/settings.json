@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(//**/data/holdout/**)",
+      "Edit(//**/data/holdout/**)",
+      "Bash(*data/holdout*)",
+      "Read(//**/.env)",
+      "Read(//**/.env.*)",
+      "Edit(//**/.env)",
+      "Edit(//**/.env.*)",
+      "Read(//home/nishikoh/.claude/.credentials.json)",
+      "Read(//**/.credentials.json)"
+    ],
+    "defaultMode": "default"
+  },
+  "model": "claude-fable-5[1m]",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.claude/hooks/guard-sensitive-paths.sh\""
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$HOME/.claude/statusline-command.sh\""
+  },
+  "language": "日本語",
+  "effortLevel": "xhigh",
+  "skipWorkflowUsageWarning": true,
+  "theme": "dark",
+  "editorMode": "normal",
+  "autoCompactEnabled": true,
+  "switchModelsOnFlag": false,
+  "remoteControlAtStartup": true
+}

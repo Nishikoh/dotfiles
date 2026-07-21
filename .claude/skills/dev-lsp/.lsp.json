@@ -1,0 +1,32 @@
+{
+  "ty": {
+    "command": "sh",
+    "args": ["-c", "mise exec ty -- ty server"],
+    "extensionToLanguage": { ".py": "python" }
+  },
+  "typescript": {
+    "command": "sh",
+    "args": ["-c", "mise exec npm:typescript npm:typescript-language-server -- typescript-language-server --stdio"],
+    "extensionToLanguage": { ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript" }
+  },
+  "bash": {
+    "command": "sh",
+    "args": ["-c", "mise exec npm:bash-language-server -- bash-language-server start"],
+    "extensionToLanguage": { ".sh": "shellscript", ".bash": "shellscript" }
+  },
+  "marksman": {
+    "command": "sh",
+    "args": ["-c", "mise exec marksman -- marksman server"],
+    "extensionToLanguage": { ".md": "markdown" }
+  },
+  "terraform": {
+    "command": "sh",
+    "args": ["-c", "mise exec terraform-ls -- terraform-ls serve"],
+    "extensionToLanguage": { ".tf": "terraform", ".tfvars": "terraform-vars" }
+  },
+  "gopls": {
+    "command": "sh",
+    "args": ["-c", "CGO_ENABLED=0 mise exec go:golang.org/x/tools/gopls -- gopls"],
+    "extensionToLanguage": { ".go": "go" }
+  }
+}
