@@ -10,6 +10,8 @@
 #   4. ENV=prod を伴う実行         → ask  (AGENTS.md L2/L3: 実弾・本番系は人間の事前承認)
 #   5. git push --force / -f       → ask  (履歴改変は不可逆)
 #   6. ulimit -v/-m/-d が過大      → deny (利用可能メモリの90%超。ULIMIT_MEM_OVERRIDE=1 で ask に緩和)
+#   7. ulimit -m の単独使用        → ask  (Linux は RLIMIT_RSS を無視するため実効性ゼロ)
+#   8. cgroup MemoryMax が過大     → deny (実装メモリの90%超。ULIMIT_MEM_OVERRIDE=1 で ask に緩和)
 #
 # 出力契約: PreToolUse の hookSpecificOutput.permissionDecision (deny/ask) を JSON で返す。
 # 該当しなければ何も出力せず exit 0 (許可判断は通常の permissions フローに委ねる)。
@@ -115,6 +117,82 @@ if printf '%s' "$cmd" | grep -qE '(^|[;&|`([:space:]])ulimit[[:space:]][^;&|]*-[
         emit_decision ask "ulimit のメモリ上限が利用可能メモリの90%超だが ULIMIT_MEM_OVERRIDE=1 が指定されている: ${detail}。エージェントはメモリ削減を試みた上で90%超を要求している。許可するか、値の縮小・他プロセス停止・分割実行などを指示せよ"
       else
         emit_decision deny "ulimit のメモリ上限が過大 (利用可能メモリの90%超): ${detail}。まずメモリ使用量の削減(不要プロセス停止・バッチサイズ縮小・データ分割など)を可能な限り実行し、${cap_kb}KB 以下の値で再試行すること。削減を尽くしても不足する場合のみ ULIMIT_MEM_OVERRIDE=1 を前置して再実行(ユーザーに承認を確認する)"
+      fi
+      exit 0
+    fi
+  fi
+fi
+
+# 7) ulimit -m (RLIMIT_RSS) は Linux では無効という注意喚起
+#    意図: -m は「実メモリを制限したつもり」になれてしまうが、Linux カーネルは
+#    RLIMIT_RSS を無視する (2026-07-27 実測: 500MB 設定で 2GB 使い切って完走)。
+#    6) の過大値チェックを通過した「一見妥当な」-m ほど危険なので、ここで人間に上げる。
+#    -v / -d を併用している場合はそちらが実際に効くため対象外にする (二重通知を避ける)。
+if printf '%s' "$cmd" | grep -qE '(^|[;&|`([:space:]])ulimit[[:space:]][^;&|]*-[A-Za-z]*m' \
+   && ! printf '%s' "$cmd" | grep -qE '(^|[;&|`([:space:]])ulimit[[:space:]][^;&|]*-[A-Za-z]*[vd]'; then
+  emit_decision ask "ulimit -m (RLIMIT_RSS) は Linux では無視されるため、実メモリ制限として機能しない (実測で確認済み)。実メモリを制限したい場合は cgroup を使うこと: systemd-run --user --scope -p MemoryMax=<N>K -p MemorySwapMax=0 <cmd>。意図的に -m を使う (他OS向け・互換目的等) なら許可を指示せよ"
+  exit 0
+fi
+
+# 8) cgroup (systemd-run の MemoryMax) の過大指定ガード
+#    意図: 6) の残存ギャップだった systemd-run 経路を塞ぐ。DuckDB/sqlmesh の
+#    メモリ制限は ulimit -Sv ではなく cgroup を使うのが正しい (ulimit -Sv は
+#    仮想アドレス空間の制限で、DuckDB は実使用量の約2.6倍を予約するため誤検知する:
+#    LRN-20260727-001)。正しい手段へ移行した以上、その手段側にも上限ガードが要る。
+#    判定基準が 6) と違う点: cgroup は超過してもそのプロセスだけが SIGKILL され
+#    ホスト全体を巻き込まないため、MemAvailable ではなく MemTotal 基準で判定する
+#    (他プロセスの一時的な使用量に左右されず、意図した割合指定を通せる)。
+if printf '%s' "$cmd" | grep -qE '(^|[[:space:]])systemd-run([[:space:]]|$)' \
+   && printf '%s' "$cmd" | grep -qE 'MemoryMax='; then
+  total_kb="$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo 2>/dev/null || true)"
+  if [ -n "$total_kb" ]; then
+    cg_cap_kb=$(( total_kb * 90 / 100 ))
+    cg_worst_kb=""; cg_bad_tok=""
+    # MemoryMax= の右辺だけを抽出する (--property=MemoryMax=... / -p MemoryMax=... 両対応)
+    cg_vals="$(printf '%s' "$cmd" \
+      | grep -oE 'MemoryMax=[^[:space:];&|"'"'"']+' \
+      | sed -E 's/^MemoryMax=//' || true)"
+    while IFS= read -r cg_tok; do
+      [ -z "$cg_tok" ] && continue
+      cg_kb=""
+      case "$cg_tok" in
+        infinity|INFINITY)
+          # 明示的な無制限。cap 超過として扱う。
+          cg_kb=$(( cg_cap_kb + 1 )) ;;
+        *%)
+          # systemd の割合指定 (MemTotal に対する割合)
+          cg_pct="${cg_tok%\%}"
+          if printf '%s' "$cg_pct" | grep -qE '^[0-9]+$' && [ "${#cg_pct}" -le 5 ]; then
+            cg_kb=$(( total_kb * cg_pct / 100 ))
+          fi ;;
+        *[Kk]) cg_num="${cg_tok%[Kk]}"
+          printf '%s' "$cg_num" | grep -qE '^[0-9]{1,15}$' && cg_kb="$cg_num" ;;
+        *[Mm]) cg_num="${cg_tok%[Mm]}"
+          printf '%s' "$cg_num" | grep -qE '^[0-9]{1,12}$' && cg_kb=$(( cg_num * 1024 )) ;;
+        *[Gg]) cg_num="${cg_tok%[Gg]}"
+          printf '%s' "$cg_num" | grep -qE '^[0-9]{1,9}$' && cg_kb=$(( cg_num * 1024 * 1024 )) ;;
+        *[Tt]) cg_num="${cg_tok%[Tt]}"
+          printf '%s' "$cg_num" | grep -qE '^[0-9]{1,6}$' && cg_kb=$(( cg_num * 1024 * 1024 * 1024 )) ;;
+        *)
+          # サフィックス無しは systemd ではバイト単位
+          printf '%s' "$cg_tok" | grep -qE '^[0-9]{1,18}$' && cg_kb=$(( cg_tok / 1024 )) ;;
+      esac
+      if [ -z "$cg_kb" ]; then
+        cg_bad_tok="$cg_tok"
+      elif [ "$cg_kb" -gt "$cg_cap_kb" ]; then
+        if [ -z "$cg_worst_kb" ] || [ "$cg_kb" -gt "$cg_worst_kb" ]; then cg_worst_kb="$cg_kb"; fi
+      fi
+    done <<< "$cg_vals"
+    if [ -n "$cg_worst_kb" ] || [ -n "$cg_bad_tok" ]; then
+      if [ -n "$cg_worst_kb" ]; then
+        cg_detail="要求 ${cg_worst_kb}KB / MemTotal ${total_kb}KB の90% = ${cg_cap_kb}KB"
+      else
+        cg_detail="値 '${cg_bad_tok}' は静的検証不能(変数・式等)。数値リテラル(例 ${cg_cap_kb}K)で指定し直すこと (MemTotal ${total_kb}KB の90% = ${cg_cap_kb}KB)"
+      fi
+      if printf '%s' "$cmd" | grep -qE '(^|[[:space:];&|])ULIMIT_MEM_OVERRIDE=1([[:space:];&|]|$)'; then
+        emit_decision ask "cgroup MemoryMax が実装メモリの90%超だが ULIMIT_MEM_OVERRIDE=1 が指定されている: ${cg_detail}。許可するか、値の縮小・分割実行などを指示せよ"
+      else
+        emit_decision deny "cgroup MemoryMax が過大 (実装メモリの90%超): ${cg_detail}。まず処理の分割・DuckDB memory_limit の縮小などを試し、${cg_cap_kb}KB 以下で再試行すること。削減を尽くしても不足する場合のみ ULIMIT_MEM_OVERRIDE=1 を前置して再実行(ユーザーに承認を確認する)"
       fi
       exit 0
     fi
