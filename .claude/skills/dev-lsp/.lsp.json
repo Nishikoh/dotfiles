@@ -6,7 +6,7 @@
   },
   "typescript": {
     "command": "sh",
-    "args": ["-c", "mise exec npm:typescript npm:typescript-language-server -- typescript-language-server --stdio"],
+    "args": ["-c", "mise install npm:typescript@5 -q >/dev/null 2>&1; NODE_PATH=\"$(mise where npm:typescript@5)/node_modules\" mise exec npm:typescript@5 npm:typescript-language-server -- typescript-language-server --stdio"],
     "extensionToLanguage": { ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript" }
   },
   "bash": {
