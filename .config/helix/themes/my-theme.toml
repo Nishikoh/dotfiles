@@ -2,11 +2,13 @@
 inherits = "sonokai"
 # inherits = "pop-dark"
 
-"ui.linenr.selected" = { fg = "black", bg = "light-green"} # 確定
+"ui.linenr.selected" = { fg = "black", bg = "light-green" } # 確定
 # "ui.cursor.select" = { fg = "blue", bg = "red"}
-"ui.cursor.primary" = { bg = "red"}
+"ui.cursor.primary" = { bg = "red" }
 # "ui.cursor.primary" = { fg = "blue", bg = "red"}
-"ui.selection.primary" = { fg = "light-green", bg = "default", modifiers = ["bold"] }
+"ui.selection.primary" = { fg = "light-green", bg = "default", modifiers = [
+  "bold",
+] }
 "ui.virtual.inlay-hint" = { fg = "white", bg = "gray" }
 
 # "ui.cursor.primary.select" = { fg = "green", bg = "green"}

@@ -260,13 +260,13 @@ style = "green bold"
 disabled = false
 detect_extensions = []
 detect_files = [
-    "deno.json",
-    "deno.jsonc",
-    "deno.lock",
-    "mod.ts",
-    "deps.ts",
-    "mod.js",
-    "deps.js",
+  "deno.json",
+  "deno.jsonc",
+  "deno.lock",
+  "mod.ts",
+  "deps.ts",
+  "mod.js",
+  "deps.js",
 ]
 detect_folders = []
 
@@ -320,11 +320,11 @@ heuristic = true
 disabled = false
 detect_extensions = ["csproj", "fsproj", "xproj"]
 detect_files = [
-    "global.json",
-    "project.json",
-    "Directory.Build.props",
-    "Directory.Build.targets",
-    "Packages.props",
+  "global.json",
+  "project.json",
+  "Directory.Build.props",
+  "Directory.Build.targets",
+  "Packages.props",
 ]
 detect_folders = []
 
@@ -479,13 +479,13 @@ disabled = false
 not_capable_style = "bold red"
 detect_extensions = ["go"]
 detect_files = [
-    "go.mod",
-    "go.sum",
-    "go.work",
-    "glide.yaml",
-    "Gopkg.yml",
-    "Gopkg.lock",
-    ".go-version",
+  "go.mod",
+  "go.sum",
+  "go.work",
+  "glide.yaml",
+  "Gopkg.yml",
+  "Gopkg.lock",
+  ".go-version",
 ]
 detect_folders = ["Godeps"]
 
@@ -563,14 +563,14 @@ style = "red dimmed"
 symbol = "☕ "
 detect_extensions = ["java", "class", "jar", "gradle", "clj", "cljc"]
 detect_files = [
-    "pom.xml",
-    "build.gradle.kts",
-    "build.sbt",
-    ".java-version",
-    "deps.edn",
-    "project.clj",
-    "build.boot",
-    ".sdkmanrc",
+  "pom.xml",
+  "build.gradle.kts",
+  "build.sbt",
+  ".java-version",
+  "deps.edn",
+  "project.clj",
+  "build.boot",
+  ".sdkmanrc",
 ]
 detect_folders = []
 
@@ -809,13 +809,13 @@ style = "149 bold"
 disabled = false
 detect_extensions = ["pl", "pm", "pod"]
 detect_files = [
-    "Makefile.PL",
-    "Build.PL",
-    "cpanfile",
-    "cpanfile.snapshot",
-    "META.json",
-    "META.yml",
-    ".perl-version",
+  "Makefile.PL",
+  "Build.PL",
+  "cpanfile",
+  "cpanfile.snapshot",
+  "META.json",
+  "META.yml",
+  ".perl-version",
 ]
 detect_folders = []
 
@@ -866,14 +866,14 @@ symbol = "🐍 "
 disabled = false
 detect_extensions = ["py", "ipynb"]
 detect_files = [
-    "requirements.txt",
-    ".python-version",
-    "pyproject.toml",
-    "Pipfile",
-    "tox.ini",
-    "setup.py",
-    "__init__.py",
-    "pixi.toml",
+  "requirements.txt",
+  ".python-version",
+  "pyproject.toml",
+  "Pipfile",
+  "tox.ini",
+  "setup.py",
+  "__init__.py",
+  "pixi.toml",
 ]
 detect_folders = []
 detect_env_vars = ["VIRTUAL_ENV"]

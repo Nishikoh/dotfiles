@@ -11,7 +11,7 @@ args = ["-c", "mise exec github:tekumara/typos-lsp -- typos-lsp"]
 
 [[language]]
 name = "python"
-language-servers = ["ty","ruff","typos-lsp"]
+language-servers = ["ty", "ruff", "typos-lsp"]
 auto-format = true
 
 [language-server.ty]
@@ -29,60 +29,71 @@ args = ["-c", "mise exec ruff -- ruff server"]
 
 [[language]]
 name = "hcl"
-language-servers = ["terraform-ls","typos-lsp"]
+language-servers = ["terraform-ls", "typos-lsp"]
 language-id = "terraform"
 auto-format = true
 
 [[language]]
 name = "tfvars"
-language-servers = ["terraform-ls",  "typos-lsp"]
+language-servers = ["terraform-ls", "typos-lsp"]
 language-id = "terraform-vars"
 
 [language-server.terraform-ls]
 command = "sh"
-args = ["-c","mise exec terraform-ls -- terraform-ls serve"]
+args = ["-c", "mise exec terraform-ls -- terraform-ls serve"]
 # config.indexing.ignorePaths = ["ignore.hcl"]
 
 [language-server.sqls]
 command = "sh"
-args =["-c","mise exec github:sqls-server/sqls -- sqls"]
+args = ["-c", "mise exec github:sqls-server/sqls -- sqls"]
 
 [[language]]
 name = "sql"
-language-servers = [ "sqls" , "typos-lsp"]
+language-servers = ["sqls", "typos-lsp"]
 auto-format = false
 
 [[language]]
 name = "typescript"
-language-servers = ["typescript-language-server", "oxfmt", "oxlint", "typos-lsp"]
+language-servers = [
+  "typescript-language-server",
+  "oxfmt",
+  "oxlint",
+  "typos-lsp",
+]
 auto-format = true
 
 [language-server.typescript-language-server]
 command = "sh"
-args =["-c","mise exec npm:typescript npm:typescript-language-server -- typescript-language-server --stdio"]
+args = [
+  "-c",
+  "mise exec npm:typescript npm:typescript-language-server -- typescript-language-server --stdio",
+]
 
 [language-server.oxfmt]
 command = "sh"
-args =["-c","bunx oxfmt --lsp"]
+args = ["-c", "bunx oxfmt --lsp"]
 
 [language-server.oxlint]
 command = "sh"
-args =["-c","bunx oxlint --lsp"]
+args = ["-c", "bunx oxlint --lsp"]
 
 [language-server.marksman]
 command = "sh"
-args =["-c","mise exec marksman -- marksman server"]
+args = ["-c", "mise exec marksman -- marksman server"]
 
 [[language]]
 name = "markdown"
 language-servers = ["marksman", "typos-lsp"]
 scope = ""
-file-types = [{glob = "*.md"}]
+file-types = [{ glob = "*.md" }]
 auto-format = true
 
 [language-server.bash-language-server]
 command = "sh"
-args =["-c","mise exec npm:bash-language-server -- bash-language-server start"]
+args = [
+  "-c",
+  "mise exec npm:bash-language-server -- bash-language-server start",
+]
 
 [[language]]
 name = "bash"
@@ -91,15 +102,21 @@ auto-format = true
 
 [language-server.gopls]
 command = "sh"
-args =["-c","CGO_ENABLED=0 mise exec go:golang.org/x/tools/gopls -- gopls"]
+args = ["-c", "CGO_ENABLED=0 mise exec go:golang.org/x/tools/gopls -- gopls"]
 
 [language-server.golangci-lint-lsp]
 command = "sh"
-args =["-c","CGO_ENABLED=0 mise exec go:github.com/nametake/golangci-lint-langserver -- golangci-lint-langserver"]
+args = [
+  "-c",
+  "CGO_ENABLED=0 mise exec go:github.com/nametake/golangci-lint-langserver -- golangci-lint-langserver",
+]
 
 [language-server.golangci-lint-lsp.config]
 command = "sh"
-args =["-c","CGO_ENABLED=0 mise exec go: github.com/golangci/golangci-lint/v2/cmd/golangci-lint -- golangci-lint run --output.json.path=stdout --show-stats=false --issues-exit-code=1"]
+args = [
+  "-c",
+  "CGO_ENABLED=0 mise exec go: github.com/golangci/golangci-lint/v2/cmd/golangci-lint -- golangci-lint run --output.json.path=stdout --show-stats=false --issues-exit-code=1",
+]
 
 [[language]]
 name = "go"
