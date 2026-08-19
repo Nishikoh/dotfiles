@@ -2,6 +2,8 @@
 bun = "latest"
 gh = "latest"
 uv = "latest"
+claude = "latest"
+codex = "latest"
 
 [settings]
 experimental = true
