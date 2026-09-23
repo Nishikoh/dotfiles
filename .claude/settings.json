@@ -11,9 +11,9 @@
       "Read(//**/.claude/.credentials.json)",
       "Read(//**/.credentials.json)"
     ],
-    "defaultMode": "default"
+    "defaultMode": "auto"
   },
-  "model": "claude-fable-5[1m]",
+  "model": "haiku",
   "hooks": {
     "PreToolUse": [
       {
@@ -33,10 +33,18 @@
   },
   "language": "日本語",
   "effortLevel": "xhigh",
+  "awaySummaryEnabled": false,
+  "askUserQuestionTimeout": "never",
   "skipWorkflowUsageWarning": true,
   "theme": "dark",
   "editorMode": "normal",
-  "autoCompactEnabled": true,
-  "switchModelsOnFlag": false,
-  "remoteControlAtStartup": true
+  "autoCompactEnabled": false,
+  "switchModelsOnFlag": true,
+  "autoContinueAtUsageLimit": false,
+  "remoteControlAtStartup": true,
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
+  "env": {
+    "CLAUDE_CODE_SHELL": "/bin/bash"
+  },
 }
