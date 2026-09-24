@@ -72,6 +72,8 @@ setup::rust::bins() {
 # @cmd setup .config/ directory
 # @arg path=~/setup/dotfiles 		path to dotfiles directory
 setup::config() {
+	# argcは @arg のデフォルト値をチルダ展開しないため、先頭の ~ を $HOME に展開する
+	argc_path="${argc_path/#\~/$HOME}"
 	# 優先順位: 引数 > 環境変数 > スクリプトの場所 > デフォルト
 	if [ -n "$argc_path" ] && [ "$argc_path" != "$HOME/setup/dotfiles" ]; then
 		DOTFILES_DIR="$argc_path"
@@ -106,8 +108,8 @@ setup::config() {
 	    # シンボリックリンク先
 	    link="$DEST_DIR/$name"
 	
-	    # 既にリンクやファイルが存在する場合はスキップ
-	    if [ -e "$link" ]; then
+	    # 既にリンクやファイルが存在する場合はスキップ (リンク切れのシンボリックリンクも含む)
+	    if [ -e "$link" ] || [ -L "$link" ]; then
 	        echo "スキップ: $link は既に存在します"
 	    else
 	        ln -s "$item" "$link"
@@ -152,6 +154,8 @@ claude_link_targets_list=("settings.json" "hooks" "statusline-command.sh" "skill
 # @cmd setup dotfiles
 # @arg path=~/setup/dotfiles 		path to git clone for dotfiles
 setup::dotfiles() {
+	# argcは @arg のデフォルト値をチルダ展開しないため、先頭の ~ を $HOME に展開する
+	argc_path="${argc_path/#\~/$HOME}"
 
 	if [ "$argc_path" = "$HOME" ]; then
 		echo invalid dir. This is Home.
