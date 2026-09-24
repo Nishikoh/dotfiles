@@ -201,11 +201,10 @@ clean::dotfiles() {
 # @cmd setup ~/.claude symlinks (settings.json/hooks/statusline-command.sh/skills/dev-lsp)
 # @arg path=~/setup/dotfiles 		path to dotfiles directory
 setup::claude() {
+	# argcは @arg のデフォルト値をチルダ展開しないため、先頭の ~ を $HOME に展開する
+	argc_path="${argc_path/#\~/$HOME}"
 	# 優先順位: 引数 > 環境変数 > スクリプトの場所 > デフォルト
-	# argcは @arg のデフォルト値をチルダ展開しないため、未指定時は argc_path に
-	# リテラル文字列 "~/setup/dotfiles" が入る。展開済みパスと比較すると常に不一致になり
-	# 誤ってその壊れた値を使ってしまうため、比較対象は展開前のデフォルト文字列にする。
-	if [ -n "$argc_path" ] && [ "$argc_path" != "~/setup/dotfiles" ]; then
+	if [ -n "$argc_path" ] && [ "$argc_path" != "$HOME/setup/dotfiles" ]; then
 		DOTFILES_DIR="$argc_path"
 	elif [ -n "$DOTFILES_DIR" ]; then
 		: # DOTFILES_DIR is already set from environment
