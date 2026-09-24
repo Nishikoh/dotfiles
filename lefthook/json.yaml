@@ -1,0 +1,32 @@
+lint: &lint
+  parallel: true
+  skip:
+    - merge
+    - rebase
+  commands:
+    jq:  # JSONの構文チェック (末尾カンマなどを検出)
+      glob: "*.json"
+      # コメントや末尾カンマを許容するJSONCのファイルは除外する
+      # "**/" はルート直下にマッチしないため、ルート直下用のパターンも併記する
+      exclude:
+        - ".vscode/**"
+        - "**/.vscode/**"
+        - ".vscode-server/**"
+        - "**/.vscode-server/**"
+        - "tsconfig*.json"
+        - "**/tsconfig*.json"
+        - "jsconfig*.json"
+        - "**/jsconfig*.json"
+        - "devcontainer.json"
+        - "**/devcontainer.json"
+      run: |
+        status=0
+        for file in {staged_files}; do
+          if ! jq empty "$file" > /dev/null; then
+            echo "Invalid JSON: $file"
+            status=1
+          fi
+        done
+        exit $status
+
+pre-commit: *lint

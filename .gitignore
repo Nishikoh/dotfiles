@@ -1,1 +1,6 @@
 zsh/plugins/zsh-helix-mode
+
+# グローバルの gitignore (*lefthook*) で無視される lefthook の共有設定を追跡する
+# .lefthook-local.yaml はマシンごとの設定のため無視したままにする
+!/lefthook/
+!/.lefthook.yaml
