@@ -12,3 +12,43 @@ desc = "Search file by content (rg)"
 on   = [ "g", "i" ]
 run  = "plugin lazygit"
 desc = "run lazygit"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "t", "a" ]
+run  = "plugin toggle-pane min-parent"
+desc = "Show or hide the parent pane"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "t", "A" ]
+run  = "plugin toggle-pane max-parent"
+desc = "Maximize or restore the parent pane"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "t", "b" ]
+run  = "plugin toggle-pane min-current"
+desc = "Show or hide the current pane"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "t", "B" ]
+run  = "plugin toggle-pane max-current"
+desc = "Maximize or restore the current pane"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "t", "c" ]
+run  = "plugin toggle-pane min-preview"
+desc = "Show or hide the preview pane"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "t", "C" ]
+run  = "plugin toggle-pane max-preview"
+desc = "Maximize or restore the preview pane"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "t", "r" ]
+run  = "plugin toggle-pane reset"
+desc = "reset ratio"
+
+[[mgr.prepend_keymap]]
+on   = [ "g", "C" ]
+run  = "plugin vcs-files"
+desc = "Show Git file changes"

@@ -8,6 +8,16 @@ use = "Lil-Dank/lazygit"
 rev = "8c4086c"
 hash = "85316b5e9abeae2531d3e5d02a094381"
 
+[[plugin.deps]]
+use = "yazi-rs/plugins:vcs-files"
+rev = "f703392"
+hash = "4f2a05edce73aef2bceb2ee2c134c8f2"
+
+[[plugin.deps]]
+use = "yazi-rs/plugins:toggle-pane"
+rev = "f703392"
+hash = "5b2fbef7d1513ce38ff72623a071a5e"
+
 [[flavor.deps]]
 use = "yazi-rs/flavors:catppuccin-macchiato"
 rev = "ca61658"
