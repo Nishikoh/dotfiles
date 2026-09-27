@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# ssh — WSL では Windows の ssh.exe を、それ以外では PATH 上の本来の ssh を実行する差し替え。
+#
+# 目的:
+#   WSL 上の herdr --remote のように shell を介さず `ssh` を起動するツールにも、Windows 側の
+#   OpenSSH（%USERPROFILE%\.ssh\config と、1Password など Windows の SSH Agent）を使わせる。
+#   alias は shell を介さない起動に効かないので、PATH 上の実行ファイルとして置く。
+#   前提は、bin/ が PATH で本来の ssh より前にあること（zsh/02path.zsh）。
+#
+# WSL で ssh.exe になると変わること:
+#   - WSL 側の ~/.ssh/config と鍵は読まれない。-i / -F に Linux のパスを渡しても ssh.exe は解決できない。
+#   - ControlMaster（-S の Unix socket）は使えない。herdr は ~/.config/herdr/config.toml の
+#     [remote] manage_ssh_config = false と併用する（既定の true だと Linux のパスを -F / -S で渡す）。
+#   - 本来の Linux ssh が要るときは /usr/bin/ssh を直接呼ぶ。
+#
+# 判定:
+#   WSL interop が有効なときだけ binfmt_misc に WSLInterop（版によって WSLInterop-late）が登録される。
+#   登録があり ssh.exe を実行できるなら ssh.exe を使う。interop が無効な WSL と WSL 以外は本来の ssh を使う。
+#
+# 環境変数（テストで差し替えるため）:
+#   SSH_WRAPPER_WINDOWS_SSH  ssh.exe のパス（既定: /mnt/c/Windows/System32/OpenSSH/ssh.exe）
+#   SSH_WRAPPER_BINFMT_DIR   binfmt_misc のディレクトリ（既定: /proc/sys/fs/binfmt_misc）
+#
+# テスト: bash tests/test-ssh-wrapper.sh
+set -uo pipefail
+
+windows_ssh="${SSH_WRAPPER_WINDOWS_SSH:-/mnt/c/Windows/System32/OpenSSH/ssh.exe}"
+binfmt_dir="${SSH_WRAPPER_BINFMT_DIR:-/proc/sys/fs/binfmt_misc}"
+
+wsl_interop_enabled() {
+  local entry
+  for entry in "${binfmt_dir}"/WSLInterop*; do
+    [[ -e "${entry}" ]] && return 0
+  done
+  return 1
+}
+
+if wsl_interop_enabled; then
+  if [[ -f "${windows_ssh}" && -x "${windows_ssh}" ]]; then
+    # Linux 側の agent socket を Windows 側へ持ち込まない。既定の WSLENV では元々渡らないので、
+    # WSLENV に SSH_AUTH_SOCK を足した環境でも Windows の agent（名前付きパイプ）を使わせるための防御。
+    unset SSH_AUTH_SOCK
+    exec "${windows_ssh}" "$@"
+  fi
+  # WSL で ssh.exe が無いのは設定漏れなので、黙って Linux の ssh に切り替えずに知らせる。
+  echo "ssh: ${windows_ssh} を実行できないため、Linux の ssh を使います" >&2
+fi
+
+# 本来の ssh を PATH から探す。自分自身は -ef（同じ実体）で除外し、symlink 経由の再帰も防ぐ。
+self="${BASH_SOURCE[0]}"
+IFS=: read -r -a path_entries <<<"${PATH}"
+for dir in "${path_entries[@]}"; do
+  candidate="${dir:-.}/ssh"
+  if [[ -f "${candidate}" && -x "${candidate}" && ! "${candidate}" -ef "${self}" ]]; then
+    exec "${candidate}" "$@"
+  fi
+done
+
+echo "ssh: PATH に本来の ssh が見つかりません（${self} は差し替え用のラッパーです）" >&2
+exit 127
