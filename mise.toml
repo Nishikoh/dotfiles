@@ -1,12 +1,6 @@
-# dotfiles を mise bootstrap でセットアップするための設定 (対象 OS: Ubuntu, Arch)
+# dotfiles を mise bootstrap でセットアップするための設定 (対象 OS: Ubuntu, Arch。WSL を含む)
 # https://mise.jdx.dev/bootstrap.html
-#
-# 新しいマシン (前提: curl, git, sudo):
-#   curl https://mise.run | sh
-#   ~/.local/bin/mise bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes
-#
-# clone 済みのリポジトリから:
-#   mise trust && mise bootstrap
+# セットアップ手順は README.md を参照。
 #
 # ツール本体 ([tools]) は .config/mise/ のグローバル設定で管理する。
 # このファイルは clone したリポジトリをマシンに配置するための宣言だけを持つ。
