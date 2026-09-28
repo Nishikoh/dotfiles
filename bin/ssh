@@ -16,8 +16,10 @@
 # 判定:
 #   WSL interop が有効なときだけ binfmt_misc に WSLInterop（版によって WSLInterop-late）が登録される。
 #   登録があり ssh.exe を実行できるなら ssh.exe を使う。interop が無効な WSL と WSL 以外は本来の ssh を使う。
+#   binfmt_misc はカーネル全体で共有されるため、WSL 上の特権コンテナが binfmt_misc を mount すると
+#   WSLInterop が見えるが、Windows のドライブは無い。その場合も本来の ssh を黙って使う。
 #
-# 環境変数（テストで差し替えるため）:
+# 環境変数（automount の root を変えた WSL や、テストで差し替える）:
 #   SSH_WRAPPER_WINDOWS_SSH  ssh.exe のパス（既定: /mnt/c/Windows/System32/OpenSSH/ssh.exe）
 #   SSH_WRAPPER_BINFMT_DIR   binfmt_misc のディレクトリ（既定: /proc/sys/fs/binfmt_misc）
 #
@@ -42,13 +44,18 @@ if wsl_interop_enabled; then
     unset SSH_AUTH_SOCK
     exec "${windows_ssh}" "$@"
   fi
-  # WSL で ssh.exe が無いのは設定漏れなので、黙って Linux の ssh に切り替えずに知らせる。
-  echo "ssh: ${windows_ssh} を実行できないため、Linux の ssh を使います" >&2
+  # Windows のドライブ（ssh.exe から 2 階層上の System32）が見えるのに ssh.exe を使えないのは
+  # 設定漏れ（OpenSSH クライアント未導入など）なので、黙って Linux の ssh に切り替えずに知らせる。
+  # ドライブ自体が無い（コンテナ、automount の root 変更）なら WSL の外と同じ扱いで黙って続ける。
+  if [[ -d "${windows_ssh%/*/*}" ]]; then
+    echo "ssh: ${windows_ssh} を実行できないため、Linux の ssh を使います" >&2
+  fi
 fi
 
 # 本来の ssh を PATH から探す。自分自身は -ef（同じ実体）で除外し、symlink 経由の再帰も防ぐ。
+# 空要素はカレントディレクトリ（execvp と同じ）。read -a は末尾の空要素を落とすので ":" を足して残す。
 self="${BASH_SOURCE[0]}"
-IFS=: read -r -a path_entries <<<"${PATH}"
+IFS=: read -r -a path_entries <<<"${PATH}:"
 for dir in "${path_entries[@]}"; do
   candidate="${dir:-.}/ssh"
   if [[ -f "${candidate}" && -x "${candidate}" && ! "${candidate}" -ef "${self}" ]]; then
