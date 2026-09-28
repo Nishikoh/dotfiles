@@ -2,48 +2,54 @@ pre-commit:
   exclude_tags:
     - unstable
 
+# lefthook/*.yaml を lh と同じく取り込んだ設定 (tests/lefthook-dump.sh) を検査する。
+# 取り込みに失敗したら dump=... の行で失敗させ、null を期待する検査が素通りしないようにする
 test:
   parallel: true
   commands: &test_commands
-    lefthook-fix-no-parallel: # fix全体ではparallelが設定されていことを確認
+    lefthook-fix-no-parallel: # fix全体ではparallelが設定されていないことを確認
       run: |
-        if ! lefthook dump | yq .fix.parallel | grep "null" ; then
+        dump=$(bash tests/lefthook-dump.sh) || exit 1
+        if [ "$(echo "$dump" | yq .fix.parallel)" != "null" ]; then
           echo "fix.parallel is not null."
           exit 1
         fi
-    lefthook-fix-commands-parallel: # fix.commandsではparallelが設定されていことを確認
+    lefthook-fix-commands-parallel: # fix.jobsのgroupではparallelが設定されていることを確認
       run: |
-        if [ $( lefthook dump | yq ".fix.jobs[0].group.parallel" ) != "true" ] ; then
+        dump=$(bash tests/lefthook-dump.sh) || exit 1
+        if [ "$(echo "$dump" | yq '.fix.jobs[0].group.parallel')" != "true" ]; then
           echo "fix.jobs.parallel is not true."
           exit 1
         fi
-
     lefthook-lint-enable-parallel:
       run: |
-        if ! lefthook dump | yq .lint.parallel | grep "true" ; then
+        dump=$(bash tests/lefthook-dump.sh) || exit 1
+        if [ "$(echo "$dump" | yq .lint.parallel)" != "true" ]; then
           echo "lint.parallel is not true."
           exit 1
         fi
     lefthook-fix-commands-length:
       run: |
-        if [ $( lefthook dump | yq ".fix.jobs | length" ) -ne 1 ]  ; then
+        dump=$(bash tests/lefthook-dump.sh) || exit 1
+        if [ "$(echo "$dump" | yq '.fix.jobs | length')" -ne 1 ]; then
           echo "fix.jobs length is not 1."
           exit 1
         fi
-        if [ $( lefthook dump | yq ".fix.jobs[0].group.jobs | length" ) -lt 6 ] ; then
+        if [ "$(echo "$dump" | yq '.fix.jobs[0].group.jobs | length')" -lt 6 ]; then
           echo "fix.jobs[0].group.jobs length is less than 6."
           exit 1
         fi
     lefthook-no-files: # 全体にfilesがオーバーライドされていないか確認
       run: |
-        if  [ $( lefthook dump | yq ".lint.files") != "null"  ] ; then
+        dump=$(bash tests/lefthook-dump.sh) || exit 1
+        if [ "$(echo "$dump" | yq .lint.files)" != "null" ]; then
           echo "lint.files is not null."
-          echo debug: $( lefthook dump | yq ".lint.files")
+          echo "debug: $(echo "$dump" | yq .lint.files)"
           exit 1
         fi
-        if [ $( lefthook dump | yq ".fix.files") != "null" ] ; then
+        if [ "$(echo "$dump" | yq .fix.files)" != "null" ]; then
           echo "fix.files is not null."
-          echo debug: $( lefthook dump | yq ".fix.files")
+          echo "debug: $(echo "$dump" | yq .fix.files)"
           exit 1
         fi
 
