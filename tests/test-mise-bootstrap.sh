@@ -20,6 +20,10 @@
 #   - clone 済みのリポジトリで 2 回目の `mise bootstrap` をしても失敗しない（冪等である）ことを確かめる。
 set -euo pipefail
 
+# git の hook などから呼ばれて GIT_DIR などが設定されていると、スナップショットの git init が
+# 呼び出し元のリポジトリを再初期化してしまうので消しておく (tests/lefthook-dump.sh と同じ)
+while IFS= read -r var; do unset "${var}"; done < <(git rev-parse --local-env-vars)
+
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd "${test_dir}/.." && pwd)"
 
