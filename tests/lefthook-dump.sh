@@ -6,6 +6,11 @@
 #   LEFTHOOK_DUMP_DIR  取り込む yaml のディレクトリ (既定: リポジトリの lefthook/)。取り込み失敗を試すときに使う
 set -euo pipefail
 
+# git は hook の実行時に GIT_DIR などを設定する。これを引き継ぐと、下の git init が一時ディレクトリではなく
+# 呼び出し元のリポジトリを再初期化し (worktree からだと core.bare=true になり main の作業ツリーが壊れる)、
+# lefthook dump も呼び出し元の設定を読んでしまう
+while IFS= read -r var; do unset "${var}"; done < <(git rev-parse --local-env-vars)
+
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 lefthook_dir="${LEFTHOOK_DUMP_DIR:-${repo_dir}/lefthook}"
 
