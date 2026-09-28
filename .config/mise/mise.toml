@@ -32,11 +32,19 @@ rclone = "latest"
 "github:htop-dev/htop" = "latest"
 "pipx:tldr" = "latest"
 worktrunk = "latest"
-"nix:pueue" = "latest" # pueuedがgithub backendからのインストールに対応していない
+"aqua:Nukesor/pueue/pueue" = "latest"
+"aqua:Nukesor/pueue/pueued" = "latest"
 go = "latest"
 herdr = "latest"
 hunk = "latest"
 claude = "latest"
+rust = "latest"
+cpz = "latest"
+rmz = "latest"
+"github:tarka/xcp" = "latest"
+ghalint = "latest"
+"aqua:suzuki-shunsuke/ghatm" = "latest"
+"aqua:suzuki-shunsuke/github-comment" = "latest"
 
 [settings]
 experimental = true

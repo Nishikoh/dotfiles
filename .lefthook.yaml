@@ -50,13 +50,4 @@ test:
 pre-push:
   parallel: true
   commands:
-    check-argc-diff:
-      glob: "Argcfile.sh"
-      run: |
-        argc --argc-build Argcfile.sh setup.sh
-        # setup.shに変更があれば失敗
-        if [ -n "$(git diff --name-only HEAD)" ]; then
-          echo "setup.sh has been changed."
-          exit 1
-        fi
     <<: *test_commands

@@ -1,0 +1,86 @@
+# dotfiles を mise bootstrap でセットアップするための設定 (対象 OS: Ubuntu, Arch)
+# https://mise.jdx.dev/bootstrap.html
+#
+# 新しいマシン (前提: curl, git, sudo):
+#   curl https://mise.run | sh
+#   ~/.local/bin/mise bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes
+#
+# clone 済みのリポジトリから:
+#   mise trust && mise bootstrap
+#
+# ツール本体 ([tools]) は .config/mise/ のグローバル設定で管理する。
+# このファイルは clone したリポジトリをマシンに配置するための宣言だけを持つ。
+
+[bootstrap.packages]
+"apt:zsh" = "latest"
+"apt:git" = "latest"
+"apt:curl" = "latest"
+"apt:vim" = "latest"
+"apt:build-essential" = "latest" # rust (cargo) のリンカ
+"apt:libatomic1" = "latest"      # mise の node が必要とする
+"apt:gawk" = "latest"            # argc-completions の生成に使う
+"pacman:zsh" = "latest"
+"pacman:git" = "latest"
+"pacman:curl" = "latest"
+"pacman:vim" = "latest"
+"pacman:base-devel" = "latest"   # rust (cargo) のリンカ
+"pacman:gawk" = "latest"         # argc-completions の生成に使う
+
+[bootstrap.repos]
+"~/setup/argc-completions" = { url = "https://github.com/sigoden/argc-completions.git" }
+"~/setup/terraform-target" = { url = "https://github.com/soar/terraform-target.git" }
+"~/.vim/pack/github/start/copilot.vim" = { url = "https://github.com/github/copilot.vim.git" }
+"zsh/plugins/zsh-helix-mode" = { url = "https://github.com/Nishikoh/zsh-helix-mode.git", ref = "fix-utf-8-handling" }
+
+# 相対パスの source はこのファイルのディレクトリ (リポジトリのルート) からの相対パス
+[dotfiles]
+"~/.gitconfig" = { source = ".gitconfig", mode = "symlink" }
+"~/.vimrc" = { source = ".vimrc", mode = "symlink" }
+"~/.zshrc" = { source = ".zshrc", mode = "symlink" }
+# .config/ 直下の各アイテムを ~/.config/ にリンクする (~/.config/mise もここでリンクされる)
+"~/.config/*" = { source = ".config/*", mode = "symlink" }
+"~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
+"~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
+"~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }
+"~/.claude/skills/dev-lsp" = { source = ".claude/skills/dev-lsp", mode = "symlink" }
+"~/setup/bin/terraform-target" = { source = "~/setup/terraform-target/terraform-target", mode = "symlink" }
+
+# `mise bootstrap --from` はその実行の間だけこの設定を信頼するので、clone 先で mise を使えるように trust しておく
+[bootstrap.hooks]
+post-dotfiles = "mise trust --quiet '{{config_root}}'"
+
+# mise bootstrap の最後に毎回実行される
+[tasks.bootstrap]
+description = "mise bootstrap の宣言でカバーできないセットアップ"
+depends = ["setup:completion"]
+
+[tasks."setup:completion"]
+description = "argc-completions の補完スクリプトを生成する"
+dir = "{{env.HOME}}/setup/argc-completions"
+run = '''
+./scripts/download-tools.sh
+
+argc generate git
+git restore completions/
+
+# lefthook wrapperの補完を追加
+sed -e 's|${argc__args\[0\]}|lefthook|g' completions/lefthook.sh >completions/lh.sh
+# 生成物で worktree が dirty になると mise bootstrap の repos フェーズが失敗するため、git から無視させる
+grep -qxF completions/lh.sh .git/info/exclude || echo completions/lh.sh >>.git/info/exclude
+
+./scripts/setup-shell.sh zsh
+'''
+
+[tasks."setup:copilot"]
+description = "GitHub Copilot CLI をセットアップする (対話的なログインが必要)"
+run = '''
+if ! gh copilot --version; then
+	gh auth login --web -h github.com
+	gh extension install github/gh-copilot --force
+fi
+echo "Start Vim/Neovim and invoke ':Copilot setup' ."
+'''
+
+[tasks."update:fzf-gcloud"]
+description = "zsh/plugins/.fzf-gcloud.plugin.zsh を最新版に更新する"
+run = "curl -fsSL https://raw.githubusercontent.com/mbhynes/fzf-gcloud/main/fzf-gcloud.plugin.zsh -o zsh/plugins/.fzf-gcloud.plugin.zsh"
