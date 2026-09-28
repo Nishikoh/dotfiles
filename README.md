@@ -14,10 +14,12 @@ clone 済みなら
 
 ```sh
 cd ~/setup/dotfiles
-mise trust
+mise trust --all   # リポジトリ内の .config/mise/mise.toml も一緒に信頼する
 mise bootstrap --dry-run
 mise bootstrap
 ```
+
+以前の手順 (Argcfile.sh) で補完を生成したマシンでは、`~/setup/argc-completions` に残った生成物のせいで `--dry-run` が「local changes」で止まる。`mise bootstrap` は repos フェーズの前に生成物を git から無視させるので、そのまま実行してよい。
 
 - システムパッケージ / clone するリポジトリ / symlink する dotfiles: [mise.toml](mise.toml)
 - インストールするツール: [.config/mise/](.config/mise/) (`~/.config/mise` にリンクされる)
@@ -38,4 +40,6 @@ lefthook run test
 bash tests/test-mise-bootstrap.sh
 # 繰り返し試すときはツールのインストールを省いて GitHub API のレート制限を避ける
 SKIP_TOOLS=1 bash tests/test-mise-bootstrap.sh
+# ツールまで含めるときは GITHUB_TOKEN を明示して渡す (認証なしは 60 回/時で足りない。権限なしのトークンで十分)
+GITHUB_TOKEN=... bash tests/test-mise-bootstrap.sh
 ```
