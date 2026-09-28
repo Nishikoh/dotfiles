@@ -8,6 +8,7 @@
 - ツールの挙動の実験はホストでしない。Docker で行う (ホストの設定やサーバーは実際に使われている)
 - 1 回目の bootstrap だけでなく、2 回目の実行と clone したリポジトリに変更が残っていないことまで確かめる
 - コミット前に `git -c core.excludesFile=/dev/null status --short` と `git status --short` を見比べる。グローバルの gitignore で黙って除外されたファイルは `git add -f` する
+- git の hook から呼ばれるスクリプトで git を使うときは、先に `git rev-parse --local-env-vars` の変数を消す (引き継いだ `GIT_DIR` で呼び出し元のリポジトリを壊したことがある)
 - worktree で `lh` を実行したり `.lefthook-local.yaml` を作ったりしない
 - `master` 以外をベースにした PR では CI が自動で動かないので `gh workflow run setup.yml --ref <branch>` で起動する
 - 必要な mise は 2026.9.8 以上。ホストの mise はコンテナと別物なので、ホストで設定を読めるかは別に確かめる
