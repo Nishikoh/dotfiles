@@ -1,15 +1,15 @@
-*lefthook*
-*.log
-mise.toml
-.venv/
-.pytest_cache/
-.ruff_cache/
-__pycache__/
-node_modules/
-dist/
-target/
-out/
+# 自分の環境だけが生むファイルに限る。プロジェクトの生成物はそのリポジトリの .gitignore に書く
+# (無視しすぎは黙ってコミット漏れになるので、広いパターンは使わない)
+
+# OS / エディタ
 .DS_Store
-.env*
-*key*
-*secret*
+*.swp
+
+# 個人で使うツールの作業ディレクトリ・ローカル設定
+.worktrees/
+.tmp/
+mise.local.toml
+.mise.local.toml
+lefthook-local.*
+.lefthook-local.*
+.claude/settings.local.json
