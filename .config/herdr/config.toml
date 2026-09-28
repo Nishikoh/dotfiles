@@ -1,0 +1,10 @@
+onboarding = false
+
+[ui.toast]
+delivery = "herdr"
+
+[ui.sound.agents]
+claude = "on"
+codex = "on"
+# claude = "off"
+# codex = "off"

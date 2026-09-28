@@ -8,7 +8,11 @@
 # 前提: curl, git, sudo
 curl https://mise.run | sh
 ~/.local/bin/mise bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes
+# WSL では -E wsl を付ける (WSL 用の設定を mise.wsl.toml で差し替える)
+~/.local/bin/mise -E wsl bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes
 ```
+
+clone 後は、リポジトリ内で実行すると [.miserc.toml](.miserc.toml) が `WSL_DISTRO_NAME` を見て wsl 環境を選ぶ。
 
 clone 済みなら
 

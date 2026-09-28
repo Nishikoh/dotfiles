@@ -58,7 +58,7 @@ mise bootstrap --from /src --from-dir "$dotfiles" --yes $SKIP_ARGS
 
 echo "::: check dotfiles"
 for f in .gitconfig .vimrc .zshrc .config/git/ignore .config/helix .config/lazygit .config/mise .config/starship.toml .config/yazi \
-	.claude/settings.json .claude/hooks .claude/statusline-command.sh .claude/skills/dev-lsp; do
+	.config/herdr/config.toml .claude/settings.json .claude/hooks .claude/statusline-command.sh .claude/skills/dev-lsp; do
 	test "$(readlink ~/"$f")" = "$dotfiles/$f" || { echo "NG: ~/$f -> $(readlink ~/"$f")"; exit 1; }
 done
 test -x ~/setup/bin/terraform-target
@@ -98,6 +98,31 @@ mise bootstrap --yes $SKIP_ARGS
 echo "::: OK"
 '
 
+# WSL を WSL_DISTRO_NAME で模擬する。tools は各 OS の通常の実行で確かめているので省く
+# shellcheck disable=SC2016 # コンテナ内で展開する
+wsl_script='
+set -euo pipefail
+dotfiles=~/setup/dotfiles
+export WSL_DISTRO_NAME=Ubuntu
+
+echo "::: WSL: -E wsl なしの --from は、WSL 以外の設定をリンクしたことを検出して失敗する"
+if mise bootstrap --from /src --from-dir "$dotfiles" --yes --skip tools,task 2>&1 | tee /tmp/out; then
+	echo "NG: 失敗するはずが成功した"
+	exit 1
+fi
+grep -F "mise -E wsl bootstrap" /tmp/out
+
+echo "::: WSL: mise -E wsl bootstrap --from は WSL 用の設定をリンクする"
+mise -E wsl bootstrap --from /src --from-dir "$dotfiles" --yes --skip tools,task
+test "$(readlink ~/.config/herdr/config.toml)" = "$dotfiles/.config/herdr/config.wsl.toml"
+
+echo "::: WSL: リポジトリ内では .miserc.toml が wsl 環境を選ぶので、-E なしでも WSL 用のまま"
+cd "$dotfiles"
+mise bootstrap --yes --skip tools,task
+test "$(readlink ~/.config/herdr/config.toml)" = "$dotfiles/.config/herdr/config.wsl.toml"
+echo "::: OK"
+'
+
 for target in "${targets[@]}"; do
 	echo "===== ${target} ====="
 	docker build -q --build-arg BASE="${target}" -t "dotfiles-bootstrap:${target}" "${repo_dir}" >/dev/null
@@ -108,4 +133,10 @@ for target in "${targets[@]}"; do
 		-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
 		-v "${snapshot}:/src:ro" \
 		"dotfiles-bootstrap:${target}" bash -c "${container_script}"
+
+	echo "===== ${target} (WSL) ====="
+	docker run --rm \
+		-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
+		-v "${snapshot}:/src:ro" \
+		"dotfiles-bootstrap:${target}" bash -c "${wsl_script}"
 done

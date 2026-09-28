@@ -1,0 +1,13 @@
+# WSL 用の herdr 設定。WSL では mise.wsl.toml がこのファイルを ~/.config/herdr/config.toml にリンクする。
+# herdr には include が無いため、WSL 以外と共通のキーは config.toml と両方を編集する。
+
+onboarding = false
+
+[ui.toast]
+delivery = "herdr"
+
+[ui.sound.agents]
+claude = "on"
+codex = "on"
+# claude = "off"
+# codex = "off"

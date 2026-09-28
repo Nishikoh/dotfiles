@@ -62,15 +62,21 @@ dotfiles.root = "~/setup/dotfiles"
 "~/.config/yazi" = { source = ".config/yazi", mode = "symlink" }
 # ~/.config/git には他のツール (omarchy など) が config を置くので、ディレクトリではなくファイルをリンクする
 "~/.config/git/ignore" = { source = ".config/git/ignore", mode = "symlink" }
+# ~/.config/herdr にはソケットやログもあるのでファイルをリンクする。WSL では mise.wsl.toml が config.wsl.toml に差し替える
+"~/.config/herdr/config.toml" = { source = ".config/herdr/config.toml", mode = "symlink" }
 "~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
 "~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
 "~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }
 "~/.claude/skills/dev-lsp" = { source = ".claude/skills/dev-lsp", mode = "symlink" }
 "~/setup/bin/terraform-target" = { source = "~/setup/terraform-target/terraform-target", mode = "symlink" }
 
-# `mise bootstrap --from` はその実行の間だけこの設定を信頼するので、clone 先で mise を使えるように trust しておく
 [bootstrap.hooks]
-post-dotfiles = "mise trust --quiet '{{config_root}}'"
+post-dotfiles = [
+  # `mise bootstrap --from` はその実行の間だけこの設定を信頼するので、clone 先で mise を使えるように trust しておく
+  "mise trust --quiet '{{config_root}}'",
+  # WSL なのに WSL 以外の設定がリンクされたら失敗させる
+  "sh '{{config_root}}/bootstrap/check-wsl-dotfiles.sh'",
+]
 
 # mise bootstrap の最後に毎回実行される
 [tasks.bootstrap]

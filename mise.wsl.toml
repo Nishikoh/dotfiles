@@ -1,0 +1,3 @@
+# WSL のときだけ読み込まれる (.miserc.toml が wsl 環境を選ぶ)。mise.toml の同じキーを上書きする
+[dotfiles]
+"~/.config/herdr/config.toml" = { source = ".config/herdr/config.wsl.toml", mode = "symlink" }
