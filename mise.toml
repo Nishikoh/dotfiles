@@ -68,7 +68,7 @@ depends = ["setup:completion"]
 [tasks."setup:completion"]
 description = "argc-completions の補完スクリプトを生成する"
 dir = "{{env.HOME}}/setup/argc-completions"
-# 生成はネットワークを使うので、argc-completions が更新されたときだけ実行する
+# 生成はネットワークを使うので、argc-completions が更新されたときと、設定 (mise.toml) を変えたときだけ実行する
 sources = [
   "{{env.HOME}}/setup/argc-completions/.git/HEAD",
   "{{env.HOME}}/setup/argc-completions/.git/refs/heads/*",
