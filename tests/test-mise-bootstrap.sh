@@ -12,7 +12,7 @@
 #                 権限を何も付けないトークン (fine-grained PAT など) で十分。
 #
 # 判定の考え方:
-#   - 作業ツリー（未コミットの変更を含む）を git リポジトリとしてスナップショットし、
+#   - git に登録済み (stage 済みを含む) のファイルを、作業ツリーの内容 (未コミットの変更を含む) で git リポジトリにスナップショットし、
 #     コンテナ内で `mise bootstrap --from <snapshot>` する。新しいマシンで GitHub から clone する手順と同じ流れになる。
 #   - 1 回目の後に dotfiles / repos / packages が宣言どおりになっていること、zsh が起動できることを確かめる。
 #   - clone 済みのリポジトリで 2 回目の `mise bootstrap` をしても失敗しない（冪等である）ことを確かめる。
@@ -52,17 +52,20 @@ trap 'rm -rf "${work_dir}"' EXIT
 # グローバルの gitignore に左右されないよう、リポジトリの .gitignore だけを見てファイルを集める
 snapshot="${work_dir}/dotfiles"
 mkdir -p "${snapshot}"
+# CI が checkout するのと同じく、git に登録済み (stage 済みを含む) のファイルだけを使う。
+# 登録していないファイルは含めない (無視されている秘密情報などをコンテナに渡さないため)。新しいファイルは先に git add する。
 # 作業ツリーで削除したファイル (stage していないもの) は --cached に残るので除く
 (
 	cd "${repo_dir}"
-	git -c core.excludesFile=/dev/null ls-files -z --cached --others --exclude-standard |
+	git ls-files -z --cached |
 		while IFS= read -r -d '' f; do
 			if [[ -e "${f}" || -L "${f}" ]]; then printf '%s\0' "${f}"; fi
 		done |
 		tar --null -T - -cf -
 ) | tar -xf - -C "${snapshot}"
 git -C "${snapshot}" init -q
-git -C "${snapshot}" -c core.excludesFile=/dev/null add -A
+# 集めたファイルはすべて登録済みのものなので、ignore に関係なくすべて入れる
+git -C "${snapshot}" add --all --force
 git -C "${snapshot}" -c user.name=test -c user.email=test@example.com commit -qm snapshot
 chmod -R a+rX "${work_dir}"
 
@@ -98,6 +101,8 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	test -f ~/setup/argc-completions/completions/lh.sh
 	# 生成物で argc-completions が dirty になると、次回の repos フェーズが失敗する
 	test -z "$(git -C ~/setup/argc-completions status --porcelain)" || { git -C ~/setup/argc-completions status --short; exit 1; }
+	# zsh/02path.zsh が無条件に読み込む
+	test -f ~/.cargo/env
 	# .zshrc を読み込んだ対話シェルで、mise と cargo のツールが使えること
 	zsh -i -c "command -v starship cargo uv gh claude cpz rmz xcp pueue pueued ghalint github-comment argc terraform-target" </dev/null
 fi
@@ -119,10 +124,9 @@ cd "$dotfiles"
 mise trust --quiet --all
 mise bootstrap --dry-run
 
-echo "::: 既存マシン: 補完の生成物が残った argc-completions と、ダウンロード済みの terraform-target があっても bootstrap できる"
+echo "::: 既存マシン: 以前の手順の補完の生成物が残った argc-completions があっても bootstrap できる"
 git clone -q --depth 1 https://github.com/sigoden/argc-completions.git ~/setup/argc-completions
 touch ~/setup/argc-completions/completions/lh.sh
-mkdir -p ~/setup/bin && printf "#!/bin/sh\n" >~/setup/bin/terraform-target
 mise bootstrap --yes --skip tools,task
 mise bootstrap repos status --missing
 mise dot status --missing

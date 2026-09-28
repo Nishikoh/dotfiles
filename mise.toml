@@ -80,10 +80,14 @@ run = '''
 argc generate git
 git restore completions/
 
-# lefthook wrapperの補完を追加
-sed -e 's|${argc__args\[0\]}|lefthook|g' completions/lefthook.sh >completions/lh.sh
+# 設定方法を表示するだけにする。端末から実行すると ~/.zshrc (リポジトリへの symlink) に追記するか聞いてくるため
+./scripts/setup-shell.sh zsh </dev/null
 
-./scripts/setup-shell.sh zsh
+# lefthook wrapperの補完を追加。lh.sh は outputs なので、途中で失敗しても「最新」と判定されないよう最後に置き換える。
+# 一時ファイルは clone の外に作る (clone に残ると repos フェーズが local changes で失敗する)
+tmp="$(mktemp)"
+sed -e 's|${argc__args\[0\]}|lefthook|g' completions/lefthook.sh >"$tmp"
+mv "$tmp" completions/lh.sh
 '''
 
 [tasks."setup:copilot"]
