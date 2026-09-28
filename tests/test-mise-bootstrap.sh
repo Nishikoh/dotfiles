@@ -57,11 +57,15 @@ echo "::: 1st run: mise bootstrap --from"
 mise bootstrap --from /src --from-dir "$dotfiles" --yes $SKIP_ARGS
 
 echo "::: check dotfiles"
-for f in .gitconfig .vimrc .zshrc .config/git .config/helix .config/lazygit .config/mise .config/starship.toml .config/yazi \
+for f in .gitconfig .vimrc .zshrc .config/git/ignore .config/helix .config/lazygit .config/mise .config/starship.toml .config/yazi \
 	.claude/settings.json .claude/hooks .claude/statusline-command.sh .claude/skills/dev-lsp; do
 	test "$(readlink ~/"$f")" = "$dotfiles/$f" || { echo "NG: ~/$f -> $(readlink ~/"$f")"; exit 1; }
 done
 test -x ~/setup/bin/terraform-target
+
+echo "::: check codex system config"
+grep -qxF "writable_roots = [\"$HOME/.cache/\"]" /etc/codex/config.toml
+test "$(stat -c %U:%a /etc/codex/config.toml)" = root:644
 
 cd "$dotfiles"
 echo "::: check status"
@@ -78,7 +82,16 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	test -z "$(git -C ~/setup/argc-completions status --porcelain)" || { git -C ~/setup/argc-completions status --short; exit 1; }
 	# .zshrc を読み込んだ対話シェルで、mise と cargo のツールが使えること
 	zsh -i -c "command -v starship cargo uv gh claude cpz rmz xcp pueue pueued ghalint github-comment argc" </dev/null
+	# codex が System 設定を読み込むこと (features.multi_agent = false は既定値の true と異なる)
+	zsh -i -c "codex features list" </dev/null | grep -E "^multi_agent +.* false$"
 fi
+
+echo "::: mise dot add で新しい設定をリポジトリに取り込める"
+mkdir -p ~/.config/example && echo "enabled = true" >~/.config/example/example.conf
+mise dot add -l --yes ~/.config/example
+test "$(readlink ~/.config/example)" = "$dotfiles/.config/example"
+test -f "$dotfiles/.config/example/example.conf"
+grep -F "~/.config/example" mise.toml
 
 echo "::: 2nd run: mise bootstrap (idempotent)"
 mise bootstrap --yes $SKIP_ARGS

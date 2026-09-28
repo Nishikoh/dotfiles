@@ -21,11 +21,16 @@ mise bootstrap
 
 - システムパッケージ / clone するリポジトリ / symlink する dotfiles: [mise.toml](mise.toml)
 - インストールするツール: [.config/mise/](.config/mise/) (`~/.config/mise` にリンクされる)
+- codex の設定: [etc/codex/config.toml](etc/codex/config.toml) (`/etc/codex/config.toml` にコピーされる。
+  `~/.codex/config.toml` は codex が trust などを書き込む場所として残し、同じキーを書くとそちらが優先される)
 
 ```sh
 mise bootstrap status   # 宣言どおりになっているか確認する
 mise dot unapply        # dotfiles の symlink を外す
 mise tasks              # 個別のセットアップタスク (setup:copilot など)
+
+# 新しい設定を管理に加える (リポジトリで実行)。ファイルをリポジトリに移して symlink し、mise.toml に追記する
+mise dot add -l ~/.config/foo
 ```
 
 ## test

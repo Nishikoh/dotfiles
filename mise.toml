@@ -26,19 +26,42 @@
 "pacman:base-devel" = "latest"   # rust (cargo) のリンカ
 "pacman:gawk" = "latest"         # argc-completions の生成に使う
 
+# codex は ~/.codex/config.toml に trust などを書き込むので、自分の設定は優先度が最も低い System 設定に置く。
+# コピーなので、etc/codex/config.toml を編集したら mise bootstrap (files) で反映する
+[bootstrap.directories."/etc/codex"]
+owner = "root"
+group = "root"
+mode = "0755"
+
+[bootstrap.files."/etc/codex/config.toml"]
+source = "etc/codex/config.toml"
+template = true
+owner = "root"
+group = "root"
+mode = "0644"
+
 [bootstrap.repos]
 "~/setup/argc-completions" = { url = "https://github.com/sigoden/argc-completions.git" }
 "~/setup/terraform-target" = { url = "https://github.com/soar/terraform-target.git" }
 "~/.vim/pack/github/start/copilot.vim" = { url = "https://github.com/github/copilot.vim.git" }
 "zsh/plugins/zsh-helix-mode" = { url = "https://github.com/Nishikoh/zsh-helix-mode.git", ref = "fix-utf-8-handling" }
 
+[settings]
+# `mise dot add -l ~/.config/foo` で、ホームからの相対パスのままこのリポジトリに取り込む
+dotfiles.root = "~/setup/dotfiles"
+
 # 相対パスの source はこのファイルのディレクトリ (リポジトリのルート) からの相対パス
 [dotfiles]
 "~/.gitconfig" = { source = ".gitconfig", mode = "symlink" }
 "~/.vimrc" = { source = ".vimrc", mode = "symlink" }
 "~/.zshrc" = { source = ".zshrc", mode = "symlink" }
-# .config/ 直下の各アイテムを ~/.config/ にリンクする (~/.config/mise もここでリンクされる)
-"~/.config/*" = { source = ".config/*", mode = "symlink" }
+"~/.config/helix" = { source = ".config/helix", mode = "symlink" }
+"~/.config/lazygit" = { source = ".config/lazygit", mode = "symlink" }
+"~/.config/mise" = { source = ".config/mise", mode = "symlink" }
+"~/.config/starship.toml" = { source = ".config/starship.toml", mode = "symlink" }
+"~/.config/yazi" = { source = ".config/yazi", mode = "symlink" }
+# ~/.config/git には他のツール (omarchy など) が config を置くので、ディレクトリではなくファイルをリンクする
+"~/.config/git/ignore" = { source = ".config/git/ignore", mode = "symlink" }
 "~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
 "~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
 "~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }
