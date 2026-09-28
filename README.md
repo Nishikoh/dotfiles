@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nishikoh/dotfiles/actions/workflows/setup.yml/badge.svg?branch=master)](https://github.com/Nishikoh/dotfiles/actions/workflows/setup.yml)
 
-[mise bootstrap](https://mise.jdx.dev/bootstrap.html) で Ubuntu と Arch (どちらも WSL を含む) をセットアップする。
+[mise bootstrap](https://mise.jdx.dev/bootstrap.html) で Ubuntu と Arch (どちらも WSL を含む) をセットアップする。mise は 2026.9.8 以上が必要。
 
 | 何を | どこで宣言しているか |
 | --- | --- |
@@ -62,7 +62,7 @@ sudo chsh -s /usr/bin/zsh "$(id -un)"
 
 ## 既存のマシンに適用する
 
-前提: `~/setup/dotfiles` に clone してあり、mise が `~/.local/bin/mise` にある (パッケージマネージャーで入れた mise だけだと、zsh の起動時に `~/.local/bin/mise` が見つからずエラーになる)。
+前提: `~/setup/dotfiles` に clone してあり、2026.9.8 以上の mise が `~/.local/bin/mise` にある (`curl https://mise.run | sh` で入る。パッケージマネージャーで入れた mise だけだと、zsh の起動時に `~/.local/bin/mise` が見つからずエラーになる。`mise --version` で確認し、古ければ `mise self-update`)。
 
 ```sh
 cd ~/setup/dotfiles
@@ -93,6 +93,8 @@ mise dot add -l ~/.config/foo
 - symlink で配置したファイルは、`~/.config` 側で編集してもリポジトリに反映される
 
 ## test
+
+開発時の手順とつまずいた点は [docs/development.md](docs/development.md) にまとめている。
 
 ```sh
 # lefthook/*.yaml (lh で各リポジトリに取り込む設定) を検査する
