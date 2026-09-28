@@ -5,6 +5,10 @@
 # ツール本体 ([tools]) は .config/mise/ のグローバル設定で管理する。
 # このファイルは clone したリポジトリをマシンに配置するための宣言だけを持つ。
 
+# mise dot と hook のテンプレート展開 ({{config_root}}) に 2026.9.8 以上が必要。
+# hard にすると古い mise ではリポジトリ内で mise が使えなくなるので、警告だけにする
+min_version = { soft = "2026.9.8" }
+
 [bootstrap.packages]
 "apt:zsh" = "latest"
 "apt:git" = "latest"
@@ -36,7 +40,6 @@ mode = "0644"
 
 [bootstrap.repos]
 "~/setup/argc-completions" = { url = "https://github.com/sigoden/argc-completions.git" }
-"~/setup/terraform-target" = { url = "https://github.com/soar/terraform-target.git" }
 "~/.vim/pack/github/start/copilot.vim" = { url = "https://github.com/github/copilot.vim.git" }
 "zsh/plugins/zsh-helix-mode" = { url = "https://github.com/Nishikoh/zsh-helix-mode.git", ref = "fix-utf-8-handling" }
 
@@ -62,12 +65,18 @@ dotfiles.root = "~/setup/dotfiles"
 "~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
 "~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }
 "~/.claude/skills/dev-lsp" = { source = ".claude/skills/dev-lsp", mode = "symlink" }
-"~/setup/bin/terraform-target" = { source = "~/setup/terraform-target/terraform-target", mode = "symlink" }
 
 [bootstrap.hooks]
+# setup:completion の生成物で argc-completions が dirty になると repos フェーズが失敗するので、git から無視させる。
+# 以前の手順で生成物が残っているマシンのために repos の前に、新しく clone したときのために後にも実行する
+pre-repos = "sh '{{config_root}}/bootstrap/exclude-generated-files.sh'"
+post-repos = "sh '{{config_root}}/bootstrap/exclude-generated-files.sh'"
 post-dotfiles = [
-  # `mise bootstrap --from` はその実行の間だけこの設定を信頼するので、clone 先で mise を使えるように trust しておく
+  # `mise bootstrap --from` はその実行の間だけこの設定を信頼するので、clone 先で mise を使えるように trust しておく。
+  # リポジトリ内の .config/mise/mise.toml もプロジェクトの設定として読まれるので一緒に信頼する。
+  # (--all は実行中の一時的な信頼を見て何も記録しないので、パスを明示する)
   "mise trust --quiet '{{config_root}}'",
+  "mise trust --quiet '{{config_root}}/.config/mise/mise.toml'",
   # WSL なのに WSL 以外の設定がリンクされたら失敗させる
   "sh '{{config_root}}/bootstrap/check-wsl-dotfiles.sh'",
 ]
@@ -80,6 +89,12 @@ depends = ["setup:completion"]
 [tasks."setup:completion"]
 description = "argc-completions の補完スクリプトを生成する"
 dir = "{{env.HOME}}/setup/argc-completions"
+# 生成はネットワークを使うので、argc-completions が更新されたときだけ実行する
+sources = [
+  "{{env.HOME}}/setup/argc-completions/.git/HEAD",
+  "{{env.HOME}}/setup/argc-completions/.git/refs/heads/*",
+]
+outputs = ["{{env.HOME}}/setup/argc-completions/completions/lh.sh"]
 run = '''
 ./scripts/download-tools.sh
 
@@ -88,8 +103,6 @@ git restore completions/
 
 # lefthook wrapperの補完を追加
 sed -e 's|${argc__args\[0\]}|lefthook|g' completions/lefthook.sh >completions/lh.sh
-# 生成物で worktree が dirty になると mise bootstrap の repos フェーズが失敗するため、git から無視させる
-grep -qxF completions/lh.sh .git/info/exclude || echo completions/lh.sh >>.git/info/exclude
 
 ./scripts/setup-shell.sh zsh
 '''

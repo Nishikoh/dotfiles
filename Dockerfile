@@ -17,7 +17,7 @@ RUN apt-get update && \
 
 # hadolint ignore=DL3007
 FROM mirror.gcr.io/archlinux:latest AS arch-base
-RUN pacman -Sy --noconfirm --needed curl git sudo && \
+RUN pacman -Syu --noconfirm --needed curl git sudo && \
     rm -rf /var/cache/pacman/pkg/*
 
 FROM ${BASE}-base

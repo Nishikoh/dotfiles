@@ -7,7 +7,7 @@ set_alias_if_command_exists() {
 	command -v "$1" &>/dev/null && alias "$2"i="$1"
 }
 
-set_alias_if_command_exists "fcp" "cp"
+set_alias_if_command_exists "xcp" "cp"
 set_alias_if_command_exists "rmz" "rm"
 alias mv='mv -i'
 

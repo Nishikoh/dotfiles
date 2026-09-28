@@ -4,7 +4,7 @@
 
 ## 守ること
 
-- 設定を変えたら Docker で確かめる。繰り返すときは `SKIP_TOOLS=1 bash tests/test-mise-bootstrap.sh`。ツールまで含めた実行は最後に一度だけ (GitHub API のレート制限があるため)
+- 設定を変えたら Docker で確かめる。繰り返すときは `SKIP_TOOLS=1 bash tests/test-mise-bootstrap.sh`。ツールまで含めた実行は最後に一度だけ (GitHub API のレート制限があるため)。そのときの `GITHUB_TOKEN` は人間が明示して渡す (エージェントが `gh auth token` などで取得して渡さない)
 - ツールの挙動の実験はホストでしない。Docker で行う (ホストの設定やサーバーは実際に使われている)
 - 1 回目の bootstrap だけでなく、2 回目の実行と clone したリポジトリに変更が残っていないことまで確かめる
 - コミット前に `git -c core.excludesFile=/dev/null status --short` と `git status --short` を見比べる。グローバルの gitignore で黙って除外されたファイルは `git add -f` する

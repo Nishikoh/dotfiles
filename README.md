@@ -67,12 +67,13 @@ sudo chsh -s /usr/bin/zsh "$(id -un)"
 ```sh
 cd ~/setup/dotfiles
 git pull
-mise trust
+mise trust --all   # リポジトリ内の .config/mise/mise.toml も一緒に信頼する
 mise bootstrap --dry-run
 mise bootstrap
 ```
 
 - 置き換え先に実ファイル (例: 以前コピーした `~/.config/lazygit`) があると dotfiles の配置で止まる。中身がリポジトリと同じか、取り込み済みであることを確かめてから `mise bootstrap --force-dotfiles` (WSL では `mise -E wsl bootstrap --force-dotfiles`) で置き換える
+- 以前の手順 (Argcfile.sh) で補完を生成したマシンでは、`~/setup/argc-completions` に残った生成物のせいで `--dry-run` が「local changes」で止まる。`mise bootstrap` は repos フェーズの前に生成物を git から無視させるので、そのまま実行してよい
 - codex: `~/.codex/config.toml` から [etc/codex/config.toml](etc/codex/config.toml) と重複するキーを取り除く。残すと `/etc/codex/config.toml` より優先される
 
 ## 日々の運用
@@ -104,6 +105,8 @@ lefthook run test
 bash tests/test-mise-bootstrap.sh
 # 繰り返し試すときはツールのインストールを省いて GitHub API のレート制限を避ける
 SKIP_TOOLS=1 bash tests/test-mise-bootstrap.sh
+# ツールまで含めるときは GITHUB_TOKEN を明示して渡す (認証なしは 60 回/時で足りない。権限なしのトークンで十分)
+GITHUB_TOKEN=... bash tests/test-mise-bootstrap.sh
 
 # bin/ssh のテスト
 bash tests/test-ssh-wrapper.sh

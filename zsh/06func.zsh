@@ -37,7 +37,7 @@ _cdf() {
 alias cdf='_cdf'
 
 git-completion() {
-	bash "$ORIGIN_DOTFILES_DIR/setup.sh" setup completion
+	mise -C "$ORIGIN_DOTFILES_DIR" run setup:completion
 }
 
 # lefthook wrapper
