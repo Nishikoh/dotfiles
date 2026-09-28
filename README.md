@@ -35,7 +35,7 @@ curl https://mise.run | sh
 ~/.local/bin/mise -E wsl bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes
 ```
 
-- clone 先は `~/setup/dotfiles` にする。zsh の設定と `mise.toml` の `dotfiles.root` がこのパスを前提にしている
+- clone 先は `~/setup/dotfiles` にする。zsh の設定がこのパスを前提にしている
 - OS パッケージと `/etc/codex` を入れるときに sudo のパスワードを聞かれる (`--yes` が省くのは mise の確認だけ)
 - ツールのインストールで GitHub API のレート制限に当たったら、`GITHUB_TOKEN` を設定して再実行する
 
@@ -73,6 +73,7 @@ mise bootstrap
 ```
 
 - 置き換え先に実ファイル (例: 以前コピーした `~/.config/lazygit`) があると dotfiles の配置で止まる。中身がリポジトリと同じか、取り込み済みであることを確かめてから `mise bootstrap --force-dotfiles` (WSL では `mise -E wsl bootstrap --force-dotfiles`) で置き換える
+- 以前の手順で `~/.config/git` をディレクトリごとリポジトリにリンクしていたマシンでは、bootstrap がリンクを外して実ディレクトリに戻す (他のツールがリポジトリ側に書いた `config` などはそこへ移す)。`--dry-run` は hook を実行しないので、このようなマシンでは `~/.config/git/ignore` の衝突を報告して止まる
 - 以前の手順 (Argcfile.sh) で補完を生成したマシンでは、`~/setup/argc-completions` に残った生成物のせいで `--dry-run` が「local changes」で止まる。`mise bootstrap` は repos フェーズの前に生成物を git から無視させるので、そのまま実行してよい
 - codex: `~/.codex/config.toml` から [etc/codex/config.toml](etc/codex/config.toml) と重複するキーを取り除く。残すと `/etc/codex/config.toml` より優先される
 
@@ -86,8 +87,8 @@ mise bootstrap status                              # 宣言どおりになって
 mise tasks                                         # 個別のタスク (setup:copilot など)
 mise dot unapply                                   # dotfiles の symlink を外す
 
-# 新しい設定を管理に加える (リポジトリで実行)。ファイルをリポジトリに移して symlink し、mise.toml に追記する
-mise dot add -l ~/.config/foo
+# 新しい設定を管理に加える (チェックアウトの中で実行)。ファイルをそのチェックアウトに移して symlink し、mise.toml に相対パスで追記する
+mise run dot:add ~/.config/foo
 ```
 
 - `etc/codex/config.toml` はコピーなので、編集したら `mise bootstrap` で反映する

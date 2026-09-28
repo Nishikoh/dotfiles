@@ -154,12 +154,26 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	zsh -i -c "codex features list" </dev/null | grep -E "^multi_agent +.* false$"
 fi
 
-echo "::: mise dot add で新しい設定をリポジトリに取り込める"
+echo "::: mise run dot:add で新しい設定をリポジトリに取り込める"
 mkdir -p ~/.config/example && echo "enabled = true" >~/.config/example/example.conf
-mise dot add -l --yes ~/.config/example
+mise run dot:add ~/.config/example
 test "$(readlink ~/.config/example)" = "$dotfiles/.config/example"
 test -f "$dotfiles/.config/example/example.conf"
-grep -F "~/.config/example" mise.toml
+grep -xF "\"~/.config/example\" = { source = \".config/example\" }" mise.toml
+
+echo "::: 別のチェックアウト (worktree など) で dot:add すると、そのチェックアウトに取り込まれ、main には触らない"
+git clone -q /src ~/other
+(
+	cd ~/other
+	mise trust --quiet --all
+	mkdir -p ~/.config/example2 && echo "enabled = true" >~/.config/example2/example.conf
+	mise run dot:add ~/.config/example2
+	test "$(readlink ~/.config/example2)" = "$HOME/other/.config/example2"
+	test -f ~/other/.config/example2/example.conf
+	grep -xF "\"~/.config/example2\" = { source = \".config/example2\" }" mise.toml
+)
+test ! -e "$dotfiles/.config/example2"
+! grep -F example2 "$dotfiles/mise.toml"
 
 echo "::: 2nd run: mise bootstrap (idempotent)"
 mise bootstrap --yes $SKIP_ARGS
@@ -203,12 +217,35 @@ cd "$dotfiles"
 mise trust --quiet --all
 mise bootstrap --dry-run
 
-echo "::: 既存マシン: 以前の手順の補完の生成物が残った argc-completions があっても bootstrap できる"
+echo "::: 既存マシン: 以前の手順の状態を用意する"
+# 補完の生成物が残った argc-completions
 git clone -q --depth 1 https://github.com/sigoden/argc-completions.git ~/setup/argc-completions
 touch ~/setup/argc-completions/completions/lh.sh
+# ~/.config/git がリポジトリへのディレクトリリンクで、他のツール (omarchy など) の config がリポジトリ側に書かれている
+mkdir -p ~/.config
+ln -s "$dotfiles/.config/git" ~/.config/git
+echo "[user]" >"$dotfiles/.config/git/config"
+
+check_git_dir() {
+	# リポジトリの ignore は普通のファイルのまま変わっていない
+	test -f "$dotfiles/.config/git/ignore" && ! test -L "$dotfiles/.config/git/ignore"
+	git -C "$dotfiles" diff --quiet -- .config/git/ignore
+	# ~/.config/git は実ディレクトリになり、ignore だけがリポジトリへのリンク、config は移っている
+	test -d ~/.config/git && ! test -L ~/.config/git
+	test "$(readlink ~/.config/git/ignore)" = "$dotfiles/.config/git/ignore"
+	test "$(cat ~/.config/git/config)" = "[user]"
+	test -z "$(git -C "$dotfiles" status --porcelain)" || { git -C "$dotfiles" status --short; exit 1; }
+}
+
+echo "::: 既存マシン: bootstrap できる"
 mise bootstrap --yes --skip tools,task
+check_git_dir
 mise bootstrap repos status --missing
 mise dot status --missing
+
+echo "::: 既存マシン: --force-dotfiles でもリポジトリのファイルを壊さない"
+mise bootstrap --yes --skip tools,task --force-dotfiles
+check_git_dir
 echo "::: OK"
 '
 

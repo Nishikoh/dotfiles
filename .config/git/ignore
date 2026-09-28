@@ -13,3 +13,14 @@ mise.local.toml
 lefthook-local.*
 .lefthook-local.*
 .claude/settings.local.json
+
+# 秘密鍵。漏れると取り消せないので、無視しすぎの害 (コミット漏れ) より重く見て、名前が具体的なものだけを無視する。
+# 証明書などをコミットしたいリポジトリでは git add -f するか、そのリポジトリの .gitignore で ! を使う
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ecdsa
+id_ed25519
+id_dsa

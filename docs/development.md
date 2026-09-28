@@ -34,6 +34,8 @@ grep -E '^(=====|:::|NG)' /tmp/bootstrap-test.log   # 出力が多いので区�
 - **git の hook から呼ばれるスクリプトは `GIT_DIR` などを消してから git を使う**: git は hook の実行時に `GIT_DIR` などを設定する。これを引き継いだ `git init` が一時ディレクトリではなく呼び出し元のリポジトリを再初期化し、worktree から push したときに共有の設定へ `core.bare=true` が書かれて main の作業ツリーが使えなくなったことがある。`while IFS= read -r v; do unset "$v"; done < <(git rev-parse --local-env-vars)` で消す (tests/lefthook-dump.sh 参照)。直すときは `git -C <main のパス> config core.bare false`
 - **リポジトリ内の `.config/mise/mise.toml` もプロジェクトの設定として読まれる**: clone しただけの状態では信頼されていないので、README の手順は `mise trust --all`。`--from` の後の hook ではパスを明示して trust する (`--from` の実行中は一時的に信頼されているので、`--all` は何も記録しない)
 - **`--dry-run` は hook を実行しない**: 以前の手順の生成物が残った argc-completions は、除外を登録する pre-repos hook が動かないので `--dry-run` では「local changes」で止まる (実際の `mise bootstrap` は通る)
+- **dotfiles のリンクをディレクトリ単位からファイル単位に変えるときは移行が要る**: 以前 `~/.config/git` をディレクトリごとリポジトリにリンクしていたマシンで `~/.config/git/ignore` をファイル単位でリンクすると、配置先がリポジトリのファイル自身になる。`--force-dotfiles` ではリポジトリの `ignore` が自分自身を指す symlink に置き換わり、中身が消えた。[bootstrap/migrate-dir-links.sh](../bootstrap/migrate-dir-links.sh) に対象を追加し、既存マシンのシナリオでテストする
+- **`dotfiles.root` はチェックアウトの場所を表せない**: `{{config_root}}` は展開されず、その名前のディレクトリが作られる。相対パスは実行時のカレントディレクトリ基準で、リンクも相対パスで壊れる。固定のパスだと別のチェックアウト (worktree) から取り込んだときにファイルと設定が別々のチェックアウトに入る。設定の取り込みは `mise run dot:add <path>` を使う
 - **1 回目が通るだけでは足りない**: 2 回目の `mise bootstrap` と、clone したリポジトリに変更が残っていないことまで確かめる。タスクの生成物で argc-completions が dirty になり、2 回目の repos フェーズが失敗したことがある
 - **Dockerfile の「素のマシン」の再現には意図がある**: パッケージリストの扱いや一般ユーザーで動かす理由は [Dockerfile](../Dockerfile) のコメントを参照
 - **ツールの挙動は Docker で試す**: codex や herdr が設定ファイルをどう書き換えるかは、ホストではなく Docker で試す (ホストでは herdr のサーバーが動いていて、実際に使っている設定がある)。スクリプトをマウントしてツールを入れて実行する

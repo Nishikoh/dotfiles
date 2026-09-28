@@ -43,10 +43,6 @@ mode = "0644"
 "~/.vim/pack/github/start/copilot.vim" = { url = "https://github.com/github/copilot.vim.git" }
 "zsh/plugins/zsh-helix-mode" = { url = "https://github.com/Nishikoh/zsh-helix-mode.git", ref = "fix-utf-8-handling" }
 
-[settings]
-# `mise dot add -l ~/.config/foo` で、ホームからの相対パスのままこのリポジトリに取り込む
-dotfiles.root = "~/setup/dotfiles"
-
 # 相対パスの source はこのファイルのディレクトリ (リポジトリのルート) からの相対パス
 [dotfiles]
 "~/.gitconfig" = { source = ".gitconfig", mode = "symlink" }
@@ -71,6 +67,8 @@ dotfiles.root = "~/setup/dotfiles"
 # 以前の手順で生成物が残っているマシンのために repos の前に、新しく clone したときのために後にも実行する
 pre-repos = "sh '{{config_root}}/bootstrap/exclude-generated-files.sh'"
 post-repos = "sh '{{config_root}}/bootstrap/exclude-generated-files.sh'"
+# 以前ディレクトリごとリンクしていた ~/.config/git などを実ディレクトリに戻す (dotfiles の配置がリポジトリのファイルを上書きしないように)
+pre-dotfiles = "bash '{{config_root}}/bootstrap/migrate-dir-links.sh' '{{config_root}}'"
 post-dotfiles = [
   # `mise bootstrap --from` はその実行の間だけこの設定を信頼するので、clone 先で mise を使えるように trust しておく。
   # リポジトリ内の .config/mise/mise.toml もプロジェクトの設定として読まれるので一緒に信頼する。
@@ -109,6 +107,27 @@ git restore completions/
 tmp="$(mktemp)"
 sed -e 's|${argc__args\[0\]}|lefthook|g' completions/lefthook.sh >"$tmp"
 mv "$tmp" completions/lh.sh
+'''
+
+[tasks."dot:add"]
+description = "設定ファイルを管理に加える (このチェックアウトに移して symlink し、mise.toml に追記する)"
+usage = 'arg "<target>" help="管理に加えるファイルかディレクトリ (ホームディレクトリの下)"'
+dir = "{{config_root}}"
+# dotfiles.root はこのチェックアウトの場所を表せない (テンプレートが展開されず、相対パスは実行時のカレントディレクトリ基準)。
+# そこで --source にホームからの相対パスを渡し、mise.toml に相対パスで書かせる。
+# このとき作られるリンクは相対パスで壊れているので、続けて apply で張り直す
+run = '''
+target="$(realpath -s "$usage_target")"
+case "$target" in
+"$HOME"/*) ;;
+*)
+	echo "ホームディレクトリの下のパスを指定してください: $target" >&2
+	exit 1
+	;;
+esac
+rel="${target#"$HOME"/}"
+mise dot add -p mise.toml --source "$rel" --yes "$target"
+mise dot apply --yes "$target"
 '''
 
 [tasks."setup:copilot"]
