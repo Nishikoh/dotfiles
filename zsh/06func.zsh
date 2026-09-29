@@ -37,7 +37,8 @@ _cdf() {
 alias cdf='_cdf'
 
 git-completion() {
-	bash "$ORIGIN_DOTFILES_DIR/setup.sh" setup completion
+	# setup:completion は argc-completions が更新されたときだけ動くので、手で再生成するときは --force を付ける
+	mise -C "$ORIGIN_DOTFILES_DIR" run --force setup:completion
 }
 
 # lefthook wrapper

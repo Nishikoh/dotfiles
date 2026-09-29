@@ -23,5 +23,3 @@ echo "$command" >$input_file
 
 # 各引数を改行で出力し、最後の引数の後にはバックスラッシュをつけないようにする
 echo "$sorted_args" | sed '$!s/$/ \\/' >>$input_file
-
-# sort bin_github.txt | tee bin_github.txt

@@ -32,11 +32,21 @@ rclone = "latest"
 "github:htop-dev/htop" = "latest"
 "pipx:tldr" = "latest"
 worktrunk = "latest"
-"nix:pueue" = "latest" # pueuedがgithub backendからのインストールに対応していない
+"aqua:Nukesor/pueue/pueue" = "latest"
+"aqua:Nukesor/pueue/pueued" = "latest"
 go = "latest"
 herdr = "latest"
 hunk = "latest"
 claude = "latest"
+rust = "latest"
+cpz = "latest"
+rmz = "latest"
+"github:tarka/xcp" = "latest"
+ghalint = "latest"
+"aqua:suzuki-shunsuke/ghatm" = "latest"
+"aqua:suzuki-shunsuke/github-comment" = "latest"
+# リリースの配布物が無いのでスクリプトを直接取得する (main は v0.1 と同じ内容)
+"http:terraform-target" = { version = "0.1", url = "https://raw.githubusercontent.com/soar/terraform-target/v{{version}}/terraform-target", checksum = "sha256:178544f67886288d202d1d543d88c376abccd9aefddc1fc4b921426d7e1038b4" }
 
 [settings]
 experimental = true
