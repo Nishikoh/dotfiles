@@ -1,12 +1,6 @@
-# dotfiles を mise bootstrap でセットアップするための設定 (対象 OS: Ubuntu, Arch)
+# dotfiles を mise bootstrap でセットアップするための設定 (対象 OS: Ubuntu, Arch。WSL を含む)
 # https://mise.jdx.dev/bootstrap.html
-#
-# 新しいマシン (前提: curl, git, sudo):
-#   curl https://mise.run | sh
-#   ~/.local/bin/mise bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes
-#
-# clone 済みのリポジトリから:
-#   mise trust --all && mise bootstrap
+# セットアップ手順は README.md を参照。
 #
 # ツール本体 ([tools]) は .config/mise/ のグローバル設定で管理する。
 # このファイルは clone したリポジトリをマシンに配置するための宣言だけを持つ。
@@ -30,6 +24,20 @@ min_version = { soft = "2026.9.8" }
 "pacman:base-devel" = "latest"   # rust (cargo) のリンカ
 "pacman:gawk" = "latest"         # argc-completions の生成に使う
 
+# codex は ~/.codex/config.toml に trust などを書き込むので、自分の設定は優先度が最も低い System 設定に置く。
+# コピーなので、etc/codex/config.toml を編集したら mise bootstrap (files) で反映する
+[bootstrap.directories."/etc/codex"]
+owner = "root"
+group = "root"
+mode = "0755"
+
+[bootstrap.files."/etc/codex/config.toml"]
+source = "etc/codex/config.toml"
+template = true
+owner = "root"
+group = "root"
+mode = "0644"
+
 [bootstrap.repos]
 "~/setup/argc-completions" = { url = "https://github.com/sigoden/argc-completions.git" }
 "~/.vim/pack/github/start/copilot.vim" = { url = "https://github.com/github/copilot.vim.git" }
@@ -40,8 +48,15 @@ min_version = { soft = "2026.9.8" }
 "~/.gitconfig" = { source = ".gitconfig", mode = "symlink" }
 "~/.vimrc" = { source = ".vimrc", mode = "symlink" }
 "~/.zshrc" = { source = ".zshrc", mode = "symlink" }
-# .config/ 直下の各アイテムを ~/.config/ にリンクする (~/.config/mise もここでリンクされる)
-"~/.config/*" = { source = ".config/*", mode = "symlink" }
+"~/.config/helix" = { source = ".config/helix", mode = "symlink" }
+"~/.config/lazygit" = { source = ".config/lazygit", mode = "symlink" }
+"~/.config/mise" = { source = ".config/mise", mode = "symlink" }
+"~/.config/starship.toml" = { source = ".config/starship.toml", mode = "symlink" }
+"~/.config/yazi" = { source = ".config/yazi", mode = "symlink" }
+# ~/.config/git には他のツール (omarchy など) が config を置くので、ディレクトリではなくファイルをリンクする
+"~/.config/git/ignore" = { source = ".config/git/ignore", mode = "symlink" }
+# ~/.config/herdr にはソケットやログもあるのでファイルをリンクする。WSL では mise.wsl.toml が config.wsl.toml に差し替える
+"~/.config/herdr/config.toml" = { source = ".config/herdr/config.toml", mode = "symlink" }
 "~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
 "~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
 "~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }
@@ -52,12 +67,16 @@ min_version = { soft = "2026.9.8" }
 # 以前の手順で生成物が残っているマシンのために repos の前に、新しく clone したときのために後にも実行する
 pre-repos = "sh '{{config_root}}/bootstrap/exclude-generated-files.sh'"
 post-repos = "sh '{{config_root}}/bootstrap/exclude-generated-files.sh'"
-# `mise bootstrap --from` はその実行の間だけこの設定を信頼するので、clone 先で mise を使えるように trust しておく。
-# リポジトリ内の .config/mise/mise.toml もプロジェクトの設定として読まれるので一緒に信頼する。
-# (--all は実行中の一時的な信頼を見て何も記録しないので、パスを明示する)
+# 以前ディレクトリごとリンクしていた ~/.config/git などを実ディレクトリに戻す (dotfiles の配置がリポジトリのファイルを上書きしないように)
+pre-dotfiles = "bash '{{config_root}}/bootstrap/migrate-dir-links.sh' '{{config_root}}'"
 post-dotfiles = [
+  # `mise bootstrap --from` はその実行の間だけこの設定を信頼するので、clone 先で mise を使えるように trust しておく。
+  # リポジトリ内の .config/mise/mise.toml もプロジェクトの設定として読まれるので一緒に信頼する。
+  # (--all は実行中の一時的な信頼を見て何も記録しないので、パスを明示する)
   "mise trust --quiet '{{config_root}}'",
   "mise trust --quiet '{{config_root}}/.config/mise/mise.toml'",
+  # WSL なのに WSL 以外の設定がリンクされたら失敗させる
+  "sh '{{config_root}}/bootstrap/check-wsl-dotfiles.sh'",
 ]
 
 # mise bootstrap の最後に毎回実行される
@@ -88,6 +107,27 @@ git restore completions/
 tmp="$(mktemp)"
 sed -e 's|${argc__args\[0\]}|lefthook|g' completions/lefthook.sh >"$tmp"
 mv "$tmp" completions/lh.sh
+'''
+
+[tasks."dot:add"]
+description = "設定ファイルを管理に加える (このチェックアウトに移して symlink し、mise.toml に追記する)"
+usage = 'arg "<target>" help="管理に加えるファイルかディレクトリ (ホームディレクトリの下)"'
+dir = "{{config_root}}"
+# dotfiles.root はこのチェックアウトの場所を表せない (テンプレートが展開されず、相対パスは実行時のカレントディレクトリ基準)。
+# そこで --source にホームからの相対パスを渡し、mise.toml に相対パスで書かせる。
+# このとき作られるリンクは相対パスで壊れているので、続けて apply で張り直す
+run = '''
+target="$(realpath -s "$usage_target")"
+case "$target" in
+"$HOME"/*) ;;
+*)
+	echo "ホームディレクトリの下のパスを指定してください: $target" >&2
+	exit 1
+	;;
+esac
+rel="${target#"$HOME"/}"
+mise dot add -p mise.toml --source "$rel" --yes "$target"
+mise dot apply --yes "$target"
 '''
 
 [tasks."setup:copilot"]

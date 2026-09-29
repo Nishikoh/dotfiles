@@ -1,0 +1,63 @@
+# codex の System 設定 (/etc/codex/config.toml)。mise bootstrap が配置する (mise.toml の [bootstrap.files])
+# ~/.codex/config.toml は codex が trust などを書き込むので、同じキーを書くとそちらが優先される
+
+# 作業領域内は自律的に操作し、領域外は確認する
+approval_policy = "on-request"
+approvals_reviewer = "auto_review" # vs "user"
+sandbox_mode = "workspace-write"
+
+# 通常作業と複雑な計画のバランス
+model_reasoning_effort = "high"
+plan_mode_reasoning_effort = "xhigh"
+model = "gpt-5.6-sol"
+
+# 通常はキャッシュ検索。最新情報が必要なときだけliveへ変更
+web_search = "cached"
+
+project_doc_fallback_filenames = [
+  "AGENTS.md",
+  "CLAUDE.md",
+]
+service_tier = "default"
+
+# 秘密情報らしい環境変数を自動転送しない
+[shell_environment_policy]
+ignore_default_excludes = false
+
+# 並列処理の上限。コストと競合を抑える
+[agents]
+max_concurrent_threads_per_session = 4
+default_subagent_reasoning_effort = "medium"
+
+# https://x.com/TamaoT81581/status/2099000130058019124?s=20
+[features.multi_agent_v2]
+min_wait_timeout_ms = 300000
+default_wait_timeout_ms = 600000
+max_wait_timeout_ms = 3600000
+
+# https://x.com/old_pgmrs_will/status/2096155362923868455?s=20
+# https://x.com/u1/status/2096890699883123119?s=20
+# [features.context_management]
+# experimental_mode = true
+
+# CLI/TUI利用時
+[tui]
+notifications = true
+status_line = [
+  "model-with-reasoning",
+  "context-remaining",
+  "current-dir",
+  "git-branch",
+]
+
+[sandbox_workspace_write]
+exclude_tmpdir_env_var = false  # Allow $TMPDIR
+exclude_slash_tmp = false       # Allow /tmp
+writable_roots = ["{{ env.HOME }}/.cache/"]
+network_access = true          # Opt in to outbound network
+
+[features]
+hooks = true
+multi_agent = false # token消費対策 # https://x.com/AM09_21/status/2096863724384784584?s=20
+default_mode_request_user_input = true # https://x.com/nyosegawa/status/2097337022214180980?s=20
+

@@ -1,0 +1,4 @@
+# WSL では wsl 環境を選び、mise.wsl.toml を読み込む。
+# miserc のテンプレートでは環境変数しか使えない (exec や read_file は不可) ため WSL_DISTRO_NAME で判定する。
+# この変数が無い実行 (ssh 経由や初回の --from) は mise.toml の post-dotfiles hook で検出して失敗させる。
+env = [{% if get_env(name="WSL_DISTRO_NAME", default="") != "" %}"wsl"{% endif %}]
