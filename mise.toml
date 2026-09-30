@@ -57,6 +57,9 @@ mode = "0644"
 "~/.config/git/ignore" = { source = ".config/git/ignore", mode = "symlink" }
 # ~/.config/herdr にはソケットやログもあるのでファイルをリンクする。WSL では mise.wsl.toml が config.wsl.toml に差し替える
 "~/.config/herdr/config.toml" = { source = ".config/herdr/config.toml", mode = "symlink" }
+# Worktrunk の approvals.toml などはマシン固有なので、設定と連携 hook だけをリンクする。
+"~/.config/worktrunk/config.toml" = { source = ".config/worktrunk/config.toml" }
+"~/.config/worktrunk/herdr-hook.sh" = { source = ".config/worktrunk/herdr-hook.sh" }
 "~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
 "~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
 "~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }

@@ -18,6 +18,14 @@ grep -E '^(=====|:::|NG)' /tmp/bootstrap-test.log   # 出力が多いので区�
 - **GitHub API のレート制限**: 認証なしは 1 時間に 60 回 (IP ごと) で、ツールまで含めた実行では足りずに失敗することがある。ツールまで含めるときは `GITHUB_TOKEN` を明示して渡す。コンテナ内では第三者のインストールスクリプトも動くので、テストスクリプトは `gh auth token` などを自動では使わない。権限を何も付けないトークンで十分。認証なしの残りは `curl -s https://api.github.com/rate_limit` で確認できる
 - CI (`.github/workflows/setup.yml`) は Actions の `GITHUB_TOKEN` (`contents: read`) を明示して渡している
 
+Worktrunk / Herdr の変更では、トークンなしの最小検証として
+`bash tests/test-worktrunk-herdr.sh` を使える (引数で `ubuntu` / `arch` を指定可能)。
+実際の CLI と headless Herdr server で、作成・切り替え・削除・merge・focus・削除拒否・
+hook の実行順の競合・依存ツール欠落・応答停止を確認する。ツール取得は Docker build のキャッシュで再利用する。
+bootstrap の full 実行と CI では、配置した設定を使って同じケースを実行する。
+`dot:add` のテストでは `MISE_TASK_RUN_AUTO_INSTALL=false` を渡す。
+`mise run` は既定で不足するツールを入れるので、これがないと `SKIP_TOOLS=1` でも全ツールを取得してしまう。
+
 ## mise のバージョン
 
 - 必要な mise は **2026.9.8 以上**

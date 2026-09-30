@@ -125,7 +125,8 @@ mise bootstrap --from /src --from-dir "$dotfiles" --yes $SKIP_ARGS
 
 echo "::: check dotfiles"
 for f in .gitconfig .vimrc .zshrc .config/git/ignore .config/helix .config/lazygit .config/mise .config/starship.toml .config/yazi \
-	.config/herdr/config.toml .claude/settings.json .claude/hooks .claude/statusline-command.sh .claude/skills/dev-lsp; do
+	.config/herdr/config.toml .config/worktrunk/config.toml .config/worktrunk/herdr-hook.sh \
+	.claude/settings.json .claude/hooks .claude/statusline-command.sh .claude/skills/dev-lsp; do
 	test "$(readlink ~/"$f")" = "$dotfiles/$f" || { echo "NG: ~/$f -> $(readlink ~/"$f")"; exit 1; }
 done
 
@@ -135,6 +136,7 @@ test "$(stat -c %U:%a /etc/codex/config.toml)" = root:644
 
 cd "$dotfiles"
 echo "::: check status"
+test -z "$(git status --porcelain)" || { git status --short; exit 1; }
 mise dot status --missing
 mise bootstrap repos status --missing
 mise bootstrap packages status --missing
@@ -152,11 +154,18 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	zsh -i -c "command -v starship cargo uv gh claude cpz rmz xcp pueue pueued ghalint github-comment argc terraform-target" </dev/null
 	# codex が System 設定を読み込むこと (features.multi_agent = false は既定値の true と異なる)
 	zsh -i -c "codex features list" </dev/null | grep -E "^multi_agent +.* false$"
+	echo "::: Worktrunk / Herdr integration"
+	mise exec -- bash tests/worktrunk-herdr-cases.sh
 fi
+
+# dot:add のテストは意図的に clone を変更するので、先に 2 回目と clean な状態を確認する。
+echo "::: 2nd run: mise bootstrap (idempotent)"
+mise bootstrap --yes $SKIP_ARGS
+test -z "$(git status --porcelain)" || { git status --short; exit 1; }
 
 echo "::: mise run dot:add で新しい設定をリポジトリに取り込める"
 mkdir -p ~/.config/example && echo "enabled = true" >~/.config/example/example.conf
-mise run dot:add ~/.config/example
+MISE_TASK_RUN_AUTO_INSTALL=false mise run dot:add ~/.config/example
 test "$(readlink ~/.config/example)" = "$dotfiles/.config/example"
 test -f "$dotfiles/.config/example/example.conf"
 grep -xF "\"~/.config/example\" = { source = \".config/example\" }" mise.toml
@@ -167,7 +176,7 @@ git clone -q /src ~/other
 	cd ~/other
 	mise trust --quiet --all
 	mkdir -p ~/.config/example2 && echo "enabled = true" >~/.config/example2/example.conf
-	mise run dot:add ~/.config/example2
+	MISE_TASK_RUN_AUTO_INSTALL=false mise run dot:add ~/.config/example2
 	test "$(readlink ~/.config/example2)" = "$HOME/other/.config/example2"
 	test -f ~/other/.config/example2/example.conf
 	grep -xF "\"~/.config/example2\" = { source = \".config/example2\" }" mise.toml
@@ -175,8 +184,6 @@ git clone -q /src ~/other
 test ! -e "$dotfiles/.config/example2"
 ! grep -F example2 "$dotfiles/mise.toml"
 
-echo "::: 2nd run: mise bootstrap (idempotent)"
-mise bootstrap --yes $SKIP_ARGS
 echo "::: OK"
 '
 
@@ -215,7 +222,9 @@ echo "::: README の手順: clone して trust し、--dry-run する"
 git clone -q /src "$dotfiles"
 cd "$dotfiles"
 mise trust --quiet --all
-mise bootstrap --dry-run
+# このケースは配置と既存マシンの移行を検証する。dry-run でも tools はバージョンを
+# 解決して API を使うため、通常の OS テストと同じく tools の検証はそちらに任せる。
+mise bootstrap --dry-run --skip tools,task
 
 echo "::: 既存マシン: 以前の手順の状態を用意する"
 # 補完の生成物が残った argc-completions
@@ -225,6 +234,9 @@ touch ~/setup/argc-completions/completions/lh.sh
 mkdir -p ~/.config
 ln -s "$dotfiles/.config/git" ~/.config/git
 echo "[user]" >"$dotfiles/.config/git/config"
+# Worktrunk が書き込む承認情報は管理対象の config.toml と同じディレクトリに残す。
+mkdir -p ~/.config/worktrunk
+echo "# local approvals" >~/.config/worktrunk/approvals.toml
 
 check_git_dir() {
 	# リポジトリの ignore は普通のファイルのまま変わっていない
@@ -234,6 +246,11 @@ check_git_dir() {
 	test -d ~/.config/git && ! test -L ~/.config/git
 	test "$(readlink ~/.config/git/ignore)" = "$dotfiles/.config/git/ignore"
 	test "$(cat ~/.config/git/config)" = "[user]"
+	test -d ~/.config/worktrunk && ! test -L ~/.config/worktrunk
+	test "$(cat ~/.config/worktrunk/approvals.toml)" = "# local approvals"
+	test "$(readlink ~/.config/worktrunk/config.toml)" = "$dotfiles/.config/worktrunk/config.toml"
+	test "$(readlink ~/.config/worktrunk/herdr-hook.sh)" = "$dotfiles/.config/worktrunk/herdr-hook.sh"
+	test -f "$dotfiles/.config/worktrunk/config.toml" && ! test -L "$dotfiles/.config/worktrunk/config.toml"
 	test -z "$(git -C "$dotfiles" status --porcelain)" || { git -C "$dotfiles" status --short; exit 1; }
 }
 

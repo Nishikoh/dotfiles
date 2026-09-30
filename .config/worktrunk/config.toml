@@ -1,0 +1,10 @@
+# 設定と連携 hook を mise dot でファイル単位で管理する (approvals.toml 等はマシン固有)。
+# テンプレート変数は Worktrunk が shell escape するので引用符で囲まない。
+# bare repo では primary_worktree_path が未定義なので、テンプレートの段階でスキップする。
+[post-switch]
+herdr-open = '{% if primary_worktree_path %}bash "${XDG_CONFIG_HOME:-$HOME/.config}/worktrunk/herdr-hook.sh" open {{ primary_worktree_path }} {{ worktree_path }} || true{% endif %}'
+
+# workspace close は pane のシェルも終了させるので、削除に成功してから閉じる。
+# 削除済み checkout の対応は workspace list の worktree metadata から取得する。
+[post-remove]
+herdr-close = '{% if primary_worktree_path %}bash "${XDG_CONFIG_HOME:-$HOME/.config}/worktrunk/herdr-hook.sh" close {{ primary_worktree_path }} {{ worktree_path }} || true{% endif %}'
