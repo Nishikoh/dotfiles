@@ -166,6 +166,9 @@ echo '::: 既存・同じ worktree・linked worktree から別の worktree / 重
 run_wt switch feature/auth --no-cd
 sync_open "$created"
 [[ $(workspace_id "$created") == "$id" && $(workspace_count) == "$count" ]]
+# POSIX TZ を使い、コンテナに timezone database が無くても時差を作る。
+TZ=HST10 sync_open "$created"
+[[ $(workspace_id "$created") == "$id" && $(workspace_count) == "$count" ]]
 wt -C "$created" switch @ --no-cd -y >/dev/null
 sync_open "$created"
 [[ $(workspace_id "$created") == "$id" && $(workspace_count) == "$count" ]]

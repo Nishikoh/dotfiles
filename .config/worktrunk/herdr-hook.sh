@@ -71,8 +71,9 @@ close_workspaces() {
 
 # path が同じでも root inode / birth time が違えば別の checkout。
 # ctime / mtime は通常のファイル編集でも変わるので識別情報には使わない。
+# birth time の表示は locale / TZ によって変わらないよう固定する。
 generation=''
-if checkout_exists; then generation=$(stat -c '%d:%i:%w' -- "$checkout") || exit 0; fi
+if checkout_exists; then generation=$(LC_ALL=C TZ=UTC stat -c '%d:%i:%w' -- "$checkout") || exit 0; fi
 
 case "$action" in
 open)
