@@ -52,8 +52,6 @@ if git -C "${repo_dir}" grep --untracked -nE 'setup\.sh|Argcfile|bin_github' -- 
 	exit 1
 fi
 
-image_suffix="${MISE_VERSION:+-${MISE_VERSION}}"
-
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/mise-bootstrap-test.XXXXXX")"
 # /src の所有者がコンテナのユーザーと異なるため safe.directory を設定する。~/.gitconfig は dotfiles で配置するので環境変数で渡す
 docker_git_env=(-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*')
@@ -67,7 +65,7 @@ cleanup() {
 	echo "スナップショットを残しました: ${snapshot:-${work_dir}}"
 	echo "コンテナに入って調べるには:"
 	for target in "${targets[@]}"; do
-		echo "  docker run --rm -it ${docker_git_env[*]@Q} -v '${snapshot:-${work_dir}/dotfiles}:/src:ro' 'dotfiles-bootstrap:${target}${image_suffix}' bash"
+		echo "  docker run --rm -it ${docker_git_env[*]@Q} -v '${snapshot:-${work_dir}/dotfiles}:/src:ro' '$(bootstrap_image_tag "$target")' bash"
 	done
 	echo "  (コンテナ内で) mise bootstrap --from /src --from-dir ~/setup/dotfiles --yes --skip tools,task"
 	echo "片付け: rm -rf '${work_dir}'"
@@ -179,7 +177,8 @@ test ! -e "$dotfiles/.config/example2"
 ! grep -F example2 "$dotfiles/mise.toml"
 
 echo "::: dot:add 後の bootstrap でも追加した entry を配置できる"
-mise bootstrap --yes $SKIP_ARGS
+# tools は 1 回目と 2 回目で確認済み。GitHub API を再び使わないよう dotfiles の配置だけを確かめる
+mise bootstrap --yes --skip tools,task
 test "$(readlink ~/.config/example)" = "$dotfiles/.config/example"
 test -f ~/.config/example/example.conf
 
@@ -274,8 +273,7 @@ echo "::: OK"
 
 for target in "${targets[@]}"; do
 	echo "===== ${target} ====="
-	image="dotfiles-bootstrap:${target}${image_suffix}"
-	build_bootstrap_image "$target" "$repo_dir"
+	image=$(build_bootstrap_image "$target" "$repo_dir")
 	docker run --rm \
 		"${token_env[@]}" \
 		-e SKIP_ARGS="${skip_args}" \

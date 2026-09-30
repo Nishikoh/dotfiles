@@ -166,9 +166,6 @@ echo '::: 既存・同じ worktree・linked worktree から別の worktree / 重
 run_wt switch feature/auth --no-cd
 sync_open "$created"
 [[ $(workspace_id "$created") == "$id" && $(workspace_count) == "$count" ]]
-# POSIX TZ を使い、コンテナに timezone database が無くても時差を作る。
-TZ=HST10 sync_open "$created"
-[[ $(workspace_id "$created") == "$id" && $(workspace_count) == "$count" ]]
 wt -C "$created" switch @ --no-cd -y >/dev/null
 sync_open "$created"
 [[ $(workspace_id "$created") == "$id" && $(workspace_count) == "$count" ]]
@@ -339,6 +336,45 @@ sync_open "$recreated"
 printf -v restore_cwd 'cd %q' "$recreated"
 herdr pane run "$fresh_id:p1" "$restore_cwd" >/dev/null
 wait_for pane_at "$fresh_id" "$recreated"
+
+echo '::: 識別情報のない手動登録の workspace も、子ディレクトリの削除では閉じず、checkout の削除後は置き換える'
+manual_open() {
+	herdr worktree open --workspace "$parent" --path "$1" --no-focus | jq -er '.result.workspace.workspace_id'
+}
+pane_deleted() {
+	herdr pane get "$1:p1" | jq -e '.result.pane.cwd | endswith(" (deleted)")' >/dev/null
+}
+run_wt switch --create manual --no-cd --no-hooks
+manual=$(branch_path manual)
+manual_id=$(manual_open "$manual")
+if has_generation "$manual_id"; then echo 'NG: 手動登録に識別情報がある' >&2; exit 1; fi
+herdr pane run "$manual_id:p1" 'mkdir scratch; cd scratch; rmdir ../scratch' >/dev/null
+wait_for pane_at "$manual_id" "$manual/scratch (deleted)"
+sync_open "$manual"
+[[ $(workspace_id "$manual") == "$manual_id" ]]
+printf -v restore_cwd 'cd %q' "$manual"
+herdr pane run "$manual_id:p1" "$restore_cwd" >/dev/null
+wait_for pane_at "$manual_id" "$manual"
+# wt remove は checkout を .git/wt/trash に移してから削除する。
+run_wt remove manual --foreground --no-hooks
+wait_for pane_deleted "$manual_id"
+run_wt switch --create manual --no-cd --no-hooks
+sync_open "$manual"
+workspace_gone "$manual_id"
+pane_git_works "$(workspace_id "$manual")"
+run_wt remove manual --foreground
+wait_for is_closed "$manual"
+# git worktree remove は checkout をその場で削除する。
+git -C "$repo" worktree add -q -b manual-git "$manual"
+manual_id=$(manual_open "$manual")
+git -C "$repo" worktree remove "$manual"
+wait_for pane_at "$manual_id" "$manual (deleted)"
+git -C "$repo" worktree add -q "$manual" manual-git
+sync_open "$manual"
+workspace_gone "$manual_id"
+pane_git_works "$(workspace_id "$manual")"
+run_wt remove manual-git --foreground
+wait_for is_closed "$manual"
 
 echo '::: 再作成後の post-switch → post-remove は新しい workspace を閉じない'
 run_wt remove recreated --foreground --no-hooks

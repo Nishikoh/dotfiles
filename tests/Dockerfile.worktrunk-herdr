@@ -1,9 +1,13 @@
 # bootstrap 全体のツールを入れずに、連携に使う CLI だけを Docker で検証する。
 ARG BASE_IMAGE=dotfiles-bootstrap:ubuntu
 FROM ${BASE_IMAGE}
-COPY --chown=dev:dev .config/mise/mise.toml /tmp/dotfiles-tools.toml
-# production と同じ宣言を使い、変更時は COPY によってツールの layer も更新する。
-RUN version=$(sed -n 's/^worktrunk = "\([^"]*\)"$/\1/p' /tmp/dotfiles-tools.toml) \
-    && test -n "$version" \
-    && mise use -g "worktrunk@$version" herdr@latest jq@latest \
-    && rm /tmp/dotfiles-tools.toml
+COPY --chown=dev:dev .config/mise/config.toml .config/mise/mise.toml /tmp/dotfiles-mise/
+# production と同じ宣言と install_before で解決し、変更時は COPY によってツールの layer も更新する。
+# 解決したバージョンを固定し、キャッシュした image の実行時に latest を再解決して取得し直さない。
+# mise.toml を cwd の設定として読ませないよう、ディレクトリには移動しない。
+RUN tools=$(sed -n 's/^\("aqua:max-sixty\/worktrunk"\|herdr\|jq\) = "latest"$/\1/p' /tmp/dotfiles-mise/mise.toml | tr -d '"') \
+    && test "$(echo $tools | wc -w)" = 3 \
+    && before=$(sed -n 's/^install_before = "\([^"]*\)"$/\1/p' /tmp/dotfiles-mise/config.toml) \
+    && test -n "$before" \
+    && MISE_INSTALL_BEFORE=$before mise use -g --pin $(printf '%s@latest ' $tools) \
+    && rm -r /tmp/dotfiles-mise

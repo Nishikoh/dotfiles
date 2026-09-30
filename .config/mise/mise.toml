@@ -31,11 +31,9 @@ rclone = "latest"
 "github:tofuutils/tenv" = "latest"
 "github:htop-dev/htop" = "latest"
 "pipx:tldr" = "latest"
-# latest の配布 backend は 0.80.0 のみを返し、install_before = "10d" では導入できない。
-# System config と hook を Docker で確認したバージョンを明示する。
-# 配布 backend が install_before を満たす latest を解決できたら latest に戻し、
-# 最小 Docker テストと full CI で確認する (手順は docs/development.md)。
-worktrunk = "0.80.0"
+# registry の既定 backend は最新リリースしか返さず、公開から 10 日間は install_before を満たせない。
+# 過去のリリースも返す aqua backend で latest を解決する。
+"aqua:max-sixty/worktrunk" = "latest"
 "aqua:Nukesor/pueue/pueue" = "latest"
 "aqua:Nukesor/pueue/pueued" = "latest"
 go = "latest"

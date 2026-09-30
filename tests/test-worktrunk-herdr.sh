@@ -12,9 +12,8 @@ targets=("$@")
 image_suffix="${MISE_VERSION:+-${MISE_VERSION}}"
 for target in "${targets[@]}"; do
 	echo "===== Worktrunk / Herdr: $target ====="
-	base_image="dotfiles-bootstrap:$target$image_suffix"
+	base_image=$(build_bootstrap_image "$target" "$repo_dir")
 	image="dotfiles-worktrunk-herdr:$target$image_suffix"
-	build_bootstrap_image "$target" "$repo_dir"
 	# --pull はローカルで作った base image を Docker Hub から取得しようとするので、
 	# ツールの layer には --no-cache だけを渡す。base image は上で --pull している。
 	tool_args=()

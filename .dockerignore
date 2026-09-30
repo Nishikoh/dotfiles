@@ -1,5 +1,4 @@
-# 最小連携イメージだけ、production のツール宣言を読む。残りは実行時にマウントする。
+# 最小連携イメージだけ、production のツール宣言と設定を読む。残りは実行時にマウントする。
 *
-!.config/
-!.config/mise/
+!.config/mise/config.toml
 !.config/mise/mise.toml
