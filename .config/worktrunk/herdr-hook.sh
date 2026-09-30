@@ -10,6 +10,15 @@ for tool in herdr jq flock timeout; do
 	command -v "$tool" >/dev/null 2>&1 || exit 0
 done
 
+herdr_cmd() {
+	# API コマンドはサーバーを開始しない。子孫が残っても repo の lock を保持させない。
+	timeout -k 1s 3s herdr "$@" 9>&- 2>/dev/null
+}
+
+# 未起動の通常操作では Git の path 解決や lock file の作成をしない。
+status=$(herdr_cmd status server --json) || exit 0
+jq -e '.running == true' <<<"$status" >/dev/null || exit 0
+
 action=$1
 primary=$(realpath -e -- "$2") || exit 0
 checkout=$(realpath -m -- "$3") || exit 0
@@ -25,11 +34,6 @@ exec 9>"$common/wt/herdr-sync.lock"
 # 複数削除や slow server でキューが長くなっても同期イベントを落とさない。
 flock 9 || { echo 'worktrunk/herdr: could not acquire sync lock' >&2; exit 0; }
 
-herdr_cmd() {
-	# 未起動時にサーバーを開始しない API コマンドだけを使う。応答が止まっても待ち続けない。
-	timeout -k 1s 3s herdr "$@" 2>/dev/null
-}
-
 checkout_exists() {
 	local root git_common
 	[[ -d "$checkout" ]] || return 1
@@ -37,6 +41,38 @@ checkout_exists() {
 	git_common=$(git -C "$checkout" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
 	[[ $(realpath -e -- "$root") == "$checkout" && $(realpath -e -- "$git_common") == "$common" ]]
 }
+
+close_workspaces() {
+	local stale_only=$1 listing records id known panes
+	listing=$(herdr_cmd workspace list) || return 1
+	records=$(jq -r --arg path "$checkout" --arg repo "$common" '
+		.result.workspaces[] | select(.worktree.is_linked_worktree == true and
+			.worktree.checkout_path == $path and .worktree.repo_key == $repo) |
+		[.workspace_id, (.tokens.dotfiles_wt_checkout // "")] | @tsv
+	' <<<"$listing") || return 1
+	while IFS=$'\t' read -r id known; do
+		[[ -n "$id" ]] || continue
+		if [[ "$stale_only" == true ]]; then
+			if [[ -n "$known" ]]; then
+				[[ "$known" != "$generation" ]] || continue
+			else
+				panes=$(herdr_cmd pane list --workspace "$id") || return 1
+				# 手動登録など識別情報がない場合は Linux の削除済み cwd を確認する。
+				jq -e --arg path "$checkout" '
+					any(.result.panes[]; [.cwd, .foreground_cwd][] |
+						select(type == "string") | endswith(" (deleted)") and
+						(. == ($path + " (deleted)") or startswith($path + "/")))
+				' <<<"$panes" >/dev/null || continue
+			fi
+		fi
+		herdr_cmd workspace close "$id" >/dev/null || return 1
+	done <<<"$records"
+}
+
+# path が同じでも root inode / birth time が違えば別の checkout。
+# ctime / mtime は通常のファイル編集でも変わるので識別情報には使わない。
+generation=''
+if checkout_exists; then generation=$(stat -c '%d:%i:%w' -- "$checkout") || exit 0; fi
 
 case "$action" in
 open)
@@ -48,18 +84,17 @@ open)
 		any(.result.worktrees[]; .path == $path and .is_linked_worktree and
 			(.is_bare | not) and (.is_prunable | not))
 	' <<<"$listing" >/dev/null || exit 0
-	herdr_cmd worktree open --workspace "$parent" --path "$checkout" --no-focus >/dev/null || true
+	# 同じ path への再作成では Herdr の path による dedup を避け、shell を新しい cwd に作る。
+	close_workspaces true || exit 0
+	opened=$(herdr_cmd worktree open --workspace "$parent" --path "$checkout" --no-focus) || exit 0
+	id=$(jq -er '.result.workspace.workspace_id' <<<"$opened") || exit 0
+	herdr_cmd workspace report-metadata "$id" --source dotfiles-worktrunk \
+		--token "dotfiles_wt_checkout=$generation" >/dev/null || true
 	;;
 close)
-	# remove 直後に同じパスで作り直した checkout は閉じない。
-	checkout_exists && exit 0
-	listing=$(herdr_cmd workspace list) || exit 0
-	ids=$(jq -er --arg path "$checkout" --arg repo "$common" '
-		.result.workspaces[] | select(.worktree.is_linked_worktree == true and
-			.worktree.checkout_path == $path and .worktree.repo_key == $repo) | .workspace_id
-	' <<<"$listing") || exit 0
-	while IFS= read -r id; do
-		herdr_cmd workspace close "$id" >/dev/null || true
-	done <<<"$ids"
+	# 再作成済みなら stale な旧 workspace だけを閉じ、登録済みの新 workspace は保護する。
+	stale_only=false
+	if checkout_exists; then stale_only=true; fi
+	close_workspaces "$stale_only" || exit 0
 	;;
 esac

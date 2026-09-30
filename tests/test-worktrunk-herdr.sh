@@ -6,18 +6,15 @@ set -euo pipefail
 while IFS= read -r var; do unset "$var"; done < <(git rev-parse --local-env-vars)
 test_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(cd "$test_dir/.." && pwd)
+source "$test_dir/docker-helpers.sh"
 targets=("$@")
 [[ ${#targets[@]} != 0 ]] || targets=(ubuntu arch)
 image_suffix="${MISE_VERSION:+-${MISE_VERSION}}"
-base_args=()
-refresh_args=()
-if [[ -n ${MISE_VERSION:-} ]]; then base_args+=(--build-arg "MISE_VERSION=$MISE_VERSION"); fi
-if [[ ${REBUILD:-} == 1 ]]; then refresh_args+=(--pull --no-cache); fi
 for target in "${targets[@]}"; do
 	echo "===== Worktrunk / Herdr: $target ====="
 	base_image="dotfiles-bootstrap:$target$image_suffix"
 	image="dotfiles-worktrunk-herdr:$target$image_suffix"
-	docker build -q "${refresh_args[@]}" "${base_args[@]}" --build-arg BASE="$target" -t "$base_image" "$repo_dir" >/dev/null
+	build_bootstrap_image "$target" "$repo_dir"
 	# --pull はローカルで作った base image を Docker Hub から取得しようとするので、
 	# ツールの layer には --no-cache だけを渡す。base image は上で --pull している。
 	tool_args=()
@@ -27,13 +24,12 @@ for target in "${targets[@]}"; do
 	docker run --rm \
 		-v "$repo_dir/.config/worktrunk:/config:ro" \
 		-v "$test_dir/worktrunk-herdr-cases.sh:/cases.sh:ro" \
+		-v "$test_dir/docker-helpers.sh:/docker-helpers.sh:ro" \
 		-e EXPECT_MISE_VERSION="${MISE_VERSION:-}" \
 		"$image" bash -c '
 			set -euo pipefail
-			echo "::: mise $(mise --version)"
-			if [[ -n "$EXPECT_MISE_VERSION" ]]; then
-				mise --version | grep -q "^${EXPECT_MISE_VERSION#v} "
-			fi
+			source /docker-helpers.sh
+			check_mise_version
 			sudo mkdir -p /etc/xdg/worktrunk
 			sudo cp /config/config.toml /etc/xdg/worktrunk/config.toml
 			mkdir -p ~/.config/worktrunk

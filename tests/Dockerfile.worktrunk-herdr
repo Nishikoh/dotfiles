@@ -1,4 +1,9 @@
 # bootstrap 全体のツールを入れずに、連携に使う CLI だけを Docker で検証する。
 ARG BASE_IMAGE=dotfiles-bootstrap:ubuntu
 FROM ${BASE_IMAGE}
-RUN mise use -g worktrunk@latest herdr@latest jq@latest
+COPY --chown=dev:dev .config/mise/mise.toml /tmp/dotfiles-tools.toml
+# production と同じ宣言を使い、変更時は COPY によってツールの layer も更新する。
+RUN version=$(sed -n 's/^worktrunk = "\([^"]*\)"$/\1/p' /tmp/dotfiles-tools.toml) \
+    && test -n "$version" \
+    && mise use -g "worktrunk@$version" herdr@latest jq@latest \
+    && rm /tmp/dotfiles-tools.toml

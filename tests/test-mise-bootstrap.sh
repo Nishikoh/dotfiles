@@ -30,6 +30,7 @@ while IFS= read -r var; do unset "${var}"; done < <(git rev-parse --local-env-va
 
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd "${test_dir}/.." && pwd)"
+source "$test_dir/docker-helpers.sh"
 
 targets=("$@")
 if [[ ${#targets[@]} -eq 0 ]]; then
@@ -52,13 +53,6 @@ if git -C "${repo_dir}" grep --untracked -nE 'setup\.sh|Argcfile|bin_github' -- 
 fi
 
 image_suffix="${MISE_VERSION:+-${MISE_VERSION}}"
-build_args=()
-if [[ -n "${MISE_VERSION:-}" ]]; then
-	build_args+=(--build-arg "MISE_VERSION=${MISE_VERSION}")
-fi
-if [[ "${REBUILD:-}" == 1 ]]; then
-	build_args+=(--pull --no-cache)
-fi
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/mise-bootstrap-test.XXXXXX")"
 # /src の所有者がコンテナのユーザーと異なるため safe.directory を設定する。~/.gitconfig は dotfiles で配置するので環境変数で渡す
@@ -108,11 +102,8 @@ fi
 # コンテナ内の mise のバージョンを表示し、MISE_VERSION の指定どおりか確かめる
 # shellcheck disable=SC2016 # コンテナ内で展開する
 check_mise_version='
-echo "::: mise $(mise --version)"
-if [[ -n "${EXPECT_MISE_VERSION:-}" ]] && ! mise --version | grep -q "^${EXPECT_MISE_VERSION#v} "; then
-	echo "NG: MISE_VERSION=${EXPECT_MISE_VERSION} を指定したが、入っているのは $(mise --version)"
-	exit 1
-fi
+source /src/tests/docker-helpers.sh
+check_mise_version || exit 1
 '
 
 # shellcheck disable=SC2016 # コンテナ内で展開する
@@ -245,11 +236,10 @@ touch ~/setup/argc-completions/completions/lh.sh
 mkdir -p ~/.config
 ln -s "$dotfiles/.config/git" ~/.config/git
 echo "[user]" >"$dotfiles/.config/git/config"
-# Worktrunk が書き込む承認情報は管理対象の config.toml と同じディレクトリに残す。
+# Worktrunk の user config と承認情報はマシン固有の実ファイルとして保持する。
 mkdir -p ~/.config/worktrunk
 echo "# local approvals" >~/.config/worktrunk/approvals.toml
-# 旧 PR の user config link を再現する。管理元のファイルは変更しない。
-ln -s "$dotfiles/.config/worktrunk/config.toml" ~/.config/worktrunk/config.toml
+echo "worktree-path = \"../local-{{ branch }}\"" >~/.config/worktrunk/config.toml
 
 check_git_dir() {
 	# リポジトリの ignore は普通のファイルのまま変わっていない
@@ -262,6 +252,7 @@ check_git_dir() {
 	test -d ~/.config/worktrunk && ! test -L ~/.config/worktrunk
 	test "$(cat ~/.config/worktrunk/approvals.toml)" = "# local approvals"
 	test ! -L ~/.config/worktrunk/config.toml
+	grep -qxF "worktree-path = \"../local-{{ branch }}\"" ~/.config/worktrunk/config.toml
 	cmp "$dotfiles/.config/worktrunk/config.toml" /etc/xdg/worktrunk/config.toml
 	test "$(readlink ~/.config/worktrunk/herdr-hook.sh)" = "$dotfiles/.config/worktrunk/herdr-hook.sh"
 	test -f "$dotfiles/.config/worktrunk/config.toml" && ! test -L "$dotfiles/.config/worktrunk/config.toml"
@@ -274,9 +265,6 @@ check_git_dir
 mise bootstrap repos status --missing
 mise dot status --missing
 
-# user config の更新は clone と System config に書き込まない。
-echo "worktree-path = \"../local-{{ branch }}\"" >~/.config/worktrunk/config.toml
-
 echo "::: 既存マシン: --force-dotfiles でもリポジトリのファイルを壊さない"
 mise bootstrap --yes --skip tools,task --force-dotfiles
 check_git_dir
@@ -287,7 +275,7 @@ echo "::: OK"
 for target in "${targets[@]}"; do
 	echo "===== ${target} ====="
 	image="dotfiles-bootstrap:${target}${image_suffix}"
-	docker build -q "${build_args[@]}" --build-arg BASE="${target}" -t "${image}" "${repo_dir}" >/dev/null
+	build_bootstrap_image "$target" "$repo_dir"
 	docker run --rm \
 		"${token_env[@]}" \
 		-e SKIP_ARGS="${skip_args}" \

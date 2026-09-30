@@ -11,11 +11,13 @@ work_dir=$(realpath -e -- "$(mktemp -d)")
 export HERDR_SESSION=dotfiles-integration
 repo="$work_dir/repo space ' \$dollar"
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/worktrunk"
-hook="$config_dir/herdr-hook.sh"
+hook="$HOME/.config/worktrunk/herdr-hook.sh"
 managed_config=${WORKTRUNK_SYSTEM_CONFIG_PATH:-/etc/xdg/worktrunk/config.toml}
 sha256sum "$managed_config" "$hook" >"$work_dir/config-before"
 server_pid=''
+descendant_pid=''
 cleanup() {
+	if [[ -n "$descendant_pid" ]]; then kill "$descendant_pid" 2>/dev/null || true; fi
 	herdr server stop >/dev/null 2>&1 || true
 	[[ -z "$server_pid" ]] || wait "$server_pid" 2>/dev/null || true
 	rm -rf "$work_dir"
@@ -85,6 +87,18 @@ sync_close() {
 	wt -C "$repo" hook post-remove herdr-close --worktree-path="$1" --foreground >/dev/null
 }
 file_exists() { [[ -f "$1" ]]; }
+workspace_gone() { ! herdr workspace get "$1" >/dev/null 2>&1; }
+has_generation() {
+	herdr workspace get "$1" | jq -e '.result.workspace.tokens.dotfiles_wt_checkout | length > 0' >/dev/null
+}
+pane_at() {
+	herdr pane get "$1:p1" | jq -e --arg path "$2" '.result.pane.cwd == $path' >/dev/null
+}
+pane_git_works() {
+	local id=$1 marker="$work_dir/pane-git-$1"
+	herdr pane run "$id:p1" "git status --porcelain > /dev/null && touch '$marker'" >/dev/null
+	wait_for file_exists "$marker"
+}
 
 # production の hook 本文に、開始と終了の marker だけを追加する。
 # この config を使う invocation では System config を外し、hook を二重に実行しない。
@@ -107,6 +121,7 @@ sync_open "$offline"
 run_wt remove offline --foreground
 sync_close "$offline"
 herdr status server | grep -q 'not running'
+[[ ! -e "$repo/.git/wt/herdr-sync.lock" ]]
 
 echo '::: 起動済みでも親リポジトリが未登録なら workspace を自動作成しない'
 herdr server >"$work_dir/server.log" 2>&1 &
@@ -121,6 +136,16 @@ run_wt remove unregistered --foreground
 
 echo '::: 新規作成 (slash を含む branch、空白・引用符・ドルを含む path) / focus を奪わない'
 parent=$(herdr workspace create --cwd "$repo" --focus | jq -er '.result.workspace.workspace_id')
+echo '::: XDG_CONFIG_HOME を変更しても mise dot の配置先から hook を実行する'
+socket=$(herdr status server --json | jq -er '.socket')
+mkdir -p "$work_dir/xdg-alt"
+XDG_CONFIG_HOME="$work_dir/xdg-alt" HERDR_SOCKET_PATH="$socket" \
+	wt -C "$repo" switch --create xdg --no-cd -y >"$work_dir/wt.log" 2>&1
+xdg=$(branch_path xdg)
+wait_for is_open "$xdg"
+XDG_CONFIG_HOME="$work_dir/xdg-alt" HERDR_SOCKET_PATH="$socket" \
+	wt -C "$repo" remove xdg --foreground -y >"$work_dir/wt.log" 2>&1
+wait_for is_closed "$xdg"
 echo '::: 手動で symlink 経由で開いた checkout も実パスの metadata で削除できる'
 run_wt switch --create alias-path --no-cd --no-hooks
 alias_path=$(branch_path alias-path)
@@ -280,18 +305,49 @@ sync_open "$repo" # primary をスキップ
 bash "$hook" open "$repo" "$race"
 is_closed "$race"
 
-echo '::: 遅延した post-remove が同じ path に再作成した checkout を閉じない'
+echo '::: 再作成後の post-remove → post-switch は古い cwd の workspace を置き換える'
 run_wt switch --create recreated --no-cd
 recreated=$(branch_path recreated)
 wait_for is_open "$recreated"
+old_id=$(workspace_id "$recreated")
+wait_for has_generation "$old_id"
+# サブディレクトリにいる pane も、checkout の世代が変わったら古い workspace として閉じる。
+herdr pane run "$old_id:p1" 'mkdir nested; cd nested' >/dev/null
+wait_for pane_at "$old_id" "$recreated/nested"
 flock 8
 tracked_wt recreated-close -C "$repo" remove recreated --foreground
 wait_for file_exists "$work_dir/recreated-close.started"
-# 再作成の post-switch で誤った close を修復しないよう、今回は hook を実行しない。
+# close だけを先に完了させ、古い shell を残さないことを検査する。
 run_wt switch --create recreated --no-cd --no-hooks
 flock -u 8
 wait_for file_exists "$work_dir/recreated-close.done"
-is_open "$recreated"
+wait_for is_closed "$recreated"
+workspace_gone "$old_id"
+sync_open "$recreated"
+fresh_id=$(workspace_id "$recreated")
+[[ "$fresh_id" != "$old_id" ]]
+pane_git_works "$fresh_id"
+
+echo '::: checkout が同じなら、pane の cwd の子ディレクトリを消しても workspace を閉じない'
+herdr pane run "$fresh_id:p1" 'mkdir scratch; cd scratch; rmdir ../scratch' >/dev/null
+wait_for pane_at "$fresh_id" "$recreated/scratch (deleted)"
+sync_open "$recreated"
+[[ $(workspace_id "$recreated") == "$fresh_id" ]]
+printf -v restore_cwd 'cd %q' "$recreated"
+herdr pane run "$fresh_id:p1" "$restore_cwd" >/dev/null
+wait_for pane_at "$fresh_id" "$recreated"
+
+echo '::: 再作成後の post-switch → post-remove は新しい workspace を閉じない'
+run_wt remove recreated --foreground --no-hooks
+run_wt switch --create recreated --no-cd --no-hooks
+sync_open "$recreated"
+new_id=$(workspace_id "$recreated")
+[[ "$new_id" != "$fresh_id" ]]
+workspace_gone "$fresh_id"
+sync_close "$recreated" # 遅れて到着した旧 checkout の post-remove
+[[ $(workspace_id "$recreated") == "$new_id" ]]
+pane_git_works "$new_id"
+[[ $(focused_id) == "$parent" ]]
 run_wt remove recreated --foreground
 wait_for is_closed "$recreated"
 
@@ -320,13 +376,13 @@ echo '::: slow Herdr への複数 close が 10 秒以上待ってもイベント
 mkdir "$work_dir/slow-cli"
 cat >"$work_dir/slow-cli/herdr" <<'STUB'
 #!/usr/bin/env bash
-sleep 2.6
+sleep 1
 exec "$HERDR_TEST_REAL_CLI" "$@"
 STUB
 chmod +x "$work_dir/slow-cli/herdr"
 queued_paths=()
 queued_branches=()
-for i in 1 2 3 4; do
+for i in {1..8}; do
 	run_wt switch --create "queued-$i" --no-cd --no-hooks
 	path=$(branch_path "queued-$i")
 	queued_paths+=("$path")
@@ -347,16 +403,35 @@ echo '::: 不正 JSON と応答停止でも hook は成功扱いで有限時間�
 mkdir "$work_dir/stub"
 cat >"$work_dir/stub/herdr" <<'STUB'
 #!/usr/bin/env bash
+if [[ "$1" == status ]]; then exec "$HERDR_TEST_REAL_CLI" "$@"; fi
 case "$HERDR_TEST_FAILURE" in
 malformed) printf 'invalid json';;
 hang) sleep 30;;
+descendant)
+	setsid sleep 30 </dev/null >/dev/null 2>&1 &
+	printf '%s' "$!" >"$HERDR_TEST_DESCENDANT_PID"
+	sleep 30
+	;;
 esac
 STUB
 chmod +x "$work_dir/stub/herdr"
 run_wt switch --create errors --no-cd --no-hooks
 errors=$(branch_path errors)
-HERDR_TEST_FAILURE=malformed PATH="$work_dir/stub:$PATH" timeout 5s bash "$hook" open "$repo" "$errors" 2>/dev/null
-HERDR_TEST_FAILURE=hang PATH="$work_dir/stub:$PATH" timeout 5s bash "$hook" open "$repo" "$errors"
+real_cli=$(command -v herdr)
+HERDR_TEST_REAL_CLI="$real_cli" HERDR_TEST_FAILURE=malformed PATH="$work_dir/stub:$PATH" timeout 6s bash "$hook" open "$repo" "$errors" 2>/dev/null
+HERDR_TEST_REAL_CLI="$real_cli" HERDR_TEST_FAILURE=hang PATH="$work_dir/stub:$PATH" timeout 6s bash "$hook" open "$repo" "$errors"
+
+echo '::: timeout を生き延びた子孫プロセスは repo の lock を保持しない'
+HERDR_TEST_REAL_CLI="$real_cli" HERDR_TEST_FAILURE=descendant HERDR_TEST_DESCENDANT_PID="$work_dir/descendant-pid" \
+	PATH="$work_dir/stub:$PATH" timeout 6s bash "$hook" open "$repo" "$errors"
+descendant_pid=$(cat "$work_dir/descendant-pid")
+kill -0 "$descendant_pid"
+# 子孫が生きている間に、別プロセスから同じ lock を取得できることを確認する。
+flock -n "$common/wt/herdr-sync.lock" true
+timeout 6s bash "$hook" open "$repo" "$errors"
+is_open "$errors"
+kill "$descendant_pid"
+descendant_pid=''
 run_wt remove errors --foreground
 
 echo '::: 引き継いだ GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE を消して対象 repo を使う'

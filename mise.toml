@@ -82,10 +82,7 @@ mode = "0644"
 pre-repos = "sh '{{config_root}}/bootstrap/exclude-generated-files.sh'"
 post-repos = "sh '{{config_root}}/bootstrap/exclude-generated-files.sh'"
 # 以前ディレクトリごとリンクしていた ~/.config/git などを実ディレクトリに戻す (dotfiles の配置がリポジトリのファイルを上書きしないように)
-pre-dotfiles = [
-  "bash '{{config_root}}/bootstrap/migrate-dir-links.sh' '{{config_root}}'",
-  "bash '{{config_root}}/bootstrap/migrate-worktrunk-config.sh' '{{config_root}}'",
-]
+pre-dotfiles = "bash '{{config_root}}/bootstrap/migrate-dir-links.sh' '{{config_root}}'"
 post-dotfiles = [
   # `mise bootstrap --from` はその実行の間だけこの設定を信頼するので、clone 先で mise を使えるように trust しておく。
   # リポジトリ内の .config/mise/mise.toml もプロジェクトの設定として読まれるので一緒に信頼する。
