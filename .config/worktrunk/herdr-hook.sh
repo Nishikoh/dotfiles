@@ -21,7 +21,9 @@ common=$(realpath -e -- "$common") || exit 0
 # lock 取得後に checkout を再確認して、遅れて起動した open が削除済みの表示を戻さないようにする。
 mkdir -p "$common/wt"
 exec 9>"$common/wt/herdr-sync.lock"
-flock -w 10 9 || exit 0
+# 各 API 呼び出しに時間制限がある。background job の待機は制限せず、
+# 複数削除や slow server でキューが長くなっても同期イベントを落とさない。
+flock 9 || { echo 'worktrunk/herdr: could not acquire sync lock' >&2; exit 0; }
 
 herdr_cmd() {
 	# 未起動時にサーバーを開始しない API コマンドだけを使う。応答が止まっても待ち続けない。

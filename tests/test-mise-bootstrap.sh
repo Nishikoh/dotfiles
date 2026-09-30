@@ -125,7 +125,7 @@ mise bootstrap --from /src --from-dir "$dotfiles" --yes $SKIP_ARGS
 
 echo "::: check dotfiles"
 for f in .gitconfig .vimrc .zshrc .config/git/ignore .config/helix .config/lazygit .config/mise .config/starship.toml .config/yazi \
-	.config/herdr/config.toml .config/worktrunk/config.toml .config/worktrunk/herdr-hook.sh \
+	.config/herdr/config.toml .config/worktrunk/herdr-hook.sh \
 	.claude/settings.json .claude/hooks .claude/statusline-command.sh .claude/skills/dev-lsp; do
 	test "$(readlink ~/"$f")" = "$dotfiles/$f" || { echo "NG: ~/$f -> $(readlink ~/"$f")"; exit 1; }
 done
@@ -133,6 +133,9 @@ done
 echo "::: check codex system config"
 grep -qxF "writable_roots = [\"$HOME/.cache/\"]" /etc/codex/config.toml
 test "$(stat -c %U:%a /etc/codex/config.toml)" = root:644
+cmp "$dotfiles/.config/worktrunk/config.toml" /etc/xdg/worktrunk/config.toml
+test "$(stat -c %U:%a /etc/xdg/worktrunk/config.toml)" = root:644
+test ! -e ~/.config/worktrunk/config.toml
 
 cd "$dotfiles"
 echo "::: check status"
@@ -184,6 +187,11 @@ git clone -q /src ~/other
 test ! -e "$dotfiles/.config/example2"
 ! grep -F example2 "$dotfiles/mise.toml"
 
+echo "::: dot:add 後の bootstrap でも追加した entry を配置できる"
+mise bootstrap --yes $SKIP_ARGS
+test "$(readlink ~/.config/example)" = "$dotfiles/.config/example"
+test -f ~/.config/example/example.conf
+
 echo "::: OK"
 '
 
@@ -218,13 +226,16 @@ existing_script='
 set -euo pipefail
 dotfiles=~/setup/dotfiles
 
-echo "::: README の手順: clone して trust し、--dry-run する"
 git clone -q /src "$dotfiles"
 cd "$dotfiles"
 mise trust --quiet --all
-# このケースは配置と既存マシンの移行を検証する。dry-run でも tools はバージョンを
-# 解決して API を使うため、通常の OS テストと同じく tools の検証はそちらに任せる。
-mise bootstrap --dry-run --skip tools,task
+if [[ -z "$SKIP_ARGS" ]]; then
+	echo "::: README の手順: clone して trust し、通常の --dry-run を実行する"
+	mise bootstrap --dry-run
+else
+	echo "::: clone して trust し、tools/task を省いた --dry-run を実行する"
+	mise bootstrap --dry-run $SKIP_ARGS
+fi
 
 echo "::: 既存マシン: 以前の手順の状態を用意する"
 # 補完の生成物が残った argc-completions
@@ -237,6 +248,8 @@ echo "[user]" >"$dotfiles/.config/git/config"
 # Worktrunk が書き込む承認情報は管理対象の config.toml と同じディレクトリに残す。
 mkdir -p ~/.config/worktrunk
 echo "# local approvals" >~/.config/worktrunk/approvals.toml
+# 旧 PR の user config link を再現する。管理元のファイルは変更しない。
+ln -s "$dotfiles/.config/worktrunk/config.toml" ~/.config/worktrunk/config.toml
 
 check_git_dir() {
 	# リポジトリの ignore は普通のファイルのまま変わっていない
@@ -248,7 +261,8 @@ check_git_dir() {
 	test "$(cat ~/.config/git/config)" = "[user]"
 	test -d ~/.config/worktrunk && ! test -L ~/.config/worktrunk
 	test "$(cat ~/.config/worktrunk/approvals.toml)" = "# local approvals"
-	test "$(readlink ~/.config/worktrunk/config.toml)" = "$dotfiles/.config/worktrunk/config.toml"
+	test ! -L ~/.config/worktrunk/config.toml
+	cmp "$dotfiles/.config/worktrunk/config.toml" /etc/xdg/worktrunk/config.toml
 	test "$(readlink ~/.config/worktrunk/herdr-hook.sh)" = "$dotfiles/.config/worktrunk/herdr-hook.sh"
 	test -f "$dotfiles/.config/worktrunk/config.toml" && ! test -L "$dotfiles/.config/worktrunk/config.toml"
 	test -z "$(git -C "$dotfiles" status --porcelain)" || { git -C "$dotfiles" status --short; exit 1; }
@@ -260,9 +274,13 @@ check_git_dir
 mise bootstrap repos status --missing
 mise dot status --missing
 
+# user config の更新は clone と System config に書き込まない。
+echo "worktree-path = \"../local-{{ branch }}\"" >~/.config/worktrunk/config.toml
+
 echo "::: 既存マシン: --force-dotfiles でもリポジトリのファイルを壊さない"
 mise bootstrap --yes --skip tools,task --force-dotfiles
 check_git_dir
+grep -qxF "worktree-path = \"../local-{{ branch }}\"" ~/.config/worktrunk/config.toml
 echo "::: OK"
 '
 
@@ -286,6 +304,8 @@ for target in "${targets[@]}"; do
 
 	echo "===== ${target} (既存マシン / clone 手順) ====="
 	docker run --rm \
+		"${token_env[@]}" \
+		-e SKIP_ARGS="${skip_args}" \
 		"${docker_git_env[@]}" \
 		-v "${snapshot}:/src:ro" \
 		"${image}" bash -c "${existing_script}"

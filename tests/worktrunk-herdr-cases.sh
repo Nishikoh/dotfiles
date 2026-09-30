@@ -7,12 +7,13 @@ for tool in wt herdr jq flock timeout; do command -v "$tool"; done
 wt --version
 herdr --version
 
-work_dir=$(mktemp -d)
+work_dir=$(realpath -e -- "$(mktemp -d)")
 export HERDR_SESSION=dotfiles-integration
 repo="$work_dir/repo space ' \$dollar"
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/worktrunk"
 hook="$config_dir/herdr-hook.sh"
-sha256sum "$config_dir/config.toml" "$hook" >"$work_dir/config-before"
+managed_config=${WORKTRUNK_SYSTEM_CONFIG_PATH:-/etc/xdg/worktrunk/config.toml}
+sha256sum "$managed_config" "$hook" >"$work_dir/config-before"
 server_pid=''
 cleanup() {
 	herdr server stop >/dev/null 2>&1 || true
@@ -29,6 +30,14 @@ init_repo() {
 	git -C "$1" commit -qm init --allow-empty
 }
 init_repo "$repo"
+
+echo '::: Worktrunk の user config 更新は System config と管理元を変更しない'
+printf '[commit-generation]\ncommand = "echo fixture"\n' >"$config_dir/config.toml"
+wt config update -y >/dev/null
+grep -qxF '[commit.generation]' "$config_dir/config.toml"
+[[ ! -L "$config_dir/config.toml" ]]
+sha256sum "$managed_config" "$hook" >"$work_dir/config-after"
+[[ $(cat "$work_dir/config-before") == $(cat "$work_dir/config-after") ]]
 
 run_wt() {
 	if ! wt -C "$repo" "$@" -y >"$work_dir/wt.log" 2>&1; then
@@ -75,6 +84,20 @@ sync_open() { wt -C "$1" hook post-switch herdr-open --foreground >/dev/null; }
 sync_close() {
 	wt -C "$repo" hook post-remove herdr-close --worktree-path="$1" --foreground >/dev/null
 }
+file_exists() { [[ -f "$1" ]]; }
+
+# production の hook 本文に、開始と終了の marker だけを追加する。
+# この config を使う invocation では System config を外し、hook を二重に実行しない。
+sed -e 's/bash "/touch "$HERDR_TEST_STARTED"; bash "/' \
+	-e 's/ || true/ || true; touch "$HERDR_TEST_DONE"/' \
+	"$managed_config" >"$work_dir/tracked-config.toml"
+tracked_wt() {
+	local name=$1
+	shift
+	HERDR_TEST_STARTED="$work_dir/$name.started" HERDR_TEST_DONE="$work_dir/$name.done" \
+		WORKTRUNK_SYSTEM_CONFIG_PATH=/dev/null WORKTRUNK_CONFIG_PATH="$work_dir/tracked-config.toml" \
+		wt "$@" -y >"$work_dir/wt.log" 2>&1
+}
 
 echo '::: Herdr 未起動でも作成・既存への切り替え・削除でき、サーバーを起動しない'
 run_wt switch --create offline --no-cd
@@ -98,6 +121,15 @@ run_wt remove unregistered --foreground
 
 echo '::: 新規作成 (slash を含む branch、空白・引用符・ドルを含む path) / focus を奪わない'
 parent=$(herdr workspace create --cwd "$repo" --focus | jq -er '.result.workspace.workspace_id')
+echo '::: 手動で symlink 経由で開いた checkout も実パスの metadata で削除できる'
+run_wt switch --create alias-path --no-cd --no-hooks
+alias_path=$(branch_path alias-path)
+ln -s "$alias_path" "$work_dir/checkout-alias"
+herdr worktree open --cwd "$repo" --path "$work_dir/checkout-alias" --no-focus |
+	jq -e --arg path "$alias_path" '.result.workspace.worktree.checkout_path == $path' >/dev/null
+run_wt remove alias-path --foreground
+wait_for is_closed "$alias_path"
+
 run_wt switch --create feature/auth --no-cd
 created=$(branch_path feature/auth)
 wait_for is_open "$created"
@@ -235,12 +267,14 @@ echo '::: 遅延した post-switch と remove の競合でも、削除済み wor
 run_wt switch --create race --no-cd
 race=$(branch_path race)
 wait_for is_open "$race"
-common=$(git -C "$repo" rev-parse --absolute-git-dir)
+common=$(realpath -e -- "$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir)")
 exec 8>"$common/wt/herdr-sync.lock"
 flock 8
-wt -C "$race" switch @ --no-cd -y >/dev/null
+tracked_wt race-open -C "$race" switch @ --no-cd
+wait_for file_exists "$work_dir/race-open.started"
 run_wt remove race --foreground
 flock -u 8
+wait_for file_exists "$work_dir/race-open.done"
 wait_for is_closed "$race"
 sync_open "$repo" # primary をスキップ
 bash "$hook" open "$repo" "$race"
@@ -251,20 +285,63 @@ run_wt switch --create recreated --no-cd
 recreated=$(branch_path recreated)
 wait_for is_open "$recreated"
 flock 8
-run_wt remove recreated --foreground
-run_wt switch --create recreated --no-cd
+tracked_wt recreated-close -C "$repo" remove recreated --foreground
+wait_for file_exists "$work_dir/recreated-close.started"
+# 再作成の post-switch で誤った close を修復しないよう、今回は hook を実行しない。
+run_wt switch --create recreated --no-cd --no-hooks
 flock -u 8
-sync_close "$recreated"
-wait_for is_open "$recreated"
+wait_for file_exists "$work_dir/recreated-close.done"
+is_open "$recreated"
 run_wt remove recreated --foreground
 wait_for is_closed "$recreated"
 
-echo '::: CLI / jq が無くても Worktrunk の操作を妨げない'
+echo '::: herdr のみ欠落 / jq のみ欠落をそれぞれ確認する'
 wt_bin=$(command -v wt)
-PATH=/usr/bin:/bin "$wt_bin" -C "$repo" switch --create missing --no-cd -y >/dev/null
+mkdir "$work_dir/without-herdr" "$work_dir/without-jq"
+for tool in bash sh git realpath mkdir flock timeout; do
+	ln -s "$(command -v "$tool")" "$work_dir/without-herdr/$tool"
+	ln -s "$(command -v "$tool")" "$work_dir/without-jq/$tool"
+done
+ln -s "$(command -v jq)" "$work_dir/without-herdr/jq"
+cat >"$work_dir/without-jq/herdr" <<'STUB'
+#!/usr/bin/env bash
+printf called >"$HERDR_TEST_CALLED"
+exit 1
+STUB
+chmod +x "$work_dir/without-jq/herdr"
+PATH="$work_dir/without-herdr" "$wt_bin" -C "$repo" switch --create missing --no-cd -y >/dev/null
 missing=$(branch_path missing)
-PATH=/usr/bin:/bin bash "$hook" open "$repo" "$missing"
-PATH=/usr/bin:/bin "$wt_bin" -C "$repo" remove missing --foreground -y >/dev/null
+PATH="$work_dir/without-herdr" bash "$hook" open "$repo" "$missing"
+HERDR_TEST_CALLED="$work_dir/unexpected-herdr-call" PATH="$work_dir/without-jq" bash "$hook" open "$repo" "$missing"
+[[ ! -e "$work_dir/unexpected-herdr-call" ]]
+PATH="$work_dir/without-herdr" "$wt_bin" -C "$repo" remove missing --foreground -y >/dev/null
+
+echo '::: slow Herdr への複数 close が 10 秒以上待ってもイベントを落とさない'
+mkdir "$work_dir/slow-cli"
+cat >"$work_dir/slow-cli/herdr" <<'STUB'
+#!/usr/bin/env bash
+sleep 2.6
+exec "$HERDR_TEST_REAL_CLI" "$@"
+STUB
+chmod +x "$work_dir/slow-cli/herdr"
+queued_paths=()
+queued_branches=()
+for i in 1 2 3 4; do
+	run_wt switch --create "queued-$i" --no-cd --no-hooks
+	path=$(branch_path "queued-$i")
+	queued_paths+=("$path")
+	queued_branches+=("queued-$i")
+	sync_open "$path"
+done
+run_wt remove "${queued_branches[@]}" --foreground --no-hooks
+pids=()
+for path in "${queued_paths[@]}"; do
+	HERDR_TEST_REAL_CLI=$(command -v herdr) PATH="$work_dir/slow-cli:$PATH" \
+		timeout 35s bash "$hook" close "$repo" "$path" &
+	pids+=("$!")
+done
+for pid in "${pids[@]}"; do wait "$pid"; done
+for path in "${queued_paths[@]}"; do is_closed "$path"; done
 
 echo '::: 不正 JSON と応答停止でも hook は成功扱いで有限時間で終了する'
 mkdir "$work_dir/stub"
@@ -306,6 +383,6 @@ sync_open "$work_dir/bare.git.bare-feature"
 echo '::: 全 fixture の Git checkout が clean / 管理中の設定は未変更'
 [[ -z $(git -C "$repo" status --porcelain) && -z $(git -C "$other_repo" status --porcelain) ]]
 [[ -z $(git -C "$repo" diff) ]]
-sha256sum "$config_dir/config.toml" "$hook" >"$work_dir/config-after"
+sha256sum "$managed_config" "$hook" >"$work_dir/config-after"
 [[ $(cat "$work_dir/config-before") == $(cat "$work_dir/config-after") ]]
 echo '::: Worktrunk / Herdr OK'

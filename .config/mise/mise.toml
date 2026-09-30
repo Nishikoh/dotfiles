@@ -31,7 +31,9 @@ rclone = "latest"
 "github:tofuutils/tenv" = "latest"
 "github:htop-dev/htop" = "latest"
 "pipx:tldr" = "latest"
-worktrunk = "latest"
+# latest の配布 backend は 0.80.0 のみを返し、install_before = "10d" では導入できない。
+# System config と hook を Docker で確認したバージョンを明示する。
+worktrunk = "0.80.0"
 "aqua:Nukesor/pueue/pueue" = "latest"
 "aqua:Nukesor/pueue/pueued" = "latest"
 go = "latest"

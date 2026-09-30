@@ -1,4 +1,5 @@
-# 設定と連携 hook を mise dot でファイル単位で管理する (approvals.toml 等はマシン固有)。
+# mise bootstrap が /etc/xdg/worktrunk/config.toml にコピーする System 設定。
+# Worktrunk が書き込む ~/.config/worktrunk/config.toml / approvals.toml は管理しない。
 # テンプレート変数は Worktrunk が shell escape するので引用符で囲まない。
 # bare repo では primary_worktree_path が未定義なので、テンプレートの段階でスキップする。
 [post-switch]

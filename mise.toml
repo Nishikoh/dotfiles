@@ -38,6 +38,18 @@ owner = "root"
 group = "root"
 mode = "0644"
 
+# Worktrunk は user config を自動更新するので、連携 hook は読み込み専用の System 設定に置く。
+[bootstrap.directories."/etc/xdg/worktrunk"]
+owner = "root"
+group = "root"
+mode = "0755"
+
+[bootstrap.files."/etc/xdg/worktrunk/config.toml"]
+source = ".config/worktrunk/config.toml"
+owner = "root"
+group = "root"
+mode = "0644"
+
 [bootstrap.repos]
 "~/setup/argc-completions" = { url = "https://github.com/sigoden/argc-completions.git" }
 "~/.vim/pack/github/start/copilot.vim" = { url = "https://github.com/github/copilot.vim.git" }
@@ -57,8 +69,7 @@ mode = "0644"
 "~/.config/git/ignore" = { source = ".config/git/ignore", mode = "symlink" }
 # ~/.config/herdr にはソケットやログもあるのでファイルをリンクする。WSL では mise.wsl.toml が config.wsl.toml に差し替える
 "~/.config/herdr/config.toml" = { source = ".config/herdr/config.toml", mode = "symlink" }
-# Worktrunk の approvals.toml などはマシン固有なので、設定と連携 hook だけをリンクする。
-"~/.config/worktrunk/config.toml" = { source = ".config/worktrunk/config.toml" }
+# Worktrunk の user config / approvals.toml はマシン固有。実行スクリプトだけをリンクする。
 "~/.config/worktrunk/herdr-hook.sh" = { source = ".config/worktrunk/herdr-hook.sh" }
 "~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
 "~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
@@ -71,7 +82,10 @@ mode = "0644"
 pre-repos = "sh '{{config_root}}/bootstrap/exclude-generated-files.sh'"
 post-repos = "sh '{{config_root}}/bootstrap/exclude-generated-files.sh'"
 # 以前ディレクトリごとリンクしていた ~/.config/git などを実ディレクトリに戻す (dotfiles の配置がリポジトリのファイルを上書きしないように)
-pre-dotfiles = "bash '{{config_root}}/bootstrap/migrate-dir-links.sh' '{{config_root}}'"
+pre-dotfiles = [
+  "bash '{{config_root}}/bootstrap/migrate-dir-links.sh' '{{config_root}}'",
+  "bash '{{config_root}}/bootstrap/migrate-worktrunk-config.sh' '{{config_root}}'",
+]
 post-dotfiles = [
   # `mise bootstrap --from` はその実行の間だけこの設定を信頼するので、clone 先で mise を使えるように trust しておく。
   # リポジトリ内の .config/mise/mise.toml もプロジェクトの設定として読まれるので一緒に信頼する。

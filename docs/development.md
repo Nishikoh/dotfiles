@@ -22,9 +22,19 @@ Worktrunk / Herdr の変更では、トークンなしの最小検証として
 `bash tests/test-worktrunk-herdr.sh` を使える (引数で `ubuntu` / `arch` を指定可能)。
 実際の CLI と headless Herdr server で、作成・切り替え・削除・merge・focus・削除拒否・
 hook の実行順の競合・依存ツール欠落・応答停止を確認する。ツール取得は Docker build のキャッシュで再利用する。
+`REBUILD=1` で base image / mise / ツールを取り直し、`MISE_VERSION=v...` で mise を指定できる。
+競合テストは hook の開始・完了 marker を待ってから検査し、同じパスの再作成では登録 hook による修復を止める。
+herdr の欠落と jq の欠落は、それぞれ専用の PATH で検証する。
 bootstrap の full 実行と CI では、配置した設定を使って同じケースを実行する。
 `dot:add` のテストでは `MISE_TASK_RUN_AUTO_INSTALL=false` を渡す。
 `mise run` は既定で不足するツールを入れるので、これがないと `SKIP_TOOLS=1` でも全ツールを取得してしまう。
+通常の `mise bootstrap --dry-run` は full 実行で、tools/task を省いた dry-run は `SKIP_TOOLS=1` で検証する。
+clone が clean な状態の再実行に加え、`dot:add` 後にも bootstrap を実行する。
+
+Worktrunk の連携設定は `/etc/xdg/worktrunk/config.toml` にコピーする。
+`wt config update` が user config の symlink を維持したまま管理元を書き換えることを Docker で確認したため、
+user config は管理しない。Herdr 0.9.1 の `worktree open` は symlink 経由でも metadata に実パスを保存する。
+この実 CLI の挙動は、設定更新と symlink 経由の登録・削除のケースで確認する。
 
 ## mise のバージョン
 

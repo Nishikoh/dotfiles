@@ -96,10 +96,12 @@ mise run dot:add ~/.config/foo
 
 ## Worktrunk と Herdr
 
-[.config/worktrunk/config.toml](.config/worktrunk/config.toml) と
-[herdr-hook.sh](.config/worktrunk/herdr-hook.sh) を mise dot でファイル単位で配置する。
-`approvals.toml` など Worktrunk が書くマシン固有の情報はリポジトリに取り込まない。
-既存の `~/.config/worktrunk/config.toml` があれば必要な設定を取り込んでから bootstrap する。
+[.config/worktrunk/config.toml](.config/worktrunk/config.toml) は mise bootstrap で
+読み込み専用の `/etc/xdg/worktrunk/config.toml` (System 設定) にコピーする。
+[herdr-hook.sh](.config/worktrunk/herdr-hook.sh) は mise dot でファイル単位でリンクする。
+設定を変更したら `mise bootstrap` でコピーを更新する。
+Worktrunk が自動更新する `~/.config/worktrunk/config.toml` と `approvals.toml` はマシン固有のまま保持する。
+PR の初期版で作った user config のリンクは bootstrap が外す。実ファイルと独自のリンクは保持する。
 
 Herdr を起動し、primary リポジトリを workspace として開いてから、普段どおり `wt` を使う。
 
@@ -114,12 +116,14 @@ wt remove feature/auth           # Git の削除に成功した後、対応す�
   dirty checkout や他の hook による削除拒否では workspace を閉じない
 - `workspace close` は pane のシェルも終了するため、`pre-remove` では閉じない。
   削除後も残る workspace の Git 情報から対象を特定し、親や別リポジトリの workspace を保護する
-- 両 hook は background で動く。リポジトリごとの lock と checkout の再確認で、遅延した登録と削除、同じパスでの再作成に対応する
+- 両 hook は background で動く。リポジトリごとの lock と checkout の再確認で、遅延した登録と削除、同じパスでの再作成に対応する。
+  lock が空くまで待つため、複数削除でキューが長くなってもイベントを落とさない
 - Herdr が未起動、親が未登録、CLI / jq が無い場合はスキップする。サーバーや親 workspace を自動作成しない。
   応答停止にも時間制限を設け、Herdr の同期失敗で `wt` の操作を止めない
 - `HERDR_SESSION` / `HERDR_SOCKET_PATH` を引き継ぎ、そのサーバーだけに同期する。bare リポジトリは Herdr の worktree API が扱えないのでスキップする
 - `--no-hooks` や `git worktree` で直接操作した場合は同期しない。
   Herdr 再起動後の既存 checkout は `wt switch` で再選択すれば登録できる
+- API への同期失敗時に自動再試行はしない。削除済み checkout の表示が残った場合は、Herdr 側で workspace を閉じる
 
 hook の確認は `wt hook show`、登録の再実行は対象 checkout で `wt hook post-switch herdr-open --foreground`。
 hook の仕様は [Worktrunk](https://worktrunk.dev/hook/)、workspace の Git 情報は
@@ -146,4 +150,6 @@ bash tests/test-ssh-wrapper.sh
 # トークンなしで実際の Worktrunk / Herdr の連携だけを Docker (Ubuntu / Arch) で検証する
 # ツールは worktrunk・herdr・jq のみ。ビルド済みイメージを再利用する
 bash tests/test-worktrunk-herdr.sh
+# キャッシュ内の mise / ツールを取り直す。mise のバージョンを指定することもできる
+REBUILD=1 MISE_VERSION=v2026.9.17 bash tests/test-worktrunk-herdr.sh ubuntu
 ```
