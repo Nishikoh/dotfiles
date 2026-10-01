@@ -32,7 +32,7 @@ for target in "${targets[@]}"; do
 			sudo mkdir -p /etc/xdg/worktrunk
 			sudo cp /config/config.toml /etc/xdg/worktrunk/config.toml
 			mkdir -p ~/.config/worktrunk
-			cp /config/herdr-hook.sh ~/.config/worktrunk/
+			cp /config/herdr-hook.sh /config/herdr-shell.sh ~/.config/worktrunk/
 			mise exec -- bash /cases.sh
 		'
 done

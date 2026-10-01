@@ -25,22 +25,42 @@ hook の実行順の競合・依存ツール欠落・応答停止を確認する
 `REBUILD=1` で base image / mise / ツールを取り直し、`MISE_VERSION=v...` で mise を指定できる。
 競合テストは hook の開始・完了 marker を待ってから検査する。同じパスの再作成では古い workspace の終了と
 新しい pane の cwd からの `git status` を確認し、登録と削除の両方の順序を検証する。
-workspace の worktree metadata は終了候補を探すためだけに使い、workspace 全体を自動で閉じない。
-pane の shell と foreground process ごとに `/proc/<pid>/cwd` の readlink を Herdr の cwd と照合し、
+Herdr の pane 内の操作は、pane で `wt config shell init bash` と `herdr-shell.sh` を読み込み、`herdr pane run` で人間と同じように実行する。
+`wt` は cd 先を `WORKTRUNK_DIRECTIVE_CD_FILE` に書き、shell の関数が cd する。
+`herdr-shell.sh` はこの cd 先を受け取り、引数を解析せずに `herdr-hook.sh focus` で workspace を focus する。
+focus は対話中の shell を待たせないよう lock の待機を 5 秒に制限し、失敗したら cd する。
+`wt` はすでにその worktree の中にいると cd 先を書かないので、同じ workspace 内の移動は手動で別の worktree に cd してから確認する。
+
+削除の判定は workspace の worktree metadata で候補を探し、pane ごとに process-info を見る。
+shell だけが foreground にいて、shell の session に他のプロセスが無い pane を待機中とし、
+それ以外 (エージェント、エディタ、`sleep`、background job) は閉じない。
+Herdr は pane を閉じるとき、その pane の session のプロセスを nohup や SIGHUP の無視に関係なく終了させ、
+別 session (`setsid`) のものだけが残ることを Docker で確認した。
+Worktrunk の background 削除と post-* hook は `wt` を実行した pane の session で動くので、
+操作元の pane を早く閉じると trash の削除が途中で止まる (Ubuntu では間に合い、Arch で再現した)。
+そこで close は `setsid -w` で自分を別 session に移し、操作元の pane の session に
+自分と祖先 (hook runner) 以外のプロセスが無くなるまで待つ。session は `/proc/<pid>/stat` から読む。
+`wt merge` などの background 削除は、Git の登録を外した後、ディレクトリが残っている間に post-remove を始める。
+そのため削除済みかどうかはディレクトリではなく Git の登録 (`herdr worktree list`) で判定する。
+post-remove は `wt` の終了前に始まるので、操作元 `HERDR_PANE_ID` の foreground に `wt` か focus が残っている間、
+または session に Worktrunk のプロセスが残っている間は、lock を取らずに最大 60 秒待つ。
+lock を取ってから待つと、wrapper の focus が lock の待機で時間切れになる。エージェントが `wt` を実行した場合は待たない。
+同じパスに再登録されている場合 (遅れて届いた post-remove) と post-switch の前処理では、削除済みの場所の pane だけを閉じる。
+pane の `/proc/<pid>/cwd` の readlink を process-info の cwd と照合し、
 checkout の子ディレクトリにいれば生存する祖先を root まで辿って device/inode を比較する。
 idle shell の cwd は、poll のキャッシュである pane get より同期取得の process-info を優先する。
 ここで比較するのは同時に存在する directory object であり、inode を永続的な世代 ID として保存しない。
 子ディレクトリだけの削除では root が一致するため保護し、checkout 全体の再作成では古い root と異なるため置き換える。
-手動登録した workspace も同じ判定で扱い、旧来の世代 ID ファイル・metadata token は参照しない。
-`wt remove` は checkout を `.git/wt/trash/<basename>-<epoch>` に移すため、対象の名前だけを判定する。
-workspace / worktree 一覧に同 basename の別配置があれば、trash を特定できないので保護する。
-trash の場所と名前は Worktrunk の内部仕様なので、変わった場合は保護側に倒れる。
-操作元 `HERDR_PANE_ID`、対象外の shell / foreground process、API / proc 情報の取得失敗は終了対象にしない。
+`(deleted)` の cwd と `.git/wt/trash/` の中は削除途中の checkout なので、どの worktree のものかは区別しない
+(以前は trash の名前 `<basename>-<epoch>` で対象を特定していたが、同じ basename の別配置で判定できなかった)。
 stat の前後で cwd を照合し、close 直前にも pane と現在の root を再確認する。
-削除途中に `.git` だけ先に消えても close の判定を止めず、確認中の root の削除完了は許容する。
 ただし Herdr の取得と close は別 API なので、最後の確認直後の cd まで atomic に保護するものではない。
-最後の pane close は Herdr が workspace を終了する。別の作業を含む workspace が dedup で再利用された場合は、
+最後の pane close は Herdr が workspace を終了する。別の場所の pane だけを含む workspace が dedup で再利用された場合は、
 現在の checkout に属する pane がなければ `--no-focus` で復帰先を追加し、繰り返し switch で増殖させない。
+実行中の pane や状態を確認できない pane がある場合は、起動直後の shell かもしれないので追加しない。
+Git の登録が無い linked worktree の workspace (孤立) は、同じリポジトリの次の同期で削除済みの場所の pane だけ閉じる。
+`wt step relocate` は hook を実行しない。次の `worktree open` で Herdr が pane の場所から既存の workspace を再利用し、
+checkout_path を更新することを Docker で確認した。
 Linux の proc が利用できない場合は古い pane を保護する。Herdr と hook の process namespace が違う場合も
 cwd の照合に成功しない限り終了しない。
 lock の保持中の herdr / git / filesystem の操作にはすべて時間制限を設け、lock の待機は制限しない。

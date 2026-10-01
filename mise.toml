@@ -71,6 +71,7 @@ mode = "0644"
 "~/.config/herdr/config.toml" = { source = ".config/herdr/config.toml", mode = "symlink" }
 # Worktrunk の user config / approvals.toml はマシン固有。実行スクリプトだけをリンクする。
 "~/.config/worktrunk/herdr-hook.sh" = { source = ".config/worktrunk/herdr-hook.sh" }
+"~/.config/worktrunk/herdr-shell.sh" = { source = ".config/worktrunk/herdr-shell.sh" }
 "~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
 "~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
 "~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }

@@ -29,4 +29,8 @@ fi
 # wt
 if command -v wt >/dev/null 2>&1; then
     eval "$(command wt config shell init zsh)"
+    # Herdr の pane では cd の代わりに worktree の workspace を focus する
+    if [ -f ~/.config/worktrunk/herdr-shell.sh ]; then
+        source ~/.config/worktrunk/herdr-shell.sh
+    fi
 fi

@@ -98,36 +98,50 @@ mise run dot:add ~/.config/foo
 
 [.config/worktrunk/config.toml](.config/worktrunk/config.toml) は mise bootstrap で
 読み込み専用の `/etc/xdg/worktrunk/config.toml` (System 設定) にコピーする。
-[herdr-hook.sh](.config/worktrunk/herdr-hook.sh) は mise dot でファイル単位でリンクする。
+[herdr-hook.sh](.config/worktrunk/herdr-hook.sh) と [herdr-shell.sh](.config/worktrunk/herdr-shell.sh) は mise dot でファイル単位でリンクする。
 設定を変更したら `mise bootstrap` でコピーを更新する。
 Worktrunk が自動更新する `~/.config/worktrunk/config.toml` と `approvals.toml` はマシン固有のまま保持する。
 
-Herdr を起動し、primary リポジトリを workspace として開いてから、普段どおり `wt` を使う。
+Herdr の worktree と同じく、1 つの worktree を 1 つの workspace に対応させ、リポジトリの workspace の下に並べる。
+Herdr を起動しておけば、普段どおり `wt` を使うだけでよい。
 
-```sh
-wt switch --create feature/auth   # 作成した checkout を Herdr に登録
-wt switch existing               # 既存 checkout も登録。同じ checkout の再選択でも重複しない
-wt remove feature/auth           # Git の削除に成功した後、削除対象に残る pane を閉じる
+```text
+サイドバー
+  repo            ← primary (main) の workspace
+    ├ feature/auth ← feature/auth の checkout はこの workspace だけにある
+    └ fix-login
 ```
 
-- `post-switch` は `--no-cd` でも同期する。Herdr の focus は移動しない。primary への復帰は登録をスキップする
-- `post-remove` は通常の background 削除、現在の checkout の削除、`wt merge` による削除にも対応する。
-  dirty checkout や他の hook による削除拒否では workspace を閉じない
-- 削除対象の directory に残っている pane だけを閉じる。最後の pane を閉じると workspace も閉じる。
-  main や別リポジトリに移動した pane、別の場所で作業する foreground process、操作元の pane は残す。
-  Herdr pane 内の `wt merge` / `wt remove` は、shell integration で primary に戻った後も作業を続けられる
+```sh
+wt switch --create feature/auth   # feature/auth の workspace を作って移動する。操作した pane は cd しない
+wt switch main                    # repo の workspace に戻る。feature/auth の pane はそのまま
+wt merge                          # feature/auth の workspace を閉じ、repo の workspace に戻る
+```
+
+- Herdr の pane の中では、`wt` の cd を移動先の worktree の workspace への focus に置き換える
+  ([herdr-shell.sh](.config/worktrunk/herdr-shell.sh) を zsh で読み込む)。
+  `switch` / `switch -` / `switch ^` / picker / `merge` / `remove` のどれでも同じ。
+  操作元と同じ workspace 内の移動、Herdr の外、bare リポジトリ、focus に失敗した場合は通常どおり cd する
+- `--no-cd` を付けると、focus は移動せずに workspace をサイドバーに追加するだけになる
+- `-x` (`--execute`) のプログラムは操作した pane で動く。worktree の workspace で動かす場合は、そこで起動する
+- repo の workspace が無ければ focus を奪わずに作る。Herdr のサーバーは自動で起動しない
+- 削除 (`wt remove` / `wt merge` / 通常の background 削除 / 現在の checkout の削除) が成功したら、
+  その workspace で待機中の shell の pane を閉じる。最後の pane を閉じると workspace も閉じ、見ていた場合は repo の workspace に戻る。
+  dirty checkout や他の hook による削除拒否では閉じない
+- 何かを実行中の pane (エージェント、エディタ、`&` で動かした dev server などの background job) は削除後も残す。
+  Herdr は pane を閉じると中のプロセスをすべて終了させるため。終わったら Herdr 側で閉じる。
+  `wt` を実行した pane は、Worktrunk の background 削除と他の hook が終わるまで (最大 60 秒) 待ってから閉じる
 - 両 hook は background で動く。リポジトリごとの lock と checkout の再確認で、遅延した登録と削除、同じパスでの再作成に対応する。
   lock が空くまで待つため、複数削除でキューが長くなってもイベントを落とさない
-- shell の cwd が保持する directory と現在の checkout root を比較し、同じパスの再作成を判定する。
-  手動登録した workspace の子ディレクトリに残った古い pane も置き換え、同じ checkout 内で子ディレクトリを消しただけなら閉じない。
-  別の作業が残って workspace が再利用された場合は、現在の checkout 用 pane を一度だけ追加する。focus は移動しない
-- Herdr が未起動、親が未登録、CLI / jq が無い場合はスキップする。サーバーや親 workspace を自動作成しない。
-  応答停止にも時間制限を設け、Herdr の同期失敗で `wt` の操作を止めない
+- 同じパスの再作成は、shell の cwd が保持する directory と現在の checkout root を比較して判定する。
+  古い checkout に残った pane は置き換え、同じ checkout 内で子ディレクトリを消しただけなら閉じない。
+  別の場所の pane だけが残った workspace が再利用された場合は、現在の checkout 用 pane を一度だけ追加する
+- `--no-hooks` や `git worktree` で直接削除した場合、`wt step relocate` の後に switch せずに削除した場合の workspace は、
+  次に同じリポジトリで `wt switch` / `wt remove` したときに片付ける。relocate した checkout は次の `wt switch` で同じ workspace を引き継ぐ
+- CLI / jq が無い、応答が止まった場合も時間制限で終え、Herdr の同期失敗で `wt` の操作を止めない。
+  API への同期失敗時に自動再試行はしない。cwd を確認できない pane は閉じない
 - `HERDR_SESSION` / `HERDR_SOCKET_PATH` を引き継ぎ、そのサーバーだけに同期する。bare リポジトリは Herdr の worktree API が扱えないのでスキップする
-- `--no-hooks` や `git worktree` で直接操作した場合は同期しない。
-  Herdr 再起動後の既存 checkout は `wt switch` で再選択すれば登録できる
-- API への同期失敗時に自動再試行はしない。cwd を確認できない pane、同名の別配置があって trash を特定できない pane は保護する。
-  削除済み checkout の表示が残った場合は、Herdr 側で不要な pane を閉じる
+- Herdr 再起動後の既存 checkout は `wt switch` で再選択すれば登録できる
 - hook スクリプトの配置先は `$HOME/.config/worktrunk/herdr-hook.sh`。`XDG_CONFIG_HOME` を変更してもここから実行し、無いユーザー (sudo の root など) ではスキップする
 
 hook の確認は `wt hook show`、登録の再実行は対象 checkout で `wt hook post-switch herdr-open --foreground`。

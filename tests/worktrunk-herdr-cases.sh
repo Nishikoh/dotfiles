@@ -93,6 +93,15 @@ workspace_gone() { ! herdr workspace get "$1" >/dev/null 2>&1; }
 pane_at() {
 	herdr pane get "$1:p1" | jq -e --arg path "$2" '.result.pane.cwd == $path' >/dev/null
 }
+trash_empty() { [[ -z $(ls -A "$repo/.git/wt/trash" 2>/dev/null) ]]; }
+pane_count() { herdr pane list --workspace "$1" | jq '.result.panes | length'; }
+focused_is() { [[ $(focused_id) == "$1" ]]; }
+pane_cwd_is() {
+	herdr pane get "$1" | jq -e --arg path "$2" '.result.pane.cwd == $path' >/dev/null
+}
+# 人間の pane と同じく、shell integration と Herdr 用の wrapper を読み込む。
+# shellcheck disable=SC2016 # pane 内の shell で展開する。
+shell_init='eval "$(command wt config shell init bash)"; source ~/.config/worktrunk/herdr-shell.sh'
 pane_git_works() {
 	local id=$1 marker="$work_dir/pane-git-$1"
 	herdr pane run "$id:p1" "git status --porcelain > /dev/null && touch '$marker'" >/dev/null
@@ -124,19 +133,25 @@ sync_close "$offline"
 [[ $(herdr status server) == *'not running'* ]]
 [[ ! -e "$repo/.git/wt/herdr-sync.lock" ]]
 
-echo '::: 起動済みでも親リポジトリが未登録なら workspace を自動作成しない'
+echo '::: 起動済みなら、未登録の repo の workspace も focus を奪わずに作り、その下に登録する'
 herdr server >"$work_dir/server.log" 2>&1 &
 server_pid=$!
 wait_for server_ready
-count=$(workspace_count)
+other_repo="$work_dir/other repo"
+init_repo "$other_repo"
+other_id=$(herdr workspace create --cwd "$other_repo" --focus | jq -er '.result.workspace.workspace_id')
 run_wt switch --create unregistered --no-cd
 unregistered=$(branch_path unregistered)
-sync_open "$unregistered"
-[[ $(workspace_count) == "$count" ]]
+wait_for is_open "$unregistered"
+parent=$(workspace_id "$repo")
+[[ $(focused_id) == "$other_id" ]]
+[[ $(herdr worktree list --cwd "$repo" | jq -r '.result.source.source_workspace_id') == "$parent" ]]
 run_wt remove unregistered --foreground
+wait_for is_closed "$unregistered"
+herdr workspace get "$parent" >/dev/null
 
 echo '::: 新規作成 (slash を含む branch、空白・引用符・ドルを含む path) / focus を奪わない'
-parent=$(herdr workspace create --cwd "$repo" --focus | jq -er '.result.workspace.workspace_id')
+herdr workspace focus "$parent" >/dev/null
 echo '::: XDG_CONFIG_HOME を変更しても mise dot の配置先から hook を実行する'
 socket=$(herdr status server --json | jq -er '.socket')
 mkdir -p "$work_dir/xdg-alt"
@@ -217,9 +232,6 @@ wait_for is_closed "$existing"
 [[ ! -e "$existing" ]]
 
 echo '::: 複数 checkout の削除 / primary と別リポジトリの workspace は残す'
-other_repo="$work_dir/other repo"
-init_repo "$other_repo"
-other_id=$(herdr workspace create --cwd "$other_repo" --no-focus | jq -er '.result.workspace.workspace_id')
 run_wt remove feature/auth branch-only --foreground
 wait_for is_closed "$created"
 wait_for is_closed "$branch_only"
@@ -283,7 +295,7 @@ echo '::: shell integration で cd してから現在の checkout を削除'
 	wait_for is_closed "$current"
 )
 
-echo '::: main や別 repo に移動済みの pane を残し、削除対象の pane だけ閉じる'
+echo '::: 削除後は main や別 repo に移動した待機中の pane も閉じ、workspace を閉じる'
 run_wt switch --create moved-pane --no-cd
 moved=$(branch_path moved-pane)
 wait_for is_open "$moved"
@@ -291,60 +303,153 @@ moved_id=$(workspace_id "$moved")
 # shellcheck disable=SC2016 # pane 内の shell で integration を初期化する。
 herdr pane run "$moved_id:p1" 'eval "$(command wt config shell init bash)"; wt switch main -y' >/dev/null
 wait_for pane_at "$moved_id" "$repo"
-other_pane=$(herdr pane split "$moved_id:p1" --direction right --cwd "$other_repo" --no-focus | jq -er '.result.pane.pane_id')
-stale_pane=$(herdr pane split "$moved_id:p1" --direction down --cwd "$moved" --no-focus | jq -er '.result.pane.pane_id')
+herdr pane split "$moved_id:p1" --direction right --cwd "$other_repo" --no-focus >/dev/null
+herdr pane split "$moved_id:p1" --direction down --cwd "$moved" --no-focus >/dev/null
 run_wt remove moved-pane --foreground
-sync_close "$moved"
+wait_for workspace_gone "$moved_id"
+herdr workspace get "$parent" >/dev/null
+herdr workspace get "$other_id" >/dev/null
+
+echo '::: hook なしの削除と再作成で別 repo の pane だけが残った workspace には、復帰先を一度だけ追加する'
+run_wt switch --create dedup --no-cd
+dedup=$(branch_path dedup)
+wait_for is_open "$dedup"
+dedup_id=$(workspace_id "$dedup")
+printf -v to_other 'cd %q' "$other_repo"
+herdr pane run "$dedup_id:p1" "$to_other" >/dev/null
+wait_for pane_at "$dedup_id" "$other_repo"
+run_wt remove dedup --foreground --no-hooks
+run_wt switch --create dedup --no-cd --no-hooks
+sync_open "$dedup"
+[[ $(workspace_id "$dedup") == "$dedup_id" && $(pane_count "$dedup_id") == 2 ]]
+sync_open "$dedup"
+[[ $(pane_count "$dedup_id") == 2 ]]
+run_wt remove dedup --foreground
+wait_for workspace_gone "$dedup_id"
+
+echo '::: 実行中の process がある pane と workspace は残し、待機中の pane だけ閉じる'
+run_wt switch --create busy-pane --no-cd
+busy=$(branch_path busy-pane)
+wait_for is_open "$busy"
+busy_id=$(workspace_id "$busy")
+idle_pane=$(herdr pane split "$busy_id:p1" --direction right --cwd "$busy" --no-focus | jq -er '.result.pane.pane_id')
+herdr pane run "$busy_id:p1" 'sleep 600' >/dev/null
+sleep_running() {
+	herdr pane process-info --pane "$1" | jq -e '.result.process_info.foreground_processes[0].name == "sleep"' >/dev/null
+}
+wait_for sleep_running "$busy_id:p1"
+busy_pid=$(herdr pane process-info --pane "$busy_id:p1" | jq -er '.result.process_info.foreground_processes[0].pid')
+# prompt に戻っていても、background job (dev server など) がある pane は閉じない。
+job_pane=$(herdr pane split "$busy_id:p1" --direction down --cwd "$busy" --no-focus | jq -er '.result.pane.pane_id')
+herdr pane run "$job_pane" "sleep 601 & echo \$! > $(printf '%q' "$work_dir/job-pid")" >/dev/null
+wait_for file_exists "$work_dir/job-pid"
+job_pid=$(cat "$work_dir/job-pid")
+run_wt remove busy-pane --foreground
+sync_close "$busy"
 pane_missing() { ! herdr pane get "$1" >/dev/null 2>&1; }
-wait_for pane_missing "$stale_pane"
-pane_git_works "$moved_id"
-herdr pane run "$other_pane" "git status --porcelain >/dev/null && touch '$work_dir/other-pane-alive'" >/dev/null
-wait_for file_exists "$work_dir/other-pane-alive"
-[[ $(herdr pane list --workspace "$moved_id" | jq '.result.panes | length') == 2 ]]
-# 別 repo にいる pane を含む workspace を同 path の再作成で dedup しても、復帰先を一度だけ追加する。
-run_wt switch --create moved-pane --no-cd --no-hooks
-sync_open "$moved"
-[[ $(herdr pane list --workspace "$moved_id" | jq '.result.panes | length') == 3 ]]
-sync_open "$moved"
-[[ $(herdr pane list --workspace "$moved_id" | jq '.result.panes | length') == 3 ]]
-run_wt remove moved-pane --foreground
-sync_close "$moved"
-herdr workspace close "$moved_id" >/dev/null
+wait_for pane_missing "$idle_pane"
+herdr pane get "$busy_id:p1" >/dev/null
+herdr pane get "$job_pane" >/dev/null
+kill -0 "$busy_pid"
+kill -0 "$job_pid"
+# 終わった後に閉じるのは人間の操作。
+kill "$busy_pid" "$job_pid"
+herdr workspace close "$busy_id" >/dev/null
 
-echo '::: shell が削除対象に残っていても、foreground process が別 repo なら閉じない'
-run_wt switch --create foreground-pane --no-cd
-foreground_path=$(branch_path foreground-pane)
-wait_for is_open "$foreground_path"
-foreground_id=$(workspace_id "$foreground_path")
-printf -v foreground_cmd 'bash -c %q' "cd $(printf '%q' "$other_repo"); exec sleep 600"
-herdr pane run "$foreground_id:p1" "$foreground_cmd" >/dev/null
-foreground_at() { herdr pane get "$1:p1" | jq -e --arg path "$2" '.result.pane.foreground_cwd == $path' >/dev/null; }
-wait_for foreground_at "$foreground_id" "$other_repo"
-foreground_pid=$(herdr pane process-info --pane "$foreground_id:p1" | jq -er '.result.process_info.foreground_processes[0].pid')
-run_wt remove foreground-pane --foreground
-sync_close "$foreground_path"
-herdr pane get "$foreground_id:p1" >/dev/null
-kill -0 "$foreground_pid"
-herdr workspace close "$foreground_id" >/dev/null
-
-echo '::: pane 内の merge / remove は操作元 shell を終了させず、primary で作業を続けられる'
-for operation in merge remove; do
-	branch="inside-$operation"
+echo '::: pane 内の merge / remove で workspace を閉じ、repo の workspace に戻る'
+for variant in merge:wrapper remove:wrapper merge:plain remove:plain; do
+	operation=${variant%%:*}
+	shell=${variant#*:}
+	branch="inside-$operation-$shell"
 	run_wt switch --create "$branch" --no-cd
 	inside=$(branch_path "$branch")
 	wait_for is_open "$inside"
 	inside_id=$(workspace_id "$inside")
+	herdr workspace focus "$inside_id" >/dev/null
 	# shellcheck disable=SC2016 # pane 内の shell で integration を初期化する。
-	printf -v inside_cmd 'eval "$(command wt config shell init bash)"; wt %s; pwd > %q' \
-		"$operation $([[ "$operation" == merge ]] && echo 'main --no-commit --no-rebase' || echo '--foreground') -y" "$work_dir/$branch.returned"
-	herdr pane run "$inside_id:p1" "$inside_cmd" >/dev/null
+	init='eval "$(command wt config shell init bash)"'
+	[[ "$shell" == plain ]] || init=$shell_init
+	# remove は既定の background 削除 (trash を経由する) を使う。
+	args=$([[ "$operation" == merge ]] && echo 'merge main --no-commit --no-rebase' || echo 'remove')
+	herdr pane run "$inside_id:p1" "$init; wt $args -y; pwd > $(printf '%q' "$work_dir/$branch.returned")" >/dev/null
 	wait_for file_exists "$work_dir/$branch.returned"
-	[[ $(cat "$work_dir/$branch.returned") == "$repo" ]]
+	# wrapper は cd せずに repo の workspace を focus する。wrapper なしは shell integration で primary に cd する。
+	[[ $(cat "$work_dir/$branch.returned") == "$([[ "$shell" == plain ]] && echo "$repo" || echo "$inside")" ]]
 	wait_for path_removed "$inside"
-	sync_close "$inside" # 操作元でない遅延 hook に対しても現在の cwd で保護する。
-	pane_git_works "$inside_id"
-	herdr workspace close "$inside_id" >/dev/null
+	wait_for workspace_gone "$inside_id"
+	wait_for focused_is "$parent"
+	# 操作元の pane を閉じても、同じ session で動く Worktrunk の background 削除を途中で止めない。
+	wait_for trash_empty
 done
+
+echo '::: Herdr の pane の wt switch は cd せず、worktree の workspace を focus する'
+mkdir "$repo/sub"
+parent_pane=$(herdr pane split "$parent:p1" --direction right --cwd "$repo/sub" --no-focus | jq -er '.result.pane.pane_id')
+herdr pane run "$parent_pane" "$shell_init" >/dev/null
+pane_run_pwd() {
+	local pane=$1 name=$2 command=$3
+	herdr pane run "$pane" "$command; pwd > $(printf '%q' "$work_dir/$name.pwd")" >/dev/null
+	wait_for file_exists "$work_dir/$name.pwd"
+	cat "$work_dir/$name.pwd"
+}
+[[ $(pane_run_pwd "$parent_pane" wrapped 'wt switch --create wrapped -y') == "$repo/sub" ]]
+wrapped=$(branch_path wrapped)
+wrapped_id=$(workspace_id "$wrapped")
+wait_for focused_is "$wrapped_id"
+# 同期的な focus と background の post-switch が同じ workspace に pane を重複させない。
+sleep 2
+[[ $(pane_count "$wrapped_id") == 1 ]]
+pane_git_works "$wrapped_id"
+echo '::: 既存の worktree への switch も focus し、workspace を増やさない'
+herdr workspace focus "$parent" >/dev/null
+count=$(workspace_count)
+[[ $(pane_run_pwd "$parent_pane" existing-wrapped 'wt switch wrapped -y') == "$repo/sub" ]]
+wait_for focused_is "$wrapped_id"
+[[ $(workspace_count) == "$count" && $(pane_count "$wrapped_id") == 1 ]]
+echo '::: worktree の workspace で wt switch main を実行すると repo の workspace に戻る'
+herdr pane run "$wrapped_id:p1" "$shell_init" >/dev/null
+[[ $(pane_run_pwd "$wrapped_id:p1" wrapped-main 'wt switch main -y') == "$wrapped" ]]
+wait_for focused_is "$parent"
+echo '::: 同じ workspace 内の移動と --no-cd は従来どおり'
+# repo の workspace の pane で手動で worktree に移動していれば、main への switch は cd で戻る。
+printf -v to_wrapped 'cd %q' "$wrapped"
+[[ $(pane_run_pwd "$parent_pane" same "$to_wrapped; wt switch main -y") == "$repo" ]]
+[[ $(pane_run_pwd "$parent_pane" no-cd 'wt switch --create no-cd --no-cd -y') == "$repo" ]]
+no_cd=$(branch_path no-cd)
+wait_for is_open "$no_cd"
+[[ $(focused_id) == "$parent" ]]
+run_wt remove wrapped no-cd --foreground
+wait_for workspace_gone "$wrapped_id"
+wait_for is_closed "$no_cd"
+herdr pane close "$parent_pane" >/dev/null
+rmdir "$repo/sub"
+
+echo '::: wt step relocate で移動した checkout は、次の wt switch で同じ workspace と shell を引き継ぐ'
+relocate_config='worktree-path = "{{ repo_path }}/../relocated.{{ branch | sanitize }}"'
+run_wt switch --create relocated --no-cd
+relocated_old=$(branch_path relocated)
+wait_for is_open "$relocated_old"
+relocated_old_id=$(workspace_id "$relocated_old")
+relocated_pid=$(herdr pane process-info --pane "$relocated_old_id:p1" | jq -er '.result.process_info.shell_pid')
+run_wt --config-set "$relocate_config" step relocate relocated
+relocated=$(branch_path relocated)
+[[ "$relocated" != "$relocated_old" && -d "$relocated" ]]
+count=$(workspace_count)
+run_wt switch relocated --no-cd
+wait_for is_open "$relocated"
+[[ $(workspace_id "$relocated") == "$relocated_old_id" && $(workspace_count) == "$count" ]]
+[[ $(pane_count "$relocated_old_id") == 1 ]]
+[[ $(herdr pane process-info --pane "$relocated_old_id:p1" | jq -er '.result.process_info.shell_pid') == "$relocated_pid" ]]
+run_wt remove relocated --foreground
+wait_for workspace_gone "$relocated_old_id"
+echo '::: relocate 後に switch せず削除しても、古い workspace を閉じる'
+run_wt switch --create relocated-remove --no-cd
+relocated_old=$(branch_path relocated-remove)
+wait_for is_open "$relocated_old"
+relocated_old_id=$(workspace_id "$relocated_old")
+run_wt --config-set "$relocate_config" step relocate relocated-remove
+run_wt remove relocated-remove --foreground
+wait_for workspace_gone "$relocated_old_id"
 
 echo '::: 遅延した post-switch と remove の競合でも、削除済み workspace を再登録しない'
 run_wt switch --create race --no-cd
@@ -509,19 +614,19 @@ pane_git_works "$(workspace_id "$private")"
 run_wt remove private --foreground
 wait_for is_closed "$private"
 
-echo '::: 同じ basename の別 checkout がある場合、曖昧な trash の pane を閉じない'
+echo '::: 同じ basename の別 checkout があっても、削除した checkout の workspace だけを閉じる'
 mkdir "$work_dir/layout-a" "$work_dir/layout-b"
 collision_a="$work_dir/layout-a/shared"
 collision_b="$work_dir/layout-b/shared"
 git -C "$repo" worktree add -q -b collision-a "$collision_a"
 git -C "$repo" worktree add -q -b collision-b "$collision_b"
 collision_id=$(manual_open "$collision_a")
-run_wt remove collision-a --foreground --no-hooks
-wait_for pane_deleted "$collision_id"
-sync_close "$collision_a"
-herdr pane get "$collision_id:p1" >/dev/null
-herdr workspace close "$collision_id" >/dev/null
+collision_b_id=$(manual_open "$collision_b")
+run_wt remove collision-a
+wait_for workspace_gone "$collision_id"
+herdr pane get "$collision_b_id:p1" >/dev/null
 run_wt remove collision-b --foreground
+wait_for workspace_gone "$collision_b_id"
 
 echo '::: herdr のみ欠落 / jq のみ欠落をそれぞれ確認する'
 wt_bin=$(command -v wt)

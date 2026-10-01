@@ -6,7 +6,7 @@
 [post-switch]
 herdr-open = '{% if primary_worktree_path %}if [ -f "$HOME/.config/worktrunk/herdr-hook.sh" ]; then bash "$HOME/.config/worktrunk/herdr-hook.sh" open {{ primary_worktree_path }} {{ worktree_path }} || true; fi{% endif %}'
 
-# 削除後、対象 checkout に残る pane だけを閉じる。操作元・別 checkout の pane は残す。
-# workspace の metadata で候補を探し、実際の shell / foreground process の cwd を確認する。
+# 削除後、対象 checkout の workspace で待機中の shell の pane を閉じ、最後の pane で workspace も閉じる。
+# 何かを実行中の pane (エージェント、エディタ、dev server など) は残す。
 [post-remove]
 herdr-close = '{% if primary_worktree_path %}if [ -f "$HOME/.config/worktrunk/herdr-hook.sh" ]; then bash "$HOME/.config/worktrunk/herdr-hook.sh" close {{ primary_worktree_path }} {{ worktree_path }} || true; fi{% endif %}'

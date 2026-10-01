@@ -114,7 +114,7 @@ mise bootstrap --from /src --from-dir "$dotfiles" --yes $SKIP_ARGS
 
 echo "::: check dotfiles"
 for f in .gitconfig .vimrc .zshrc .config/git/ignore .config/helix .config/lazygit .config/mise .config/starship.toml .config/yazi \
-	.config/herdr/config.toml .config/worktrunk/herdr-hook.sh \
+	.config/herdr/config.toml .config/worktrunk/herdr-hook.sh .config/worktrunk/herdr-shell.sh \
 	.claude/settings.json .claude/hooks .claude/statusline-command.sh .claude/skills/dev-lsp; do
 	test "$(readlink ~/"$f")" = "$dotfiles/$f" || { echo "NG: ~/$f -> $(readlink ~/"$f")"; exit 1; }
 done
@@ -254,6 +254,7 @@ check_git_dir() {
 	grep -qxF "worktree-path = \"../local-{{ branch }}\"" ~/.config/worktrunk/config.toml
 	cmp "$dotfiles/.config/worktrunk/config.toml" /etc/xdg/worktrunk/config.toml
 	test "$(readlink ~/.config/worktrunk/herdr-hook.sh)" = "$dotfiles/.config/worktrunk/herdr-hook.sh"
+	test "$(readlink ~/.config/worktrunk/herdr-shell.sh)" = "$dotfiles/.config/worktrunk/herdr-shell.sh"
 	test -f "$dotfiles/.config/worktrunk/config.toml" && ! test -L "$dotfiles/.config/worktrunk/config.toml"
 	test -z "$(git -C "$dotfiles" status --porcelain)" || { git -C "$dotfiles" status --short; exit 1; }
 }
