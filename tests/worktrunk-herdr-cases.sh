@@ -9,6 +9,8 @@ herdr --version
 
 work_dir=$(realpath -e -- "$(mktemp -d)")
 export HERDR_SESSION=dotfiles-integration
+# 実際の人間の pane で shell integration を使う。コンテナの /bin/sh 既定に依存しない。
+export SHELL=/bin/bash
 repo="$work_dir/repo space ' \$dollar"
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/worktrunk"
 hook="$HOME/.config/worktrunk/herdr-hook.sh"
@@ -88,9 +90,6 @@ sync_close() {
 }
 file_exists() { [[ -f "$1" ]]; }
 workspace_gone() { ! herdr workspace get "$1" >/dev/null 2>&1; }
-has_generation() {
-	herdr workspace get "$1" | jq -e '.result.workspace.tokens.dotfiles_wt_checkout | length > 0' >/dev/null
-}
 pane_at() {
 	herdr pane get "$1:p1" | jq -e --arg path "$2" '.result.pane.cwd == $path' >/dev/null
 }
@@ -102,6 +101,7 @@ pane_git_works() {
 
 # production の hook 本文に、開始と終了の marker だけを追加する。
 # この config を使う invocation では System config を外し、hook を二重に実行しない。
+# shellcheck disable=SC2016 # marker の変数は hook の実行時に展開する。
 sed -e 's/bash "/touch "$HERDR_TEST_STARTED"; bash "/' \
 	-e 's/ || true/ || true; touch "$HERDR_TEST_DONE"/' \
 	"$managed_config" >"$work_dir/tracked-config.toml"
@@ -192,7 +192,6 @@ wt -C "$created" switch main --no-cd -y >/dev/null
 sync_open "$repo"
 [[ $(workspace_count) == "$count" ]]
 run_wt switch --create no-hooks --no-cd --no-hooks
-no_hooks=$(branch_path no-hooks)
 [[ $(workspace_count) == "$count" ]]
 run_wt remove no-hooks --foreground --no-hooks
 
@@ -284,14 +283,68 @@ echo '::: shell integration で cd してから現在の checkout を削除'
 	wait_for is_closed "$current"
 )
 
-echo '::: Herdr pane 内からの remove でも、checkout の削除を完了してから閉じる'
-run_wt switch --create inside-pane --no-cd
-inside=$(branch_path inside-pane)
-wait_for is_open "$inside"
-inside_id=$(workspace_id "$inside")
-herdr pane run "$inside_id:p1" 'wt remove --foreground -y' >/dev/null
-wait_for is_closed "$inside"
-[[ ! -e "$inside" ]]
+echo '::: main や別 repo に移動済みの pane を残し、削除対象の pane だけ閉じる'
+run_wt switch --create moved-pane --no-cd
+moved=$(branch_path moved-pane)
+wait_for is_open "$moved"
+moved_id=$(workspace_id "$moved")
+# shellcheck disable=SC2016 # pane 内の shell で integration を初期化する。
+herdr pane run "$moved_id:p1" 'eval "$(command wt config shell init bash)"; wt switch main -y' >/dev/null
+wait_for pane_at "$moved_id" "$repo"
+other_pane=$(herdr pane split "$moved_id:p1" --direction right --cwd "$other_repo" --no-focus | jq -er '.result.pane.pane_id')
+stale_pane=$(herdr pane split "$moved_id:p1" --direction down --cwd "$moved" --no-focus | jq -er '.result.pane.pane_id')
+run_wt remove moved-pane --foreground
+sync_close "$moved"
+pane_missing() { ! herdr pane get "$1" >/dev/null 2>&1; }
+wait_for pane_missing "$stale_pane"
+pane_git_works "$moved_id"
+herdr pane run "$other_pane" "git status --porcelain >/dev/null && touch '$work_dir/other-pane-alive'" >/dev/null
+wait_for file_exists "$work_dir/other-pane-alive"
+[[ $(herdr pane list --workspace "$moved_id" | jq '.result.panes | length') == 2 ]]
+# 別 repo にいる pane を含む workspace を同 path の再作成で dedup しても、復帰先を一度だけ追加する。
+run_wt switch --create moved-pane --no-cd --no-hooks
+sync_open "$moved"
+[[ $(herdr pane list --workspace "$moved_id" | jq '.result.panes | length') == 3 ]]
+sync_open "$moved"
+[[ $(herdr pane list --workspace "$moved_id" | jq '.result.panes | length') == 3 ]]
+run_wt remove moved-pane --foreground
+sync_close "$moved"
+herdr workspace close "$moved_id" >/dev/null
+
+echo '::: shell が削除対象に残っていても、foreground process が別 repo なら閉じない'
+run_wt switch --create foreground-pane --no-cd
+foreground_path=$(branch_path foreground-pane)
+wait_for is_open "$foreground_path"
+foreground_id=$(workspace_id "$foreground_path")
+printf -v foreground_cmd 'bash -c %q' "cd $(printf '%q' "$other_repo"); exec sleep 600"
+herdr pane run "$foreground_id:p1" "$foreground_cmd" >/dev/null
+foreground_at() { herdr pane get "$1:p1" | jq -e --arg path "$2" '.result.pane.foreground_cwd == $path' >/dev/null; }
+wait_for foreground_at "$foreground_id" "$other_repo"
+foreground_pid=$(herdr pane process-info --pane "$foreground_id:p1" | jq -er '.result.process_info.foreground_processes[0].pid')
+run_wt remove foreground-pane --foreground
+sync_close "$foreground_path"
+herdr pane get "$foreground_id:p1" >/dev/null
+kill -0 "$foreground_pid"
+herdr workspace close "$foreground_id" >/dev/null
+
+echo '::: pane 内の merge / remove は操作元 shell を終了させず、primary で作業を続けられる'
+for operation in merge remove; do
+	branch="inside-$operation"
+	run_wt switch --create "$branch" --no-cd
+	inside=$(branch_path "$branch")
+	wait_for is_open "$inside"
+	inside_id=$(workspace_id "$inside")
+	# shellcheck disable=SC2016 # pane 内の shell で integration を初期化する。
+	printf -v inside_cmd 'eval "$(command wt config shell init bash)"; wt %s; pwd > %q' \
+		"$operation $([[ "$operation" == merge ]] && echo 'main --no-commit --no-rebase' || echo '--foreground') -y" "$work_dir/$branch.returned"
+	herdr pane run "$inside_id:p1" "$inside_cmd" >/dev/null
+	wait_for file_exists "$work_dir/$branch.returned"
+	[[ $(cat "$work_dir/$branch.returned") == "$repo" ]]
+	wait_for path_removed "$inside"
+	sync_close "$inside" # 操作元でない遅延 hook に対しても現在の cwd で保護する。
+	pane_git_works "$inside_id"
+	herdr workspace close "$inside_id" >/dev/null
+done
 
 echo '::: 遅延した post-switch と remove の競合でも、削除済み workspace を再登録しない'
 run_wt switch --create race --no-cd
@@ -315,7 +368,7 @@ run_wt switch --create recreated --no-cd
 recreated=$(branch_path recreated)
 wait_for is_open "$recreated"
 old_id=$(workspace_id "$recreated")
-wait_for has_generation "$old_id"
+sync_open "$recreated"
 # サブディレクトリにいる pane も、checkout の世代が変わったら古い workspace として閉じる。
 herdr pane run "$old_id:p1" 'mkdir nested; cd nested' >/dev/null
 wait_for pane_at "$old_id" "$recreated/nested"
@@ -342,7 +395,7 @@ printf -v restore_cwd 'cd %q' "$recreated"
 herdr pane run "$fresh_id:p1" "$restore_cwd" >/dev/null
 wait_for pane_at "$fresh_id" "$recreated"
 
-echo '::: 識別情報のない手動登録の workspace も、子ディレクトリの削除では閉じず、checkout の削除後は置き換える'
+echo '::: 手動登録も子ディレクトリだけの削除では保護し、checkout 全体の再作成では復旧する'
 manual_open() {
 	herdr worktree open --workspace "$parent" --path "$1" --no-focus | jq -er '.result.workspace.workspace_id'
 }
@@ -352,7 +405,6 @@ pane_deleted() {
 run_wt switch --create manual --no-cd --no-hooks
 manual=$(branch_path manual)
 manual_id=$(manual_open "$manual")
-if has_generation "$manual_id"; then echo 'NG: 手動登録に識別情報がある' >&2; exit 1; fi
 herdr pane run "$manual_id:p1" 'mkdir scratch; cd scratch; rmdir ../scratch' >/dev/null
 wait_for pane_at "$manual_id" "$manual/scratch (deleted)"
 sync_open "$manual"
@@ -380,8 +432,7 @@ workspace_gone "$manual_id"
 pane_git_works "$(workspace_id "$manual")"
 run_wt remove manual-git --foreground
 wait_for is_closed "$manual"
-# 子ディレクトリに shell が残った古い workspace は削除済みと判定できず、Herdr の dedup で再利用される。
-# このとき新しい checkout の識別情報を付けず、以後も識別情報なしとして扱う。
+# 初めて hook が観測した手動登録でも、cwd の生存する祖先から旧 checkout と判定する。
 git -C "$repo" worktree add -q -b manual-sub "$manual"
 manual_id=$(manual_open "$manual")
 herdr pane run "$manual_id:p1" 'mkdir src; cd src' >/dev/null
@@ -390,8 +441,10 @@ git -C "$repo" worktree remove --force "$manual"
 wait_for pane_at "$manual_id" "$manual/src (deleted)"
 git -C "$repo" worktree add -q "$manual" manual-sub
 sync_open "$manual"
-[[ $(workspace_id "$manual") == "$manual_id" ]]
-if has_generation "$manual_id"; then echo 'NG: 再利用した workspace に識別情報を付けた' >&2; exit 1; fi
+workspace_gone "$manual_id"
+pane_git_works "$(workspace_id "$manual")"
+sync_open "$manual" # 復旧後の再選択で pane を増殖させない。
+[[ $(herdr pane list --workspace "$(workspace_id "$manual")" | jq '.result.panes | length') == 1 ]]
 run_wt remove manual-sub --foreground
 wait_for is_closed "$manual"
 
@@ -408,6 +461,67 @@ pane_git_works "$new_id"
 [[ $(focused_id) == "$parent" ]]
 run_wt remove recreated --foreground
 wait_for is_closed "$recreated"
+
+echo '::: checkout の親へアクセスできない場合は、削除と誤認して pane を閉じない'
+mkdir "$work_dir/private"
+private="$work_dir/private/checkout"
+git -C "$repo" worktree add -q -b private "$private"
+private_id=$(manual_open "$private")
+herdr pane run "$private_id:p1" 'mkdir scratch; cd scratch; rmdir ../scratch' >/dev/null
+wait_for pane_at "$private_id" "$private/scratch (deleted)"
+chmod 000 "$work_dir/private"
+if ! bash "$hook" close "$repo" "$private"; then
+	chmod 700 "$work_dir/private"
+	exit 1
+fi
+chmod 700 "$work_dir/private"
+herdr pane get "$private_id:p1" >/dev/null
+
+echo '::: proc の取得不能・不完全な process-info では終了せず、再選択で pane を増やさない'
+git -C "$repo" worktree remove --force "$private"
+wait_for pane_at "$private_id" "$private/scratch (deleted)"
+git -C "$repo" worktree add -q "$private" private
+mkdir "$work_dir/unknown-process"
+cat >"$work_dir/unknown-process/herdr" <<'STUB'
+#!/usr/bin/env bash
+if [[ "$1 $2" == 'pane process-info' ]]; then
+	case "$HERDR_TEST_PROCESS" in
+	missing) "$HERDR_TEST_REAL_CLI" "$@" | jq '.result.process_info.shell_pid = 99999999';;
+	foreground-missing) "$HERDR_TEST_REAL_CLI" "$@" | jq '.result.process_info.foreground_processes[0].pid = 99999999';;
+	malformed) "$HERDR_TEST_REAL_CLI" "$@" | jq '.result.process_info.foreground_processes = [{}]';;
+	esac
+else
+	exec "$HERDR_TEST_REAL_CLI" "$@"
+fi
+STUB
+chmod +x "$work_dir/unknown-process/herdr"
+for failure in missing foreground-missing malformed; do
+	for action in close open open; do
+		HERDR_TEST_REAL_CLI=$(command -v herdr) HERDR_TEST_PROCESS="$failure" \
+			PATH="$work_dir/unknown-process:$PATH" bash "$hook" "$action" "$repo" "$private"
+		herdr pane get "$private_id:p1" >/dev/null
+		[[ $(herdr pane list --workspace "$private_id" | jq '.result.panes | length') == 1 ]]
+	done
+done
+sync_open "$private"
+workspace_gone "$private_id"
+pane_git_works "$(workspace_id "$private")"
+run_wt remove private --foreground
+wait_for is_closed "$private"
+
+echo '::: 同じ basename の別 checkout がある場合、曖昧な trash の pane を閉じない'
+mkdir "$work_dir/layout-a" "$work_dir/layout-b"
+collision_a="$work_dir/layout-a/shared"
+collision_b="$work_dir/layout-b/shared"
+git -C "$repo" worktree add -q -b collision-a "$collision_a"
+git -C "$repo" worktree add -q -b collision-b "$collision_b"
+collision_id=$(manual_open "$collision_a")
+run_wt remove collision-a --foreground --no-hooks
+wait_for pane_deleted "$collision_id"
+sync_close "$collision_a"
+herdr pane get "$collision_id:p1" >/dev/null
+herdr workspace close "$collision_id" >/dev/null
+run_wt remove collision-b --foreground
 
 echo '::: herdr のみ欠落 / jq のみ欠落をそれぞれ確認する'
 wt_bin=$(command -v wt)
@@ -451,7 +565,7 @@ run_wt remove "${queued_branches[@]}" --foreground --no-hooks
 pids=()
 for path in "${queued_paths[@]}"; do
 	HERDR_TEST_REAL_CLI=$(command -v herdr) PATH="$work_dir/slow-cli:$PATH" \
-		timeout 35s bash "$hook" close "$repo" "$path" &
+		timeout 90s bash "$hook" close "$repo" "$path" &
 	pids+=("$!")
 done
 for pid in "${pids[@]}"; do wait "$pid"; done

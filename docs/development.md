@@ -25,17 +25,24 @@ hook の実行順の競合・依存ツール欠落・応答停止を確認する
 `REBUILD=1` で base image / mise / ツールを取り直し、`MISE_VERSION=v...` で mise を指定できる。
 競合テストは hook の開始・完了 marker を待ってから検査する。同じパスの再作成では古い workspace の終了と
 新しい pane の cwd からの `git status` を確認し、登録と削除の両方の順序を検証する。
-checkout の識別情報は linked worktree の管理ディレクトリ (`.git/worktrees/<name>`) に置いた ID を
-Herdr の workspace metadata に保存する。Git は削除時にこのディレクトリを消し、再作成時に新しく作る。
-inode / birth time は filesystem によって取れない、remount で変わる、inode が再利用されるので使わない。
-手動で開いて識別情報がない workspace は、pane API が返す cwd から削除済みの checkout を判定して置き換える。
-`wt remove` は checkout を `.git/wt/trash` に移してから削除するので cwd はその中を指し、
-`git worktree remove` では Linux が checkout の root に ` (deleted)` を付ける。
-子ディレクトリの削除は同じ checkout 内の `make clean` などと区別できないので閉じない。
-trash の場所は Worktrunk の内部仕様なので、変わると判定が root の削除だけになる (手動登録のケースで検出できる)。
-識別情報は `worktree open` が `already_open: false` を返した、hook が新しく作った workspace にだけ付ける。
-子ディレクトリに shell が残った古い workspace は削除済みと判定できず Herdr の dedup で再利用されるが、
-新しい checkout の識別情報を付けないので、以後も pane の cwd で判定する。
+workspace の worktree metadata は終了候補を探すためだけに使い、workspace 全体を自動で閉じない。
+pane の shell と foreground process ごとに `/proc/<pid>/cwd` の readlink を Herdr の cwd と照合し、
+checkout の子ディレクトリにいれば生存する祖先を root まで辿って device/inode を比較する。
+idle shell の cwd は、poll のキャッシュである pane get より同期取得の process-info を優先する。
+ここで比較するのは同時に存在する directory object であり、inode を永続的な世代 ID として保存しない。
+子ディレクトリだけの削除では root が一致するため保護し、checkout 全体の再作成では古い root と異なるため置き換える。
+手動登録した workspace も同じ判定で扱い、旧来の世代 ID ファイル・metadata token は参照しない。
+`wt remove` は checkout を `.git/wt/trash/<basename>-<epoch>` に移すため、対象の名前だけを判定する。
+workspace / worktree 一覧に同 basename の別配置があれば、trash を特定できないので保護する。
+trash の場所と名前は Worktrunk の内部仕様なので、変わった場合は保護側に倒れる。
+操作元 `HERDR_PANE_ID`、対象外の shell / foreground process、API / proc 情報の取得失敗は終了対象にしない。
+stat の前後で cwd を照合し、close 直前にも pane と現在の root を再確認する。
+削除途中に `.git` だけ先に消えても close の判定を止めず、確認中の root の削除完了は許容する。
+ただし Herdr の取得と close は別 API なので、最後の確認直後の cd まで atomic に保護するものではない。
+最後の pane close は Herdr が workspace を終了する。別の作業を含む workspace が dedup で再利用された場合は、
+現在の checkout に属する pane がなければ `--no-focus` で復帰先を追加し、繰り返し switch で増殖させない。
+Linux の proc が利用できない場合は古い pane を保護する。Herdr と hook の process namespace が違う場合も
+cwd の照合に成功しない限り終了しない。
 lock の保持中の herdr / git / filesystem の操作にはすべて時間制限を設け、lock の待機は制限しない。
 filesystem 操作も lock の fd を継承させず、TERM の後に KILL する。カーネル内で応答不能になった I/O の回復までは保証しない。
 System 設定の hook は `$HOME/.config/worktrunk/herdr-hook.sh` が無いユーザー (sudo の root など) ではスキップする。
