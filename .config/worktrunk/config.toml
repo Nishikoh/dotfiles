@@ -2,10 +2,11 @@
 # Worktrunk が書き込む ~/.config/worktrunk/config.toml / approvals.toml は管理しない。
 # テンプレート変数は Worktrunk が shell escape するので引用符で囲まない。
 # bare repo では primary_worktree_path が未定義なので、テンプレートの段階でスキップする。
+# System 設定は全ユーザーが読むので、hook スクリプトを配置していないユーザー (sudo の root など) ではスキップする。
 [post-switch]
-herdr-open = '{% if primary_worktree_path %}bash "$HOME/.config/worktrunk/herdr-hook.sh" open {{ primary_worktree_path }} {{ worktree_path }} || true{% endif %}'
+herdr-open = '{% if primary_worktree_path %}if [ -f "$HOME/.config/worktrunk/herdr-hook.sh" ]; then bash "$HOME/.config/worktrunk/herdr-hook.sh" open {{ primary_worktree_path }} {{ worktree_path }} || true; fi{% endif %}'
 
 # workspace close は pane のシェルも終了させるので、削除に成功してから閉じる。
 # 削除済み checkout の対応は workspace list の worktree metadata から取得する。
 [post-remove]
-herdr-close = '{% if primary_worktree_path %}bash "$HOME/.config/worktrunk/herdr-hook.sh" close {{ primary_worktree_path }} {{ worktree_path }} || true{% endif %}'
+herdr-close = '{% if primary_worktree_path %}if [ -f "$HOME/.config/worktrunk/herdr-hook.sh" ]; then bash "$HOME/.config/worktrunk/herdr-hook.sh" close {{ primary_worktree_path }} {{ worktree_path }} || true; fi{% endif %}'

@@ -4,15 +4,15 @@ bootstrap_image_tag() {
 	echo "dotfiles-bootstrap:$1${MISE_VERSION:+-$MISE_VERSION}"
 }
 
-# build した image の tag を出力する。
+# tag は bootstrap_image_tag で取得する。コマンド置換の中では set -e が効かず、
+# build の失敗を見逃すので、この関数は通常のコマンドとして呼ぶ。
 build_bootstrap_image() {
-	local target=$1 repo_dir=$2 tag
+	local target=$1 repo_dir=$2
 	local -a build_args=()
-	tag=$(bootstrap_image_tag "$target")
 	if [[ -n ${MISE_VERSION:-} ]]; then build_args+=(--build-arg "MISE_VERSION=$MISE_VERSION"); fi
 	if [[ ${REBUILD:-} == 1 ]]; then build_args+=(--pull --no-cache); fi
-	docker build -q "${build_args[@]}" --build-arg "BASE=$target" -t "$tag" "$repo_dir" >/dev/null
-	echo "$tag"
+	docker build -q "${build_args[@]}" --build-arg "BASE=$target" \
+		-t "$(bootstrap_image_tag "$target")" "$repo_dir" >/dev/null
 }
 
 check_mise_version() {

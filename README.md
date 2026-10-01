@@ -117,7 +117,7 @@ wt remove feature/auth           # Git の削除に成功した後、対応す�
   削除後も残る workspace の Git 情報から対象を特定し、親や別リポジトリの workspace を保護する
 - 両 hook は background で動く。リポジトリごとの lock と checkout の再確認で、遅延した登録と削除、同じパスでの再作成に対応する。
   lock が空くまで待つため、複数削除でキューが長くなってもイベントを落とさない
-- checkout ごとの ID を Git の worktree 管理ディレクトリに作り、Herdr の metadata に保存する。同じパスへの再作成では古い workspace を閉じ、
+- checkout ごとの ID を Git の worktree 管理ディレクトリに作り、hook が新しく作った workspace の Herdr metadata に保存する。同じパスへの再作成では古い workspace を閉じ、
   `post-switch` で新しい checkout の workspace を開く。遅れて来た削除 hook は新しい workspace を閉じない
 - Herdr が未起動、親が未登録、CLI / jq が無い場合はスキップする。サーバーや親 workspace を自動作成しない。
   応答停止にも時間制限を設け、Herdr の同期失敗で `wt` の操作を止めない
@@ -125,7 +125,7 @@ wt remove feature/auth           # Git の削除に成功した後、対応す�
 - `--no-hooks` や `git worktree` で直接操作した場合は同期しない。
   Herdr 再起動後の既存 checkout は `wt switch` で再選択すれば登録できる
 - API への同期失敗時に自動再試行はしない。削除済み checkout の表示が残った場合は、Herdr 側で workspace を閉じる
-- hook スクリプトの配置先は `$HOME/.config/worktrunk/herdr-hook.sh`。`XDG_CONFIG_HOME` を変更してもここから実行する
+- hook スクリプトの配置先は `$HOME/.config/worktrunk/herdr-hook.sh`。`XDG_CONFIG_HOME` を変更してもここから実行し、無いユーザー (sudo の root など) ではスキップする
 
 hook の確認は `wt hook show`、登録の再実行は対象 checkout で `wt hook post-switch herdr-open --foreground`。
 hook の仕様は [Worktrunk](https://worktrunk.dev/hook/)、workspace の Git 情報は

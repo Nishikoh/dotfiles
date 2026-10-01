@@ -33,6 +33,12 @@ inode / birth time は filesystem によって取れない、remount で変わ�
 `git worktree remove` では Linux が checkout の root に ` (deleted)` を付ける。
 子ディレクトリの削除は同じ checkout 内の `make clean` などと区別できないので閉じない。
 trash の場所は Worktrunk の内部仕様なので、変わると判定が root の削除だけになる (手動登録のケースで検出できる)。
+識別情報は `worktree open` が `already_open: false` を返した、hook が新しく作った workspace にだけ付ける。
+子ディレクトリに shell が残った古い workspace は削除済みと判定できず Herdr の dedup で再利用されるが、
+新しい checkout の識別情報を付けないので、以後も pane の cwd で判定する。
+lock の保持中の herdr / git / filesystem の操作にはすべて時間制限を設け、lock の待機は制限しない。
+filesystem 操作も lock の fd を継承させず、TERM の後に KILL する。カーネル内で応答不能になった I/O の回復までは保証しない。
+System 設定の hook は `$HOME/.config/worktrunk/herdr-hook.sh` が無いユーザー (sudo の root など) ではスキップする。
 herdr の欠落と jq の欠落は、それぞれ専用の PATH で検証する。
 bootstrap の full 実行と CI では、配置した設定を使って同じケースを実行する。
 `dot:add` のテストでは `MISE_TASK_RUN_AUTO_INSTALL=false` を渡す。

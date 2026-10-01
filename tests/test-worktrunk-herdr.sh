@@ -9,11 +9,11 @@ repo_dir=$(cd "$test_dir/.." && pwd)
 source "$test_dir/docker-helpers.sh"
 targets=("$@")
 [[ ${#targets[@]} != 0 ]] || targets=(ubuntu arch)
-image_suffix="${MISE_VERSION:+-${MISE_VERSION}}"
 for target in "${targets[@]}"; do
 	echo "===== Worktrunk / Herdr: $target ====="
-	base_image=$(build_bootstrap_image "$target" "$repo_dir")
-	image="dotfiles-worktrunk-herdr:$target$image_suffix"
+	build_bootstrap_image "$target" "$repo_dir"
+	base_image=$(bootstrap_image_tag "$target")
+	image="dotfiles-worktrunk-herdr:${base_image#dotfiles-bootstrap:}"
 	# --pull はローカルで作った base image を Docker Hub から取得しようとするので、
 	# ツールの layer には --no-cache だけを渡す。base image は上で --pull している。
 	tool_args=()

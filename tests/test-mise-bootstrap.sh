@@ -273,7 +273,8 @@ echo "::: OK"
 
 for target in "${targets[@]}"; do
 	echo "===== ${target} ====="
-	image=$(build_bootstrap_image "$target" "$repo_dir")
+	build_bootstrap_image "$target" "$repo_dir"
+	image=$(bootstrap_image_tag "$target")
 	docker run --rm \
 		"${token_env[@]}" \
 		-e SKIP_ARGS="${skip_args}" \

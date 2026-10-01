@@ -21,32 +21,39 @@ git_cmd() {
 	timeout -k 1s 5s git "$@" </dev/null 9>&- 2>/dev/null
 }
 
+fs_cmd() {
+	# filesystem 操作とその子孫にも lock を渡さず、TERM で終わらない場合は KILL する。
+	timeout -k 1s 5s "$@" </dev/null 9>&- 2>/dev/null
+}
+
 # 未起動の通常操作では Git の path 解決や lock file の作成をしない。
 status=$(herdr_cmd status server --json) || exit 0
 jq -e '.running == true' <<<"$status" >/dev/null || exit 0
 
 action=$1
-primary=$(realpath -e -- "$2") || exit 0
-checkout=$(realpath -m -- "$3") || exit 0
+primary=$(fs_cmd realpath -e -- "$2") || exit 0
+checkout=$(fs_cmd realpath -m -- "$3") || exit 0
 [[ "$checkout" != "$primary" ]] || exit 0
-common=$(git -C "$primary" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
-common=$(realpath -e -- "$common") || exit 0
+common=$(git_cmd -C "$primary" rev-parse --path-format=absolute --git-common-dir) || exit 0
+common=$(fs_cmd realpath -e -- "$common") || exit 0
 
 # post-switch / post-remove は別々の background job。open と close を直列化し、
 # lock 取得後に checkout を再確認して、遅れて起動した open が削除済みの表示を戻さないようにする。
-mkdir -p "$common/wt"
+fs_cmd mkdir -p "$common/wt" || exit 0
 exec 9>"$common/wt/herdr-sync.lock"
-# lock の保持中に呼ぶ herdr / git には時間制限がある。background job の待機は制限せず、
-# 複数削除や slow server でキューが長くなっても同期イベントを落とさない。
+# lock の保持中の herdr / git / filesystem の操作にはすべて時間制限がある。
+# そのため background job の待機は制限せず、複数削除や slow server でキューが長くなっても同期イベントを落とさない。
 flock 9 || { echo 'worktrunk/herdr: could not acquire sync lock' >&2; exit 0; }
 
+# checkout が $common の linked worktree として存在すれば、その管理ディレクトリを git_dir に設定する。
 checkout_exists() {
-	local root git_common
-	[[ -d "$checkout" ]] || return 1
-	root=$(git_cmd -C "$checkout" rev-parse --show-toplevel) || return 1
-	git_common=$(git_cmd -C "$checkout" rev-parse --path-format=absolute --git-common-dir) || return 1
-	[[ $(timeout 5s realpath -e -- "$root") == "$checkout" &&
-		$(timeout 5s realpath -e -- "$git_common") == "$common" ]]
+	local paths root git_common
+	fs_cmd test -d "$checkout" || return 1
+	paths=$(git_cmd -C "$checkout" rev-parse --path-format=absolute \
+		--show-toplevel --git-common-dir --absolute-git-dir) || return 1
+	{ IFS= read -r root && IFS= read -r git_common && IFS= read -r git_dir; } <<<"$paths" || return 1
+	[[ $(fs_cmd realpath -e -- "$root") == "$checkout" &&
+		$(fs_cmd realpath -e -- "$git_common") == "$common" ]]
 }
 
 close_workspaces() {
@@ -83,16 +90,16 @@ close_workspaces() {
 # inode / birth time と違い、filesystem の種類や remount の影響を受けない。
 # ID を用意できない場合は識別情報なしとして扱う。
 exists=false
+git_dir=''
 generation=''
 if checkout_exists; then
 	exists=true
-	if git_dir=$(git_cmd -C "$checkout" rev-parse --absolute-git-dir); then
-		id_file="$git_dir/dotfiles-herdr-checkout"
-		if [[ ! -s "$id_file" ]]; then
-			{ cat /proc/sys/kernel/random/uuid >"$id_file.tmp" && mv -f -- "$id_file.tmp" "$id_file"; } 2>/dev/null || true
-		fi
-		generation=$(cat -- "$id_file" 2>/dev/null) || generation=''
+	id_file="$git_dir/dotfiles-herdr-checkout"
+	# shell の redirect は timeout の外で開かれるので、書き込みも timeout の中で行う。
+	if ! fs_cmd test -s "$id_file" && new_id=$(</proc/sys/kernel/random/uuid); then
+		fs_cmd sh -c 'printf %s "$1" >"$2.tmp" && mv -f -- "$2.tmp" "$2"' _ "$new_id" "$id_file" || true
 	fi
+	generation=$(fs_cmd cat -- "$id_file") || generation=''
 fi
 
 case "$action" in
@@ -109,6 +116,10 @@ open)
 	close_workspaces true || exit 0
 	opened=$(herdr_cmd worktree open --workspace "$parent" --path "$checkout" --no-focus) || exit 0
 	id=$(jq -er '.result.workspace.workspace_id' <<<"$opened") || exit 0
+	# Herdr が path の dedup で既存の workspace を返した場合は識別情報を付けない。
+	# 識別情報のない古い workspace (子ディレクトリに残った shell など) を新しい checkout のものとして扱わないため。
+	# 初回の report-metadata が失敗した workspace も、以後は識別情報なしとして pane の cwd で判定する。
+	jq -e '.result.already_open == false' <<<"$opened" >/dev/null || exit 0
 	[[ -n "$generation" ]] || exit 0
 	herdr_cmd workspace report-metadata "$id" --source dotfiles-worktrunk \
 		--token "dotfiles_wt_checkout=$generation" >/dev/null || true

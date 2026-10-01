@@ -120,7 +120,8 @@ run_wt switch offline --no-cd
 sync_open "$offline"
 run_wt remove offline --foreground
 sync_close "$offline"
-herdr status server | grep -q 'not running'
+# grep -q が先に終了すると herdr が SIGPIPE で失敗し、pipefail で落ちるので出力を変数で受ける。
+[[ $(herdr status server) == *'not running'* ]]
 [[ ! -e "$repo/.git/wt/herdr-sync.lock" ]]
 
 echo '::: 起動済みでも親リポジトリが未登録なら workspace を自動作成しない'
@@ -146,6 +147,10 @@ wait_for is_open "$xdg"
 XDG_CONFIG_HOME="$work_dir/xdg-alt" HERDR_SOCKET_PATH="$socket" \
 	wt -C "$repo" remove xdg --foreground -y >"$work_dir/wt.log" 2>&1
 wait_for is_closed "$xdg"
+echo '::: hook スクリプトを配置していないユーザーでは、エラーを出さずにスキップする'
+mkdir "$work_dir/no-hook-home"
+HOME="$work_dir/no-hook-home" wt -C "$repo" hook post-switch herdr-open --foreground >"$work_dir/no-hook.log" 2>&1
+if grep -q 'No such file' "$work_dir/no-hook.log"; then cat "$work_dir/no-hook.log" >&2; exit 1; fi
 echo '::: 手動で symlink 経由で開いた checkout も実パスの metadata で削除できる'
 run_wt switch --create alias-path --no-cd --no-hooks
 alias_path=$(branch_path alias-path)
@@ -374,6 +379,20 @@ sync_open "$manual"
 workspace_gone "$manual_id"
 pane_git_works "$(workspace_id "$manual")"
 run_wt remove manual-git --foreground
+wait_for is_closed "$manual"
+# 子ディレクトリに shell が残った古い workspace は削除済みと判定できず、Herdr の dedup で再利用される。
+# このとき新しい checkout の識別情報を付けず、以後も識別情報なしとして扱う。
+git -C "$repo" worktree add -q -b manual-sub "$manual"
+manual_id=$(manual_open "$manual")
+herdr pane run "$manual_id:p1" 'mkdir src; cd src' >/dev/null
+wait_for pane_at "$manual_id" "$manual/src"
+git -C "$repo" worktree remove --force "$manual"
+wait_for pane_at "$manual_id" "$manual/src (deleted)"
+git -C "$repo" worktree add -q "$manual" manual-sub
+sync_open "$manual"
+[[ $(workspace_id "$manual") == "$manual_id" ]]
+if has_generation "$manual_id"; then echo 'NG: 再利用した workspace に識別情報を付けた' >&2; exit 1; fi
+run_wt remove manual-sub --foreground
 wait_for is_closed "$manual"
 
 echo '::: 再作成後の post-switch → post-remove は新しい workspace を閉じない'
