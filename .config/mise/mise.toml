@@ -31,7 +31,9 @@ rclone = "latest"
 "github:tofuutils/tenv" = "latest"
 "github:htop-dev/htop" = "latest"
 "pipx:tldr" = "latest"
-worktrunk = "latest"
+# registry の既定 backend は最新リリースしか返さず、公開から 10 日間は install_before を満たせない。
+# 過去のリリースも返す aqua backend で latest を解決する。
+"aqua:max-sixty/worktrunk" = "latest"
 "aqua:Nukesor/pueue/pueue" = "latest"
 "aqua:Nukesor/pueue/pueued" = "latest"
 go = "latest"

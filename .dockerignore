@@ -1,2 +1,4 @@
-# Dockerfile は mise bootstrap の検証用で、リポジトリはテスト実行時にマウントするためビルドコンテキストは不要
+# 最小連携イメージだけ、production のツール宣言と設定を読む。残りは実行時にマウントする。
 *
+!.config/mise/config.toml
+!.config/mise/mise.toml

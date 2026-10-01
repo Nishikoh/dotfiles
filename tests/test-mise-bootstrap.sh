@@ -30,6 +30,7 @@ while IFS= read -r var; do unset "${var}"; done < <(git rev-parse --local-env-va
 
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd "${test_dir}/.." && pwd)"
+source "$test_dir/docker-helpers.sh"
 
 targets=("$@")
 if [[ ${#targets[@]} -eq 0 ]]; then
@@ -51,15 +52,6 @@ if git -C "${repo_dir}" grep --untracked -nE 'setup\.sh|Argcfile|bin_github' -- 
 	exit 1
 fi
 
-image_suffix="${MISE_VERSION:+-${MISE_VERSION}}"
-build_args=()
-if [[ -n "${MISE_VERSION:-}" ]]; then
-	build_args+=(--build-arg "MISE_VERSION=${MISE_VERSION}")
-fi
-if [[ "${REBUILD:-}" == 1 ]]; then
-	build_args+=(--pull --no-cache)
-fi
-
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/mise-bootstrap-test.XXXXXX")"
 # /src の所有者がコンテナのユーザーと異なるため safe.directory を設定する。~/.gitconfig は dotfiles で配置するので環境変数で渡す
 docker_git_env=(-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*')
@@ -73,7 +65,7 @@ cleanup() {
 	echo "スナップショットを残しました: ${snapshot:-${work_dir}}"
 	echo "コンテナに入って調べるには:"
 	for target in "${targets[@]}"; do
-		echo "  docker run --rm -it ${docker_git_env[*]@Q} -v '${snapshot:-${work_dir}/dotfiles}:/src:ro' 'dotfiles-bootstrap:${target}${image_suffix}' bash"
+		echo "  docker run --rm -it ${docker_git_env[*]@Q} -v '${snapshot:-${work_dir}/dotfiles}:/src:ro' '$(bootstrap_image_tag "$target")' bash"
 	done
 	echo "  (コンテナ内で) mise bootstrap --from /src --from-dir ~/setup/dotfiles --yes --skip tools,task"
 	echo "片付け: rm -rf '${work_dir}'"
@@ -108,11 +100,8 @@ fi
 # コンテナ内の mise のバージョンを表示し、MISE_VERSION の指定どおりか確かめる
 # shellcheck disable=SC2016 # コンテナ内で展開する
 check_mise_version='
-echo "::: mise $(mise --version)"
-if [[ -n "${EXPECT_MISE_VERSION:-}" ]] && ! mise --version | grep -q "^${EXPECT_MISE_VERSION#v} "; then
-	echo "NG: MISE_VERSION=${EXPECT_MISE_VERSION} を指定したが、入っているのは $(mise --version)"
-	exit 1
-fi
+source /src/tests/docker-helpers.sh
+check_mise_version || exit 1
 '
 
 # shellcheck disable=SC2016 # コンテナ内で展開する
@@ -125,16 +114,21 @@ mise bootstrap --from /src --from-dir "$dotfiles" --yes $SKIP_ARGS
 
 echo "::: check dotfiles"
 for f in .gitconfig .vimrc .zshrc .config/git/ignore .config/helix .config/lazygit .config/mise .config/starship.toml .config/yazi \
-	.config/herdr/config.toml .claude/settings.json .claude/hooks .claude/statusline-command.sh .claude/skills/dev-lsp; do
+	.config/herdr/config.toml .config/worktrunk/herdr-hook.sh .config/worktrunk/herdr-shell.sh \
+	.claude/settings.json .claude/hooks .claude/statusline-command.sh .claude/skills/dev-lsp; do
 	test "$(readlink ~/"$f")" = "$dotfiles/$f" || { echo "NG: ~/$f -> $(readlink ~/"$f")"; exit 1; }
 done
 
 echo "::: check codex system config"
 grep -qxF "writable_roots = [\"$HOME/.cache/\"]" /etc/codex/config.toml
 test "$(stat -c %U:%a /etc/codex/config.toml)" = root:644
+cmp "$dotfiles/.config/worktrunk/config.toml" /etc/xdg/worktrunk/config.toml
+test "$(stat -c %U:%a /etc/xdg/worktrunk/config.toml)" = root:644
+test ! -e ~/.config/worktrunk/config.toml
 
 cd "$dotfiles"
 echo "::: check status"
+test -z "$(git status --porcelain)" || { git status --short; exit 1; }
 mise dot status --missing
 mise bootstrap repos status --missing
 mise bootstrap packages status --missing
@@ -152,11 +146,18 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	zsh -i -c "command -v starship cargo uv gh claude cpz rmz xcp pueue pueued ghalint github-comment argc terraform-target" </dev/null
 	# codex が System 設定を読み込むこと (features.multi_agent = false は既定値の true と異なる)
 	zsh -i -c "codex features list" </dev/null | grep -E "^multi_agent +.* false$"
+	echo "::: Worktrunk / Herdr integration"
+	mise exec -- bash tests/worktrunk-herdr-cases.sh
 fi
+
+# dot:add のテストは意図的に clone を変更するので、先に 2 回目と clean な状態を確認する。
+echo "::: 2nd run: mise bootstrap (idempotent)"
+mise bootstrap --yes $SKIP_ARGS
+test -z "$(git status --porcelain)" || { git status --short; exit 1; }
 
 echo "::: mise run dot:add で新しい設定をリポジトリに取り込める"
 mkdir -p ~/.config/example && echo "enabled = true" >~/.config/example/example.conf
-mise run dot:add ~/.config/example
+MISE_TASK_RUN_AUTO_INSTALL=false mise run dot:add ~/.config/example
 test "$(readlink ~/.config/example)" = "$dotfiles/.config/example"
 test -f "$dotfiles/.config/example/example.conf"
 grep -xF "\"~/.config/example\" = { source = \".config/example\" }" mise.toml
@@ -167,7 +168,7 @@ git clone -q /src ~/other
 	cd ~/other
 	mise trust --quiet --all
 	mkdir -p ~/.config/example2 && echo "enabled = true" >~/.config/example2/example.conf
-	mise run dot:add ~/.config/example2
+	MISE_TASK_RUN_AUTO_INSTALL=false mise run dot:add ~/.config/example2
 	test "$(readlink ~/.config/example2)" = "$HOME/other/.config/example2"
 	test -f ~/other/.config/example2/example.conf
 	grep -xF "\"~/.config/example2\" = { source = \".config/example2\" }" mise.toml
@@ -175,8 +176,12 @@ git clone -q /src ~/other
 test ! -e "$dotfiles/.config/example2"
 ! grep -F example2 "$dotfiles/mise.toml"
 
-echo "::: 2nd run: mise bootstrap (idempotent)"
-mise bootstrap --yes $SKIP_ARGS
+echo "::: dot:add 後の bootstrap でも追加した entry を配置できる"
+# tools は 1 回目と 2 回目で確認済み。GitHub API を再び使わないよう dotfiles の配置だけを確かめる
+mise bootstrap --yes --skip tools,task
+test "$(readlink ~/.config/example)" = "$dotfiles/.config/example"
+test -f ~/.config/example/example.conf
+
 echo "::: OK"
 '
 
@@ -211,11 +216,16 @@ existing_script='
 set -euo pipefail
 dotfiles=~/setup/dotfiles
 
-echo "::: README の手順: clone して trust し、--dry-run する"
 git clone -q /src "$dotfiles"
 cd "$dotfiles"
 mise trust --quiet --all
-mise bootstrap --dry-run
+if [[ -z "$SKIP_ARGS" ]]; then
+	echo "::: README の手順: clone して trust し、通常の --dry-run を実行する"
+	mise bootstrap --dry-run
+else
+	echo "::: clone して trust し、tools/task を省いた --dry-run を実行する"
+	mise bootstrap --dry-run $SKIP_ARGS
+fi
 
 echo "::: 既存マシン: 以前の手順の状態を用意する"
 # 補完の生成物が残った argc-completions
@@ -225,6 +235,10 @@ touch ~/setup/argc-completions/completions/lh.sh
 mkdir -p ~/.config
 ln -s "$dotfiles/.config/git" ~/.config/git
 echo "[user]" >"$dotfiles/.config/git/config"
+# Worktrunk の user config と承認情報はマシン固有の実ファイルとして保持する。
+mkdir -p ~/.config/worktrunk
+echo "# local approvals" >~/.config/worktrunk/approvals.toml
+echo "worktree-path = \"../local-{{ branch }}\"" >~/.config/worktrunk/config.toml
 
 check_git_dir() {
 	# リポジトリの ignore は普通のファイルのまま変わっていない
@@ -234,6 +248,14 @@ check_git_dir() {
 	test -d ~/.config/git && ! test -L ~/.config/git
 	test "$(readlink ~/.config/git/ignore)" = "$dotfiles/.config/git/ignore"
 	test "$(cat ~/.config/git/config)" = "[user]"
+	test -d ~/.config/worktrunk && ! test -L ~/.config/worktrunk
+	test "$(cat ~/.config/worktrunk/approvals.toml)" = "# local approvals"
+	test ! -L ~/.config/worktrunk/config.toml
+	grep -qxF "worktree-path = \"../local-{{ branch }}\"" ~/.config/worktrunk/config.toml
+	cmp "$dotfiles/.config/worktrunk/config.toml" /etc/xdg/worktrunk/config.toml
+	test "$(readlink ~/.config/worktrunk/herdr-hook.sh)" = "$dotfiles/.config/worktrunk/herdr-hook.sh"
+	test "$(readlink ~/.config/worktrunk/herdr-shell.sh)" = "$dotfiles/.config/worktrunk/herdr-shell.sh"
+	test -f "$dotfiles/.config/worktrunk/config.toml" && ! test -L "$dotfiles/.config/worktrunk/config.toml"
 	test -z "$(git -C "$dotfiles" status --porcelain)" || { git -C "$dotfiles" status --short; exit 1; }
 }
 
@@ -246,13 +268,14 @@ mise dot status --missing
 echo "::: 既存マシン: --force-dotfiles でもリポジトリのファイルを壊さない"
 mise bootstrap --yes --skip tools,task --force-dotfiles
 check_git_dir
+grep -qxF "worktree-path = \"../local-{{ branch }}\"" ~/.config/worktrunk/config.toml
 echo "::: OK"
 '
 
 for target in "${targets[@]}"; do
 	echo "===== ${target} ====="
-	image="dotfiles-bootstrap:${target}${image_suffix}"
-	docker build -q "${build_args[@]}" --build-arg BASE="${target}" -t "${image}" "${repo_dir}" >/dev/null
+	build_bootstrap_image "$target" "$repo_dir"
+	image=$(bootstrap_image_tag "$target")
 	docker run --rm \
 		"${token_env[@]}" \
 		-e SKIP_ARGS="${skip_args}" \
@@ -269,6 +292,8 @@ for target in "${targets[@]}"; do
 
 	echo "===== ${target} (既存マシン / clone 手順) ====="
 	docker run --rm \
+		"${token_env[@]}" \
+		-e SKIP_ARGS="${skip_args}" \
 		"${docker_git_env[@]}" \
 		-v "${snapshot}:/src:ro" \
 		"${image}" bash -c "${existing_script}"

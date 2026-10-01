@@ -38,6 +38,18 @@ owner = "root"
 group = "root"
 mode = "0644"
 
+# Worktrunk は user config を自動更新するので、連携 hook は読み込み専用の System 設定に置く。
+[bootstrap.directories."/etc/xdg/worktrunk"]
+owner = "root"
+group = "root"
+mode = "0755"
+
+[bootstrap.files."/etc/xdg/worktrunk/config.toml"]
+source = ".config/worktrunk/config.toml"
+owner = "root"
+group = "root"
+mode = "0644"
+
 [bootstrap.repos]
 "~/setup/argc-completions" = { url = "https://github.com/sigoden/argc-completions.git" }
 "~/.vim/pack/github/start/copilot.vim" = { url = "https://github.com/github/copilot.vim.git" }
@@ -57,6 +69,9 @@ mode = "0644"
 "~/.config/git/ignore" = { source = ".config/git/ignore", mode = "symlink" }
 # ~/.config/herdr にはソケットやログもあるのでファイルをリンクする。WSL では mise.wsl.toml が config.wsl.toml に差し替える
 "~/.config/herdr/config.toml" = { source = ".config/herdr/config.toml", mode = "symlink" }
+# Worktrunk の user config / approvals.toml はマシン固有。実行スクリプトだけをリンクする。
+"~/.config/worktrunk/herdr-hook.sh" = { source = ".config/worktrunk/herdr-hook.sh" }
+"~/.config/worktrunk/herdr-shell.sh" = { source = ".config/worktrunk/herdr-shell.sh" }
 "~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
 "~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
 "~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }
