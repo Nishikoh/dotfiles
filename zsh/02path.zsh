@@ -9,8 +9,10 @@ export PATH="$HOME/setup/dotfiles/bin:$PATH"
 # mise (Rustより先に読み込む)
 eval "$(~/.local/bin/mise activate zsh)"
 
-# cargo
-. "$HOME/.cargo/env"
+# cargo (rust は既定で外しているので、入れたマシンにだけある)
+if [[ -f "$HOME/.cargo/env" ]]; then
+	. "$HOME/.cargo/env"
+fi
 
 export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
 export PATH="$HOME/.bun/bin:$PATH"
