@@ -174,13 +174,38 @@ for tool in $preset; do
 done
 # duckdb はプリセットに無いツールとして使う
 grep -q "^duckdb = " .config/mise/mise.toml
-! grep -qxF duckdb <<<"$preset"
+if grep -qxF duckdb <<<"$preset"; then
+	echo "NG: duckdb がプリセットにある"
+	exit 1
+fi
 test "$(disabled)" = "$preset"
 test "$(cd / && disabled)" = "$preset"
 mise run tools:status | grep -F "外しているツール: ${preset_line}"
 if [[ -z "$SKIP_ARGS" ]]; then
 	# プリセットで外したツールは 1 回目の bootstrap で入らない (いちばん大きい gcloud で確かめる)
 	test ! -e ~/.local/share/mise/installs/gcloud
+fi
+# 別の書き方の disable_tools も置き換える (settings.disable_tools と、コメント付きの [settings])
+printf "# 先頭のメモ\nsettings.disable_tools = [\"duckdb\"]\n" >~/.config/mise/config.local.toml
+mise run tools:enable --no-install duckdb
+test -z "$(disabled)"
+grep -qxF "# 先頭のメモ" ~/.config/mise/config.local.toml
+printf "[settings] # このマシン\njobs = 2\ndisable_tools = [\"duckdb\"]\n" >~/.config/mise/config.local.toml
+mise run tools:enable --no-install duckdb
+test -z "$(disabled)"
+test "$(mise settings get jobs)" = 2
+# 扱えない書き方では、書き換えずに失敗する (キーを重複させてグローバルの設定を壊さない)
+printf "settings = { disable_tools = [\"duckdb\"] }\n" >~/.config/mise/config.local.toml
+if mise run tools:enable --no-install duckdb; then
+	echo "NG: 扱えない書き方の config.local.toml を書き換えた"
+	exit 1
+fi
+test "$(cat ~/.config/mise/config.local.toml)" = "settings = { disable_tools = [\"duckdb\"] }"
+test "$(disabled)" = duckdb
+# 外さないツールは外せない (README の「マシンごとにツールを外す」)
+if mise run tools:disable fzf; then
+	echo "NG: 外さないツールを外せた"
+	exit 1
 fi
 # タスクは ~/.config/mise/config.local.toml のほかの内容を残す
 printf "# このマシンのメモ\n" >~/.config/mise/config.local.toml
@@ -212,6 +237,10 @@ if [[ -z "$SKIP_ARGS" ]]; then
 		echo "NG: 外した duckdb が PATH に残っている"
 		exit 1
 	fi
+	# アンインストールでバージョンのディレクトリと shim が消える (latest などのエイリアスのリンクは残る)
+	test -z "$(find ~/.local/share/mise/installs/duckdb -mindepth 1 -maxdepth 1 -type d 2>/dev/null)"
+	test ! -e ~/.local/share/mise/shims/duckdb
+	test ! -L ~/.local/share/mise/shims/duckdb
 	mise bootstrap status --missing
 	# 戻すとインストールされる
 	mise run tools:enable duckdb
@@ -221,7 +250,10 @@ else
 fi
 test "$(disabled)" = "$preset"
 # プリセットと同じに戻ると、このマシンの disable_tools は消えてプリセットに従う (ほかの内容は残る)
-! grep -q "disable_tools" ~/.config/mise/config.local.toml
+if grep -q "disable_tools" ~/.config/mise/config.local.toml; then
+	echo "NG: プリセットと同じに戻ったのに disable_tools が残っている"
+	exit 1
+fi
 grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
 mise run tools:status | grep -F "設定元: プリセット"
 # プリセットのツールも戻せる (空のリストで置き換える)
@@ -258,7 +290,10 @@ git clone -q /src ~/other
 	grep -xF "\"~/.config/example2\" = { source = \".config/example2\" }" mise.toml
 )
 test ! -e "$dotfiles/.config/example2"
-! grep -F example2 "$dotfiles/mise.toml"
+if grep -F example2 "$dotfiles/mise.toml"; then
+	echo "NG: 別のチェックアウトの dot:add が main の mise.toml に書いた"
+	exit 1
+fi
 
 echo "::: 2nd run: mise bootstrap (idempotent)"
 mise bootstrap --yes $SKIP_ARGS 2>&1 | tee /tmp/2nd-run.log
