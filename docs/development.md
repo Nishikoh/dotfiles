@@ -36,6 +36,14 @@ grep -E '^(=====|:::|NG)' /tmp/bootstrap-test.log   # 出力が多いので区�
 - **`--dry-run` は hook を実行しない**: 以前の手順の生成物が残った argc-completions は、除外を登録する pre-repos hook が動かないので `--dry-run` では「local changes」で止まる (実際の `mise bootstrap` は通る)
 - **dotfiles のリンクをディレクトリ単位からファイル単位に変えるときは移行が要る**: 以前 `~/.config/git` をディレクトリごとリポジトリにリンクしていたマシンで `~/.config/git/ignore` をファイル単位でリンクすると、配置先がリポジトリのファイル自身になる。`--force-dotfiles` ではリポジトリの `ignore` が自分自身を指す symlink に置き換わり、中身が消えた。[bootstrap/migrate-dir-links.sh](../bootstrap/migrate-dir-links.sh) に対象を追加し、既存マシンのシナリオでテストする
 - **`dotfiles.root` はチェックアウトの場所を表せない**: `{{config_root}}` は展開されず、その名前のディレクトリが作られる。相対パスは実行時のカレントディレクトリ基準で、リンクも相対パスで壊れる。固定のパスだと別のチェックアウト (worktree) から取り込んだときにファイルと設定が別々のチェックアウトに入る。設定の取り込みは `mise run dot:add <path>` を使う
+- **`mise run` は設定のツールをすべて自動でインストールする** (`task.run_auto_install` が既定で true): `SKIP_TOOLS=1` でもテストの `mise run dot:add` が 49 個のツールを入れようとし、GitHub API のレート制限で失敗したことがある。また `tools:disable` が、外すツールを先にインストールしてしまう。このリポジトリの `mise.toml` で無効にしている (ほかのプロジェクトには効かない)
+- **`mise ls` や `mise run` は `latest` を解決するために GitHub API を使う**: ツールが入っていないと、自動インストールを止めても API を呼ぶ (レート制限に当たっても警告だけで失敗はしない)。`SKIP_TOOLS=1` のテストの判定には `mise ls` を使わず、`mise settings get` などを使う
+- **`disable_tools` (マシンごとにツールを外す) の癖**: [bootstrap/tools.sh](../bootstrap/tools.sh) がまとめて扱っている
+  - `config.local.toml` の値はプリセット (`config.toml`) に足されず置き換わる。`MISE_DISABLE_TOOLS` も同じ
+  - リポジトリの別のチェックアウトの中では、そのチェックアウトの `.config/mise/config.toml` がプロジェクトの設定として優先される
+  - 名前を間違えても何も言われない。外しただけではインストール先と shim が残り、`mise prune` でも消えない (`mise uninstall --all <tool>` で消える)
+  - `mise config set` は空のリストを書けない (`'[]'` は `["[]"]` になり、`--remove` で空にするとキーごと消えてプリセットに戻る)
+  - `mise settings get` はリストを名前順に表示する
 - **1 回目が通るだけでは足りない**: 2 回目の `mise bootstrap` と、clone したリポジトリに変更が残っていないことまで確かめる。タスクの生成物で argc-completions が dirty になり、2 回目の repos フェーズが失敗したことがある
 - **Dockerfile の「素のマシン」の再現には意図がある**: パッケージリストの扱いや一般ユーザーで動かす理由は [Dockerfile](../Dockerfile) のコメントを参照
 - **ツールの挙動は Docker で試す**: codex や herdr が設定ファイルをどう書き換えるかは、ホストではなく Docker で試す (ホストでは herdr のサーバーが動いていて、実際に使っている設定がある)。スクリプトをマウントしてツールを入れて実行する

@@ -142,6 +142,12 @@ mise dot status --missing
 mise bootstrap repos status --missing
 mise bootstrap packages status --missing
 command -v zsh vim
+# rust はプリセットで外しているので ~/.cargo/env が無いマシンがある。それでも zsh がエラーを出さずに起動すること
+zsh -i -c true </dev/null >/tmp/zsh.log 2>&1 || { cat /tmp/zsh.log; exit 1; }
+if grep -F ".cargo/env" /tmp/zsh.log; then
+	echo "NG: zsh の起動で ~/.cargo/env のエラーが出た"
+	exit 1
+fi
 
 if [[ -z "$SKIP_ARGS" ]]; then
 	echo "::: check tools"
@@ -149,13 +155,89 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	test -f ~/setup/argc-completions/completions/lh.sh
 	# 生成物で argc-completions が dirty になると、次回の repos フェーズが失敗する
 	test -z "$(git -C ~/setup/argc-completions status --porcelain)" || { git -C ~/setup/argc-completions status --short; exit 1; }
-	# zsh/02path.zsh が無条件に読み込む
-	test -f ~/.cargo/env
-	# .zshrc を読み込んだ対話シェルで、mise と cargo のツールが使えること
-	zsh -i -c "command -v starship cargo uv gh claude cpz rmz xcp pueue pueued ghalint github-comment argc terraform-target" </dev/null
+	# .zshrc を読み込んだ対話シェルで、mise のツールが使えること (cargo はプリセットで外した rust のツールなので無い)
+	zsh -i -c "command -v starship uv gh claude cpz rmz xcp pueue pueued ghalint github-comment argc terraform-target" </dev/null
 	# codex が System 設定を読み込むこと (features.multi_agent = false は既定値の true と異なる)
 	zsh -i -c "codex features list" </dev/null | grep -E "^multi_agent +.* false$"
 fi
+
+echo "::: 既定では disable_tools のプリセット (.config/mise/config.toml) を外し、tools:* タスクでマシンごとに変えられる"
+# mise の表示 (["a", "b"]) を 1 行に 1 つにして名前順に並べる
+to_lines() { sed -e "s/[][\" ]//g" -e "s/,/\n/g" | sed "/^\$/d" | LC_ALL=C sort; }
+disabled() { mise settings get disable_tools | to_lines; }
+preset="$(mise config get -f .config/mise/config.toml settings.disable_tools | to_lines)"
+preset_line="$(echo $preset | sed "s/ /, /g")"
+test -n "$preset"
+# プリセットのツールはすべて設定にある (mise は disable_tools の知らない名前を何も言わずに無視する)
+for tool in $preset; do
+	grep -qE "^\"?${tool}\"? = " .config/mise/mise.toml .config/mise/config.toml || { echo "NG: プリセットの ${tool} が設定に無い"; exit 1; }
+done
+# duckdb はプリセットに無いツールとして使う
+grep -q "^duckdb = " .config/mise/mise.toml
+! grep -qxF duckdb <<<"$preset"
+test "$(disabled)" = "$preset"
+test "$(cd / && disabled)" = "$preset"
+mise run tools:status | grep -F "外しているツール: ${preset_line}"
+if [[ -z "$SKIP_ARGS" ]]; then
+	# プリセットで外したツールは 1 回目の bootstrap で入らない (いちばん大きい gcloud で確かめる)
+	test ! -e ~/.local/share/mise/installs/gcloud
+fi
+# タスクは ~/.config/mise/config.local.toml のほかの内容を残す
+printf "# このマシンのメモ\n" >~/.config/mise/config.local.toml
+# 設定に無い名前は失敗する
+if mise run tools:disable no-such-tool; then
+	echo "NG: 設定に無いツールを外せてしまった"
+	exit 1
+fi
+# 外すと、プリセットに足した全体が書かれる
+mise run tools:disable duckdb
+test "$(disabled)" = "$(printf "%s\n" $preset duckdb | LC_ALL=C sort)"
+test "$(cd / && disabled)" = "$(printf "%s\n" $preset duckdb | LC_ALL=C sort)"
+# 別のチェックアウトの中ではそのチェックアウトの設定 (プリセット) が優先されるので、tools:status がそれを示す。main では示さない
+if mise run tools:status | grep -F "ただし"; then
+	echo "NG: main のチェックアウトで食い違いを表示した"
+	exit 1
+fi
+git clone -q /src ~/other-status
+(cd ~/other-status && mise trust --quiet --all && mise run tools:status | grep -F "ただし $HOME/other-status の中では、そのチェックアウトの設定が優先され、外しているツール: ${preset_line}")
+if [[ -z "$SKIP_ARGS" ]]; then
+	# 外したツールは使われず、アンインストールされて PATH に残らない。missing とも扱わない
+	# (mise ls は latest の解決に GitHub API を使うので、ツールまで含めるときだけ確かめる)
+	mise ls --current --no-header | grep -q "^jq "
+	if mise ls --current --no-header | grep "^duckdb "; then
+		echo "NG: disable_tools で外した duckdb が残っている"
+		exit 1
+	fi
+	if zsh -i -c "command -v duckdb" </dev/null; then
+		echo "NG: 外した duckdb が PATH に残っている"
+		exit 1
+	fi
+	mise bootstrap status --missing
+	# 戻すとインストールされる
+	mise run tools:enable duckdb
+	zsh -i -c "command -v duckdb" </dev/null
+else
+	mise run tools:enable --no-install duckdb
+fi
+test "$(disabled)" = "$preset"
+# プリセットと同じに戻ると、このマシンの disable_tools は消えてプリセットに従う (ほかの内容は残る)
+! grep -q "disable_tools" ~/.config/mise/config.local.toml
+grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
+mise run tools:status | grep -F "設定元: プリセット"
+# プリセットのツールも戻せる (空のリストで置き換える)
+mise run tools:enable --no-install $preset
+test "$(mise settings get disable_tools)" = "[]"
+test "$(cd / && mise settings get disable_tools)" = "[]"
+grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
+# 2 回目の bootstrap でプリセットのツールを入れないよう、外した状態に戻す (タスクがツールを自動でインストールしないことも確かめる)。
+# [settings] しか残らなければファイルごと消える
+sed -i "/^# このマシンのメモ\$/d" ~/.config/mise/config.local.toml
+mise run tools:disable $preset
+test ! -e ~/.local/share/mise/installs/gcloud
+test ! -e ~/.config/mise/config.local.toml
+test "$(disabled)" = "$preset"
+# config.local.toml は git に無視される
+test -z "$(git status --porcelain -- .config/mise)" || { git status --short; exit 1; }
 
 echo "::: mise run dot:add で新しい設定をリポジトリに取り込める"
 mkdir -p ~/.config/example && echo "enabled = true" >~/.config/example/example.conf
@@ -179,7 +261,9 @@ test ! -e "$dotfiles/.config/example2"
 ! grep -F example2 "$dotfiles/mise.toml"
 
 echo "::: 2nd run: mise bootstrap (idempotent)"
-mise bootstrap --yes $SKIP_ARGS
+mise bootstrap --yes $SKIP_ARGS 2>&1 | tee /tmp/2nd-run.log
+# final hook が外しているツールを表示する
+grep -F "外しているツール: ${preset_line}" /tmp/2nd-run.log
 echo "::: OK"
 '
 
