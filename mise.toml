@@ -24,8 +24,10 @@ min_version = { soft = "2026.9.8" }
 "pacman:base-devel" = "latest"   # rust (cargo) のリンカ
 "pacman:gawk" = "latest"         # argc-completions の生成に使う
 
-# codex は ~/.codex/config.toml に trust などを書き込むので、自分の設定は優先度が最も低い System 設定に置く。
-# コピーなので、etc/codex/config.toml を編集したら mise bootstrap (files) で反映する
+# codex は ~/.codex/config.toml に trust などを書き込むので、共有設定は System 設定に置く。
+# ユーザー設定をリポジトリに symlink すると、codex の自動更新も Git の差分になる。
+# {{ env.HOME }} をマシンごとの実パスに展開するため、System 設定は symlink ではなくコピーで配置する。
+# 更新は etc/codex/config.toml を編集・検証し、mise bootstrap で反映する。
 [bootstrap.directories."/etc/codex"]
 owner = "root"
 group = "root"
