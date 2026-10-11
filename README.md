@@ -8,7 +8,7 @@
 | --- | --- |
 | OS パッケージ・clone するリポジトリ・symlink する dotfiles・タスク | [mise.toml](mise.toml) |
 | WSL だけの差し替え | [mise.wsl.toml](mise.wsl.toml) ([.miserc.toml](.miserc.toml) が WSL のときに読み込む) |
-| インストールするツール | [.config/mise/](.config/mise/) (`~/.config/mise` にリンクされる) |
+| インストールするツール | [.config/mise/](.config/mise/) (`~/.config/mise` にリンクされる)。既定で外すツール (プリセット) は `config.toml` の `disable_tools`、マシンごとの変更は `~/.config/mise/config.local.toml` ([マシンごとにツールを外す](#マシンごとにツールを外す)) |
 | codex の設定 | [etc/codex/config.toml](etc/codex/config.toml) (`/etc/codex/config.toml` にコピーされる) |
 
 ## 新しいマシン
@@ -47,6 +47,7 @@ sudo chsh -s /usr/bin/zsh "$(id -un)"
 ```
 
 - 必要なら対話的なセットアップをする: `mise run setup:copilot` (GitHub へのログイン)、claude や codex などは初回起動時にログインする
+- gcloud など一部のツールは既定で入らない (bootstrap の最後に `外しているツール: ...` と表示される)。使うものは `mise run tools:enable` で入れる ([マシンごとにツールを外す](#マシンごとにツールを外す))
 - WSL では [.config/herdr/config.wsl.toml](.config/herdr/config.wsl.toml) を WSL 用 (ssh・画面描画・通知) に調整してコミットする。今は WSL 以外の設定のコピー
 
 ## WSL
@@ -93,6 +94,27 @@ mise run dot:add ~/.config/foo
 
 - `etc/codex/config.toml` はコピーなので、編集したら `mise bootstrap` で反映する
 - symlink で配置したファイルは、`~/.config` 側で編集してもリポジトリに反映される
+
+## マシンごとにツールを外す
+
+外したツールは bootstrap や `mise upgrade` でインストールされず、PATH にも出ない。既定では [.config/mise/config.toml](.config/mise/config.toml) の `disable_tools` (プリセット。大きいツールや、使わないマシンが多いツール) を外す。新しいマシンもプリセットのまま bootstrap し、必要ならあとから変える。
+
+```sh
+# チェックアウトの中で実行する
+mise run tools:status                  # 外しているツールと、その設定元 (プリセットかこのマシンか) を表示する
+mise run tools:enable gcloud           # 戻してインストールする
+mise run tools:disable duckdb rclone   # 外してアンインストールする (ディスクと shim も消える)
+mise run tools:disable                 # 引数を省くと fzf で選ぶ (TAB で選択、ENTER で決定)。tools:enable も同じ
+```
+
+- 変更は `~/.config/mise/config.local.toml` の `disable_tools` に書かれる。プリセットと同じに戻ると消え、以後はプリセットの変更に従う。`~/.config/mise` はリポジトリへの symlink なので実体はリポジトリの `.config/mise/` にあるが、git では無視される
+- 手で編集するときの注意 (タスクはこれらを扱う):
+  - `disable_tools` はプリセットに足されず**置き換わる**。そのマシンで外すツールをすべて書く (`[]` ならすべて入れる)
+  - 名前は [.config/mise/mise.toml](.config/mise/mise.toml) のキーと同じにする (例: `"github:tofuutils/tenv"`)。違う名前は何も言わずに無視される
+  - 外しただけではインストール済みのものが残り、shim を実行すると `not a valid shim` のエラーになる。`mise uninstall --all <tool>` で消す (`mise prune` では消えない)
+- 外したツールは、プロジェクトの `mise.toml` に書かれていても使われない。rust などを使うプロジェクトがあるマシンでは `mise run tools:enable rust` で戻す
+- bun・uv・lefthook・fzf は外さない (npm: と pipx: のツール、git の hook、zsh の設定と tools タスクの選択で使う)
+- リポジトリの別のチェックアウト (worktree) の中では、そのチェックアウトの `.config/mise/config.toml` が優先されるので、このマシンの設定に関係なくプリセットになる (`tools:status` は食い違うときに表示する)
 
 ## test
 
