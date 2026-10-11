@@ -130,8 +130,11 @@ for f in .gitconfig .vimrc .zshrc .config/git/ignore .config/helix .config/lazyg
 done
 
 echo "::: check codex system config"
-grep -qxF "writable_roots = [\"$HOME/.cache/\"]" /etc/codex/config.toml
+grep -qxF "writable_roots = [\"$HOME/.cache/\", \"$HOME/.local/state/mise/\"]" /etc/codex/config.toml
+grep -qxF "set = { UV_TOOL_DIR = \"$HOME/.cache/codex-uv-tools\" }" /etc/codex/config.toml
 test "$(stat -c %U:%a /etc/codex/config.toml)" = root:644
+# 書き込み許可先に挙げた mise の状態ディレクトリが、bootstrap の後に存在すること
+test -d ~/.local/state/mise
 
 cd "$dotfiles"
 echo "::: check status"

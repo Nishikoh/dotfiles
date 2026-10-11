@@ -23,6 +23,9 @@ service_tier = "default"
 # 秘密情報らしい環境変数を自動転送しない
 [shell_environment_policy]
 ignore_default_excludes = false
+# uvx は既定のツール置き場 (~/.local/share/uv/tools) に一時ファイルを作るが、sandbox では書けずに失敗する。
+# ツール置き場は人間も使う共有の場所なので書き込み可にせず、codex のシェルだけ書ける場所へ向ける
+set = { UV_TOOL_DIR = "{{ env.HOME }}/.cache/codex-uv-tools" }
 
 # 並列処理の上限。コストと競合を抑える
 [agents]
@@ -53,7 +56,9 @@ status_line = [
 [sandbox_workspace_write]
 exclude_tmpdir_env_var = false  # Allow $TMPDIR
 exclude_slash_tmp = false       # Allow /tmp
-writable_roots = ["{{ env.HOME }}/.cache/"]
+# mise は trust の記録などを状態ディレクトリに書く。書けないと、新しい worktree で mise trust や mise run が失敗する。
+# 人間が trust 済みの worktree をそのまま使えるよう、別の場所に向けずにこのディレクトリを書き込み可にする
+writable_roots = ["{{ env.HOME }}/.cache/", "{{ env.HOME }}/.local/state/mise/"]
 network_access = true          # Opt in to outbound network
 
 [features]
