@@ -13,6 +13,11 @@
 set -euo pipefail
 
 config_dir="${HOME}/.config/mise"
+# 外さないツール (README の「マシンごとにツールを外す」)。npm: と pipx: のツール、git の hook、zsh の設定と tools タスクの選択で使う
+protected_tools="bun
+uv
+lefthook
+fzf"
 preset_file="${config_dir}/config.toml"
 local_file="${config_dir}/config.local.toml"
 
@@ -62,8 +67,10 @@ preset_tools() {
 # プリセットと同じになるときは disable_tools を消してプリセットに従わせる。プリセットのコピーを持つと、
 # あとでプリセットを変えてもこのマシンに反映されないため
 write_disabled_tools() {
+	local expected
+	expected="$(printf '%s\n' "$@" | sed '/^$/d' | LC_ALL=C sort -u)"
 	local line=""
-	if [[ "$(printf '%s\n' "$@" | sed '/^$/d' | LC_ALL=C sort -u)" != "$(preset_tools)" ]]; then
+	if [[ "${expected}" != "$(preset_tools)" ]]; then
 		local value=""
 		local tool
 		for tool in "$@"; do
@@ -73,15 +80,19 @@ write_disabled_tools() {
 	elif ! has_local_setting; then
 		return 0
 	fi
-	touch "${local_file}"
+	# 一時ファイルはリポジトリの外に作る (~/.config/mise はリポジトリへの symlink なので、隣に作ると中断したときに残る)
 	local tmp
-	tmp="$(mktemp "${local_file}.XXXXXX")"
-	awk -v line="${line}" '
-		# 既存の disable_tools (複数行の配列を含む) は捨てて、書くときは [settings] の直後に書く
+	tmp="$(mktemp --suffix=.toml)"
+	if [[ -f "${local_file}" ]]; then
+		cat "${local_file}" >"${tmp}"
+	fi
+	local edited
+	edited="$(awk -v line="${line}" '
+		# 既存の disable_tools (settings.disable_tools や複数行の配列を含む) は捨てて、書くときは [settings] の直後に書く
 		skip { if (/\]/) skip = 0; next }
-		/^[[:space:]]*disable_tools[[:space:]]*=/ { if ($0 !~ /\]/) skip = 1; next }
+		/^[[:space:]]*(settings\.)?disable_tools[[:space:]]*=/ { if ($0 !~ /\]/) skip = 1; next }
 		{ print }
-		line != "" && /^[[:space:]]*\[settings\][[:space:]]*$/ && !done { print line; done = 1 }
+		line != "" && /^[[:space:]]*\[settings\][[:space:]]*(#.*)?$/ && !done { print line; done = 1 }
 		END {
 			if (line != "" && !done) {
 				if (NR > 0) print ""
@@ -89,40 +100,43 @@ write_disabled_tools() {
 				print line
 			}
 		}
-	' "${local_file}" >"${tmp}"
-	# [settings] しか残らなければ (タスクが作ったファイル)、ファイルごと消す
-	if grep -qvE '^[[:space:]]*(\[settings\][[:space:]]*)?$' "${tmp}"; then
-		mv "${tmp}" "${local_file}"
-	else
-		rm -f "${tmp}" "${local_file}"
+	' "${tmp}")"
+	printf '%s\n' "${edited}" >"${tmp}"
+	# 上で扱えない書き方 (settings = { ... } など) だと、キーが重複してグローバルの設定が読めなくなる。
+	# 書き込む前に mise で読み、意図した値になっていなければ何も変えずに止める
+	local ok=""
+	if global_mise config get -f "${tmp}" >/dev/null 2>&1; then
+		if [[ -n "${line}" ]]; then
+			[[ "$(global_mise config get -f "${tmp}" settings.disable_tools | to_lines | LC_ALL=C sort -u)" == "${expected}" ]] && ok=1
+		else
+			global_mise config get -f "${tmp}" settings.disable_tools >/dev/null 2>&1 || ok=1
+		fi
 	fi
+	if [[ -z "${ok}" ]]; then
+		rm -f "${tmp}"
+		echo "${local_file} の disable_tools を書き換えられませんでした。手で直してください (README の「マシンごとにツールを外す」)" >&2
+		return 1
+	fi
+	# [settings] しか残らなければ (タスクが作ったファイル)、ファイルごと消す。
+	# 残すときは中身だけを書き換える (symlink やパーミッションを変えない)
+	if grep -qvE '^[[:space:]]*(\[settings\][[:space:]]*(#.*)?)?$' "${tmp}"; then
+		cat "${tmp}" >"${local_file}"
+	else
+		rm -f "${local_file}"
+	fi
+	rm -f "${tmp}"
 	if [[ -z "${line}" ]]; then
 		echo "プリセットと同じになったので、このマシンの設定を消しました (以後はプリセットに従います)"
 	fi
 }
 
-# 標準入力の候補から fzf で複数選び、選んだものを出力する。
-# fzf --multi は何も選ばずに ENTER を押すとカーソル行を返すので、bin/mise-install-missing と同じく
-# TAB で選んだものを自分でファイルに記録し、ENTER ではそのファイルの内容を結果にする
+# 標準入力の候補から fzf で複数選び、選んだものを出力する。何も選ばずに ENTER、または ESC で抜けたときは何も出力しない。
+# fzf --multi は何も選ばずに ENTER を押すとカーソル行を返すので、選んだ数 ($FZF_SELECT_COUNT) が 0 なら abort にする
 select_with_fzf() {
-	local header="$1"
-	local selected_file
-	selected_file="$(mktemp)"
-	# shellcheck disable=SC2016 # {} と $item は fzf が実行するシェルで展開する
+	# shellcheck disable=SC2016 # $FZF_SELECT_COUNT は fzf が実行するシェルで展開する
 	fzf --multi \
-		--header="${header} (TAB で選択、ENTER で決定)" \
-		--bind 'tab:toggle+execute-silent(
-			item={};
-			if grep -qxF "$item" '"${selected_file}"' 2>/dev/null; then
-				grep -vxF "$item" '"${selected_file}"' > '"${selected_file}"'.tmp;
-				mv '"${selected_file}"'.tmp '"${selected_file}"';
-			else
-				echo "$item" >> '"${selected_file}"';
-			fi
-		)+down' \
-		--bind 'enter:abort' >/dev/null || true
-	cat "${selected_file}"
-	rm -f "${selected_file}" "${selected_file}.tmp"
+		--header="$1 (TAB で選択、ENTER で決定、ESC で中止)" \
+		--bind 'enter:transform([ "$FZF_SELECT_COUNT" -eq 0 ] && echo abort || echo accept)' || true
 }
 
 # 引数を省いたときに fzf で選ぶ。入力が端末でなければ選べないので失敗する (fzf の画面は /dev/tty に出るので、出力は端末でなくてよい)
@@ -169,7 +183,7 @@ cmd_disable() {
 	local tools=("$@")
 	if [[ ${#tools[@]} -eq 0 ]]; then
 		local candidates
-		candidates="$(grep -vxF -f <(printf '%s\n' "${current[@]}") <<<"${configured}" || true)"
+		candidates="$(grep -vxF -f <(printf '%s\n' "${current[@]}" "${protected_tools}") <<<"${configured}" || true)"
 		[[ -n "${candidates}" ]] || {
 			echo "外せるツールがありません"; return 0
 		}
@@ -185,17 +199,28 @@ cmd_disable() {
 			echo "設定に無いツールです: ${tool} (名前は .config/mise/*.toml のキーと同じにする)" >&2
 			return 1
 		fi
+		if grep -qxF "${tool}" <<<"${protected_tools}"; then
+			echo "外さないツールです: ${tool} (ほかの設定やツールが使う。README の「マシンごとにツールを外す」)" >&2
+			return 1
+		fi
 	done
 	local new
 	mapfile -t new < <(printf '%s\n' "${current[@]}" "${tools[@]}" | sed '/^$/d' | sort -u)
 	write_disabled_tools "${new[@]}"
-	# 外しただけではディスクと shim が残るので消す。入っていないツールは失敗するので、警告だけにして続ける
+	# 外しただけではディスクと shim が残るので消す (入っていないツールでは何もせずに成功する)。
+	# mise のデータディレクトリが無ければ、何も入っていないので消すものも無い (mise uninstall はそこで失敗する)
+	local failed="" err
+	local data_dir="${MISE_DATA_DIR:-${XDG_DATA_HOME:-${HOME}/.local/share}/mise}"
+	[[ -d "${data_dir}" ]] || tools=()
 	for tool in "${tools[@]}"; do
-		if ! global_mise uninstall --all "${tool}" >/dev/null 2>&1; then
-			echo "${tool} はアンインストールしませんでした (インストールされていない可能性があります)" >&2
+		if ! err="$(global_mise uninstall --all "${tool}" 2>&1 >/dev/null)"; then
+			echo "${tool} をアンインストールできませんでした:" >&2
+			printf '%s\n' "${err}" >&2
+			failed=1
 		fi
 	done
 	cmd_status
+	[[ -z "${failed}" ]]
 }
 
 cmd_enable() {

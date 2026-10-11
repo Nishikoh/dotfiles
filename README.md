@@ -113,7 +113,7 @@ mise run tools:disable                 # 引数を省くと fzf で選ぶ (TAB �
   - 名前は [.config/mise/mise.toml](.config/mise/mise.toml) のキーと同じにする (例: `"github:tofuutils/tenv"`)。違う名前は何も言わずに無視される
   - 外しただけではインストール済みのものが残り、shim を実行すると `not a valid shim` のエラーになる。`mise uninstall --all <tool>` で消す (`mise prune` では消えない)
 - 外したツールは、プロジェクトの `mise.toml` に書かれていても使われない。rust などを使うプロジェクトがあるマシンでは `mise run tools:enable rust` で戻す
-- bun・uv・lefthook・fzf は外さない (npm: と pipx: のツール、git の hook、zsh の設定と tools タスクの選択で使う)
+- bun・uv・lefthook・fzf は外さない (npm: と pipx: のツール、git の hook、zsh の設定と tools タスクの選択で使う)。`tools:disable` も外さない
 - リポジトリの別のチェックアウト (worktree) の中では、そのチェックアウトの `.config/mise/config.toml` が優先されるので、このマシンの設定に関係なくプリセットになる (`tools:status` は食い違うときに表示する)
 
 ## test
