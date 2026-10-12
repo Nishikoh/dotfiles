@@ -22,6 +22,7 @@
 #   - 1 回目の後に dotfiles / repos / packages が宣言どおりになっていること、zsh が起動できることを確かめる。
 #   - clone 済みのリポジトリで 2 回目の `mise bootstrap` をしても失敗しない（冪等である）ことを確かめる。
 #   - 以前の手順でセットアップしたマシンの状態を再現し、README の clone 手順 (--dry-run を含む) が通ることを確かめる。
+#   - README の「最小構成のマシン」の手順で、プリセットのツールだけが入ることを確かめる。
 set -euo pipefail
 
 # git の hook などから呼ばれて GIT_DIR などが設定されていると、スナップショットの git init が
@@ -297,66 +298,80 @@ fi
 rm ~/.config/mise/config.local.toml
 test "$(disabled)" = "$preset"
 
-echo "::: 最小構成のマシン: プリセットで許可リストを選び、off で戻す"
-# プリセットのファイルは mise が自動で読まない (選んだときだけ config.local.toml に書かれる)
+echo "::: 最小構成のマシン: プリセットを symlink で選び、off でやめる"
+# プリセットのファイルは mise が自動で読まない (選んだときだけ conf.d から symlink を張る)
 if mise settings get enable_tools >/dev/null 2>&1; then
 	echo "NG: プリセットのファイルが自動で読まれている"
 	exit 1
 fi
+# すべてのプリセットの名前は設定にある (mise は enable_tools の知らない名前を何も言わずに無視する)
+for f in .config/mise/presets/*.toml; do
+	for tool in $(mise config get -f "$f" settings.enable_tools | to_lines); do
+		grep -qE "^\"?${tool}\"? = " .config/mise/mise.toml .config/mise/config.toml || { echo "NG: ${f} の ${tool} が設定に無い"; exit 1; }
+	done
+done
 mise run tools:preset | grep -F "minimal"
 if mise run tools:preset nope; then
 	echo "NG: 無いプリセットを選べた"
 	exit 1
 fi
-printf "# このマシンのメモ\n" >~/.config/mise/config.local.toml
 mise run tools:preset minimal
-# 一覧はプリセットのファイルと同じになる (minimal の中身が変わっても、ここは直さなくてよい)
-test "$(mise settings get enable_tools | to_lines | LC_ALL=C sort | paste -sd" " -)" = "$(mise config get -f .config/mise/presets/minimal.toml settings.enable_tools | to_lines | LC_ALL=C sort | paste -sd" " -)"
-grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
-grep -qF "enable_tools = [\"argc\", \"bat\"" ~/.config/mise/config.local.toml
-mise run tools:status | grep -F "許可リスト: argc, bat"
-# 選んだプリセットの名前を印として残し、プリセットどおりなら注意は出さない
-grep -qE "^enable_tools = \[.*\] # preset: minimal$" ~/.config/mise/config.local.toml
-mise run tools:status | grep -F "プリセット: minimal"
-if bash bootstrap/tools.sh summary | grep -F "注意"; then
-	echo "NG: プリセットどおりなのに注意を表示した"
+test "$(readlink ~/.config/mise/conf.d/preset.toml)" = "../presets/minimal.toml"
+minimal="$(mise config get -f .config/mise/presets/minimal.toml settings.enable_tools | to_lines)"
+test "$(mise settings get enable_tools | to_lines)" = "$minimal"
+test "$(cd / && mise settings get enable_tools | to_lines)" = "$minimal"
+mise run tools:status | grep -F "設定元: プリセット minimal"
+bash bootstrap/tools.sh summary | grep -F "設定元: プリセット minimal"
+# リンクは git に無視される
+test -z "$(git status --porcelain -- .config/mise)" || { git status --short; exit 1; }
+# プリセットの変更はリンク先を読むので、選び直さなくても反映される (rg を足して模擬し、元に戻す)
+cp .config/mise/presets/minimal.toml /tmp/minimal.toml
+sed -i "s/\"argc\",/\"argc\", \"rg\",/" .config/mise/presets/minimal.toml
+mise settings get enable_tools | to_lines | grep -qxF rg
+cp /tmp/minimal.toml .config/mise/presets/minimal.toml
+# config.local.toml の enable_tools はプリセットより優先されるので、残っていると選べない
+printf "[settings]\nenable_tools = [\"argc\"]\n" >~/.config/mise/config.local.toml
+mise run tools:status | grep -F "設定元: このマシン"
+if mise run tools:preset minimal; then
+	echo "NG: config.local.toml の enable_tools があるのにプリセットを選べた"
 	exit 1
 fi
-# プリセットが更新されると (ここでは一覧を変えて模擬する)、bootstrap の最後と tools:status で知らせる
-sed -i "s/^enable_tools = .*/enable_tools = [\"argc\"] # preset: minimal/" ~/.config/mise/config.local.toml
-bash bootstrap/tools.sh summary | grep -F "一覧がプリセット minimal と違います"
-mise run tools:status | grep -F "mise run tools:preset minimal"
-# 選び直すと反映され、一行だけになる
-mise run tools:preset minimal
-test "$(grep -c "enable_tools" ~/.config/mise/config.local.toml)" = 1
-if bash bootstrap/tools.sh summary | grep -F "注意"; then
-	echo "NG: 選び直した後も注意を表示した"
+rm ~/.config/mise/config.local.toml
+# プリセットのファイルが無くなるとリンクが切れ、mise は何も言わずに許可リストなしに戻る。bootstrap はツールを入れる前に止める
+mv .config/mise/presets/minimal.toml /tmp/minimal.toml
+if mise settings get enable_tools >/dev/null 2>&1; then
+	echo "NG: リンクが切れても許可リストが効いている (想定と違う)"
+	exit 1
+fi
+mise run tools:status | grep -F "リンク切れ"
+# 止まらなかったときに入るのが argc だけになるよう、この実行の許可リストを絞っておく
+if MISE_ENABLE_TOOLS=argc mise bootstrap --yes --only tools 2>&1 | tee /tmp/check.log; then
+	echo "NG: リンクが切れているのに bootstrap が止まらなかった"
+	exit 1
+fi
+grep -F "リンク切れ" /tmp/check.log
+mv /tmp/minimal.toml .config/mise/presets/minimal.toml
+bash bootstrap/tools.sh check
+# off はリンクを消す。環境変数などで許可リストがまだ効いていれば失敗する
+if MISE_ENABLE_TOOLS=argc mise run tools:preset off; then
+	echo "NG: 許可リストが効いたままなのに off が成功した"
 	exit 1
 fi
 mise run tools:preset off
-grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
-if grep -q "enable_tools" ~/.config/mise/config.local.toml; then
-	echo "NG: off の後も enable_tools が残っている"
+test ! -L ~/.config/mise/conf.d/preset.toml
+if mise settings get enable_tools >/dev/null 2>&1; then
+	echo "NG: off の後も許可リストが効いている"
 	exit 1
 fi
 test "$(disabled)" = "$preset"
-# 環境変数だけの許可リスト (最初の bootstrap) は、保存されていないと知らせ、同じ一覧のプリセットを示す
-minimal_list="$(mise config get -f .config/mise/presets/minimal.toml settings.enable_tools | to_lines)"
-MISE_ENABLE_TOOLS="$(paste -sd, - <<<"$minimal_list")" bash bootstrap/tools.sh summary >/tmp/summary.log
-grep -F "保存されていません" /tmp/summary.log
-grep -F "mise run tools:preset minimal" /tmp/summary.log
-MISE_ENABLE_TOOLS=argc bash bootstrap/tools.sh summary | grep -F "mise run tools:preset <name>"
-# README の初回の MISE_ENABLE_TOOLS は minimal と同じ一覧
-test "$(grep -oE "MISE_ENABLE_TOOLS=[^ ]+" README.md | cut -d= -f2 | tr , "\n" | LC_ALL=C sort)" = "$minimal_list"
-# 設定に無い名前のプリセットは、書く前に拒否する
+# 設定に無い名前のプリセットは、選ぶ前に拒否する
 printf "[settings]\nenable_tools = [\"no-such-tool\"]\n" >"$dotfiles/.config/mise/presets/broken.toml"
 if mise run tools:preset broken; then
 	echo "NG: 設定に無いツールのプリセットを選べた"
 	exit 1
 fi
 rm "$dotfiles/.config/mise/presets/broken.toml"
-test "$(cat ~/.config/mise/config.local.toml)" = "# このマシンのメモ"
-rm ~/.config/mise/config.local.toml
+test ! -L ~/.config/mise/conf.d/preset.toml
 
 echo "::: mise run dot:add で新しい設定をリポジトリに取り込める"
 mkdir -p ~/.config/example && echo "enabled = true" >~/.config/example/example.conf
@@ -414,6 +429,36 @@ test "$(readlink ~/.config/herdr/config.toml)" = "$dotfiles/.config/herdr/config
 echo "::: OK"
 '
 
+# README の「最小構成のマシン」の手順: ツールを入れずに bootstrap し、プリセットを選んでから入れる
+# shellcheck disable=SC2016 # コンテナ内で展開する
+minimal_script='
+set -euo pipefail
+dotfiles=~/setup/dotfiles
+to_lines() { sed -e "s/[][\" ]//g" -e "s/,/\n/g" | sed "/^\$/d" | LC_ALL=C sort -u; }
+
+echo "::: 最小構成のマシン: ツールを入れずに bootstrap し、プリセットを選ぶ"
+mise bootstrap --from /src --from-dir "$dotfiles" --yes --skip tools,task
+cd "$dotfiles"
+mise run tools:preset minimal
+minimal="$(mise config get -f .config/mise/presets/minimal.toml settings.enable_tools | to_lines)"
+
+echo "::: 最小構成のマシン: 選んだツールだけを入れる"
+if [[ -n "$SKIP_ARGS" ]]; then
+	# ツールは入れずに、入れる対象がプリセットのツールだけであることを確かめる
+	mise bootstrap --dry-run --only tools 2>&1 | tee /tmp/dry.log
+	test "$(grep -c "would install" /tmp/dry.log)" = "$(wc -l <<<"$minimal")"
+	mise bootstrap --yes $SKIP_ARGS 2>&1 | tee /tmp/run.log
+else
+	mise bootstrap --yes 2>&1 | tee /tmp/run.log
+	test "$(mise ls --current --no-header | awk "{ print \$1 }" | LC_ALL=C sort -u)" = "$minimal"
+	# リポジトリの設定が使うツール (Claude の hook、git の pager と認証) がある
+	zsh -i -c "command -v jq delta gh" </dev/null
+fi
+grep -F "設定元: プリセット minimal" /tmp/run.log
+zsh -i -c true </dev/null >/tmp/zsh.log 2>&1 || { cat /tmp/zsh.log; exit 1; }
+echo "::: OK"
+'
+
 # 以前の手順 (Argcfile.sh) でセットアップしたマシンを再現し、README の clone 手順で bootstrap する
 # shellcheck disable=SC2016 # コンテナ内で展開する
 existing_script='
@@ -425,12 +470,6 @@ git clone -q /src "$dotfiles"
 cd "$dotfiles"
 mise trust --quiet --all
 mise bootstrap --dry-run
-
-echo "::: 最小構成のマシン: 初回の bootstrap は MISE_ENABLE_TOOLS で許可したツールだけをインストール対象にする"
-MISE_ENABLE_TOOLS=argc,fzf mise bootstrap --dry-run --only tools 2>&1 | tee /tmp/enable-dry.log
-test "$(grep -c "would install" /tmp/enable-dry.log)" = 2
-grep -qE "argc@.*would install" /tmp/enable-dry.log
-grep -qE "fzf@.*would install" /tmp/enable-dry.log
 
 echo "::: 既存マシン: 以前の手順の状態を用意する"
 # 補完の生成物が残った argc-completions
@@ -481,6 +520,14 @@ for target in "${targets[@]}"; do
 		"${docker_git_env[@]}" \
 		-v "${snapshot}:/src:ro" \
 		"${image}" bash -c "${wsl_script}"
+
+	echo "===== ${target} (最小構成のマシン) ====="
+	docker run --rm \
+		"${token_env[@]}" \
+		-e SKIP_ARGS="${skip_args}" \
+		"${docker_git_env[@]}" \
+		-v "${snapshot}:/src:ro" \
+		"${image}" bash -c "${minimal_script}"
 
 	echo "===== ${target} (既存マシン / clone 手順) ====="
 	docker run --rm \

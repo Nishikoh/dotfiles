@@ -5,14 +5,15 @@
 #   tools.sh summary                         外しているツールを 1 行で表示する (bootstrap の最後に表示する)
 #   tools.sh disable [tool...]               外してアンインストールする。省略すると fzf で選ぶ
 #   tools.sh enable [--no-install] [tool...] 戻してインストールする。省略すると fzf で選ぶ
-#   tools.sh preset [name|off]               許可リストのプリセット (.config/mise/presets/) に切り替える。off で戻す。省略すると一覧を表示する
+#   tools.sh preset [name|off]               許可リストのプリセット (.config/mise/presets/) を選ぶ。off でやめる。省略すると一覧を表示する
+#   tools.sh check                           選んだプリセットのリンクが切れていたら失敗する (bootstrap の pre-tools hook から呼ぶ)
 #
 # 既定では .config/mise/config.toml の disable_tools (プリセット) を外す。マシンごとの値は
 # ~/.config/mise/config.local.toml (git に無視される) に書く。mise ではこの値がプリセットに足されず置き換わるので、
 # 今の値にツールを足したり引いたりした全体を書く。
 # enable_tools (許可リスト) を設定したマシン (最小構成のマシン) では、status と summary で一覧を表示し、disable と enable は失敗する。
-# 一覧は `tools.sh preset` で切り替える (プリセットは .config/mise/presets/。README の「最小構成のマシン」)。
-# preset は選んだ名前を enable_tools の行に印 (# preset: <name>) として残し、プリセットが更新されたら summary と status で知らせる。
+# 許可リストは `tools.sh preset <name>` で選ぶ。~/.config/mise/conf.d/preset.toml (git に無視される) から
+# .config/mise/presets/<name>.toml へ symlink を張るので、プリセットの変更は git pull でそのまま反映される (README の「最小構成のマシン」)。
 # `mise config set` は空のリストを書けない (--remove で空にするとキーごと消えてプリセットに戻る) ので、行を直接書き換える。
 set -euo pipefail
 
@@ -25,6 +26,8 @@ fzf"
 preset_file="${config_dir}/config.toml"
 local_file="${config_dir}/config.local.toml"
 presets_dir="${config_dir}/presets"
+# mise はグローバルの conf.d/*.toml を読む。リンク先を相対パスにして、リポジトリの場所に依存しないようにする
+preset_link="${config_dir}/conf.d/preset.toml"
 
 # グローバルの設定だけを見る。リポジトリの別のチェックアウトの中ではそのチェックアウトの設定が優先され、
 # その実行だけの MISE_DISABLE_TOOLS なども効いてしまうため
@@ -178,19 +181,14 @@ join_list() {
 	paste -sd, - | sed 's/,/, /g'
 }
 
-# 許可リスト (enable_tools) が設定されているか。環境変数 MISE_ENABLE_TOOLS も数える (最初の bootstrap を環境変数で絞るため)。
-# リポジトリの別のチェックアウトの設定は見ない
-allowlist_mode() {
-	(cd / && env -u MISE_DISABLE_TOOLS mise settings get enable_tools) >/dev/null 2>&1
-}
-
-# 効いている許可リストを名前順に 1 行ずつ出す (環境変数 MISE_ENABLE_TOOLS を含む)
-allowed_lines() {
-	(cd / && env -u MISE_DISABLE_TOOLS mise settings get enable_tools) | to_lines | LC_ALL=C sort -u
-}
-
+# 効いている許可リスト (enable_tools) を名前順に「, 」区切りで出す。設定されていなければ失敗する。
+# 環境変数 MISE_ENABLE_TOOLS も数え、リポジトリの別のチェックアウトの設定は見ない
 allowed_tools() {
-	allowed_lines | join_list
+	(cd / && env -u MISE_DISABLE_TOOLS mise settings get enable_tools 2>/dev/null) | to_lines | LC_ALL=C sort -u | join_list
+}
+
+allowlist_mode() {
+	allowed_tools >/dev/null
 }
 
 # プリセットのファイルの一覧を名前順に 1 行ずつ出す
@@ -198,58 +196,59 @@ preset_list() {
 	global_mise config get -f "$1" settings.enable_tools | to_lines | LC_ALL=C sort -u
 }
 
-# 一覧 (名前順に 1 行ずつ) と同じプリセットの名前を出す。無ければ何も出さない
-matching_preset() {
-	local name
-	while IFS= read -r name; do
-		if [[ -n "${name}" && "$(preset_list "${presets_dir}/${name}.toml" 2>/dev/null)" == "$1" ]]; then
-			echo "${name}"
-			return 0
-		fi
-	done < <(preset_names)
-	return 0
-}
-
-# tools:preset が enable_tools の行に残した印 (# preset: <name>) から、このマシンで選んだプリセットの名前を出す
-chosen_preset() {
-	if [[ -f "${local_file}" ]]; then
-		sed -nE 's/^[[:space:]]*(settings\.)?enable_tools[[:space:]]*=.*#[[:space:]]*preset:[[:space:]]*([A-Za-z0-9_-]+).*$/\2/p' "${local_file}" | head -n 1
+# 選んでいるプリセットの名前 (conf.d/preset.toml のリンク先)。選んでいなければ何も出さない
+active_preset() {
+	if [[ -L "${preset_link}" ]]; then
+		basename "$(readlink "${preset_link}")" .toml
 	fi
 }
 
-# 許可リストで気づきにくい状態を知らせる (bootstrap の最後の summary と tools:status で表示する)
-allowlist_notes() {
-	local name
-	# 環境変数 MISE_ENABLE_TOOLS だけで、このマシンには保存されていない (最初の bootstrap の直後)
-	if ! global_mise settings get enable_tools >/dev/null 2>&1; then
-		name="$(matching_preset "$(allowed_lines)")"
-		echo "注意: 許可リストがこのマシンに保存されていません (MISE_ENABLE_TOOLS はその実行だけに効く)。このままだと次の mise upgrade や bootstrap で、許可リストに無いツールも入ります"
-		echo "  保存する: mise run tools:preset ${name:-<name>}"
-		return 0
+has_local_allowlist() {
+	[[ -f "${local_file}" ]] && global_mise config get -f "${local_file}" settings.enable_tools >/dev/null 2>&1
+}
+
+# 許可リストの設定元。環境変数、config.local.toml、プリセット (conf.d) の順に優先される
+allowlist_source() {
+	if [[ -n "${MISE_ENABLE_TOOLS+x}" ]]; then
+		echo "環境変数 MISE_ENABLE_TOOLS (その実行だけ)"
+	elif has_local_allowlist; then
+		echo "このマシン (${local_file} の enable_tools)"
+	elif [[ -e "${preset_link}" ]]; then
+		echo "プリセット $(active_preset) (${preset_link})"
+	else
+		echo "ほかの設定ファイル (mise config ls で確かめる)"
 	fi
-	# config.local.toml には選んだ時点の一覧がコピーされるので、あとでプリセットを更新しても反映されない
-	name="$(chosen_preset)"
-	[[ -n "${name}" ]] || return 0
-	if [[ ! -f "${presets_dir}/${name}.toml" ]]; then
-		echo "注意: 選んだプリセット ${name} がありません。mise run tools:preset で選び直してください"
-	elif [[ "$(global_mise config get -f "${local_file}" settings.enable_tools | to_lines | LC_ALL=C sort -u)" != "$(preset_list "${presets_dir}/${name}.toml")" ]]; then
-		echo "注意: 一覧がプリセット ${name} と違います (${name} が更新されたか、手で変えた)。${name} に合わせる: mise run tools:preset ${name}"
+}
+
+# プリセットのファイルが消えたか名前が変わると、リンクが切れ、mise は何も言わずに許可リストなしに戻る
+broken_preset_note() {
+	if [[ -L "${preset_link}" && ! -e "${preset_link}" ]]; then
+		echo "注意: 選んだプリセット $(active_preset) がありません (リンク切れ)。許可リストが効かず、すべてのツールが入ります。mise run tools:preset <name> で選び直すか、mise run tools:preset off でやめてください"
+	fi
+}
+
+# 許可リストのマシンでは disable_tools が使われないので、tools:disable と tools:enable を使わせない
+refuse_in_allowlist() {
+	if allowlist_mode; then
+		echo "このマシンは許可リスト (enable_tools) でツールを決めているので、tools:disable と tools:enable は使えません (設定元: $(allowlist_source))" >&2
+		return 1
 	fi
 }
 
 cmd_status() {
-	local disabled here allowed name
-	if allowlist_mode; then
-		allowed="$(allowed_tools)"
+	local disabled here allowed
+	if allowed="$(allowed_tools)"; then
 		echo "許可リスト: ${allowed:-なし} (enable_tools。ここに無いツールは入らず、disable_tools は使われない)"
-		name="$(chosen_preset)"
-		if [[ -n "${name}" ]]; then
-			echo "  プリセット: ${name}"
+		echo "  設定元: $(allowlist_source)"
+		# リポジトリの別のチェックアウト (worktree) の中では、そのチェックアウトの設定がプロジェクトの設定として優先される
+		here="$(env -u MISE_DISABLE_TOOLS mise settings get enable_tools 2>/dev/null | to_lines | LC_ALL=C sort -u | join_list)" || here=""
+		if [[ "${here}" != "${allowed}" ]]; then
+			echo "  ただし ${PWD} の中では、そのチェックアウトの設定が優先され、許可リスト: ${here:-なし}"
 		fi
-		allowlist_notes
-		echo "変更: mise run tools:preset <name> (プリセットに切り替える) / mise run tools:preset off (戻す)"
+		echo "変更: mise run tools:preset <name> (プリセットを選ぶ) / mise run tools:preset off (やめる)"
 		return 0
 	fi
+	broken_preset_note
 	disabled="$(disabled_tools | join_list)"
 	echo "外しているツール: ${disabled:-なし}"
 	if has_local_setting; then
@@ -267,10 +266,9 @@ cmd_status() {
 
 cmd_summary() {
 	local disabled allowed
-	if allowlist_mode; then
-		allowed="$(allowed_tools)"
-		echo "許可リスト: ${allowed:-なし} (enable_tools。ここに無いツールは入らない)"
-		allowlist_notes || true
+	broken_preset_note
+	if allowed="$(allowed_tools)"; then
+		echo "許可リスト: ${allowed:-なし} (設定元: $(allowlist_source)。ここに無いツールは入らない)"
 		return 0
 	fi
 	disabled="$(disabled_tools 2>/dev/null | join_list)" || return 0
@@ -279,12 +277,19 @@ cmd_summary() {
 	fi
 }
 
-cmd_disable() {
-	local current configured
-	if allowlist_mode; then
-		echo "このマシンは許可リスト (enable_tools) でツールを決めています。mise run tools:preset off で戻すか、${local_file} を手で編集してください" >&2
+# bootstrap の pre-tools hook から呼ぶ。リンクが切れていたら、すべてのツールを入れてしまう前に止める
+cmd_check() {
+	local note
+	note="$(broken_preset_note)"
+	if [[ -n "${note}" ]]; then
+		echo "${note}" >&2
 		return 1
 	fi
+}
+
+cmd_disable() {
+	local current configured
+	refuse_in_allowlist
 	read_current
 	configured="$(configured_tools)"
 	local tools=("$@")
@@ -332,10 +337,7 @@ cmd_disable() {
 
 cmd_enable() {
 	local install=1
-	if allowlist_mode; then
-		echo "このマシンは許可リスト (enable_tools) でツールを決めています。mise run tools:preset off で戻すか、${local_file} を手で編集してください" >&2
-		return 1
-	fi
+	refuse_in_allowlist
 	if [[ "${1:-}" == --no-install ]]; then
 		install=""
 		shift
@@ -371,32 +373,40 @@ cmd_enable() {
 	cmd_status
 }
 
-# 使えるプリセット (.config/mise/presets/*.toml の名前) を 1 行ずつ出す
+# 使えるプリセット (.config/mise/presets/*.toml の名前) を 1 行ずつ出す。off は tools:preset off に使うので除く
 preset_names() {
-	local f
+	local f name
 	for f in "${presets_dir}"/*.toml; do
-		[[ -f "${f}" ]] && basename "${f}" .toml
+		name="$(basename "${f}" .toml)"
+		if [[ -f "${f}" && "${name}" != off ]]; then
+			echo "${name}"
+		fi
 	done
 	return 0
 }
 
-# 許可リスト (enable_tools) をプリセットに切り替える。off なら許可リストをやめて、外すツールの設定 (disable_tools) に戻す
+# 許可リストをプリセットにする (conf.d/preset.toml から symlink を張る)。off ならリンクを消して、外すツールの設定 (disable_tools) に戻す
 cmd_preset() {
 	local name="${1:-}"
-	local names
-	names="$(preset_names | paste -sd, - | sed 's/,/, /g')"
+	local names active
+	names="$(preset_names | join_list)"
 	if [[ -z "${name}" ]]; then
-		echo "プリセット: ${names:-なし}"
-		echo "使い方: mise run tools:preset <name> (許可リストにする) / mise run tools:preset off (戻す)"
+		active="$(active_preset)"
+		echo "プリセット: ${names:-なし} (選んでいるもの: ${active:-なし})"
+		echo "使い方: mise run tools:preset <name> (選ぶ) / mise run tools:preset off (やめる)"
 		return 0
 	fi
 	if [[ "${name}" == off ]]; then
-		write_local_setting enable_tools "" ""
+		rm -f "${preset_link}"
+		if allowlist_mode; then
+			echo "プリセットはやめましたが、許可リストはまだ効いています (設定元: $(allowlist_source))" >&2
+			return 1
+		fi
 		cmd_status
 		return 0
 	fi
 	local file="${presets_dir}/${name}.toml"
-	if [[ ! "${name}" =~ ^[A-Za-z0-9_-]+$ || ! -f "${file}" ]]; then
+	if [[ ! "${name}" =~ ^[A-Za-z0-9_-]+$ || ! -f "${file}" || "${name}" == off ]]; then
 		echo "プリセットがありません: ${name} (プリセット: ${names:-なし})" >&2
 		return 1
 	fi
@@ -406,17 +416,21 @@ cmd_preset() {
 		return 1
 	fi
 	# 一覧の名前は設定にあるものだけ (mise は知らない名前を何も言わずに無視するため)
-	local configured tool value=""
+	local configured tool
 	configured="$(configured_tools)"
 	while IFS= read -r tool; do
 		if ! grep -qxF "${tool}" <<<"${configured}"; then
 			echo "設定に無いツールです: ${tool} (プリセット ${name}。名前は .config/mise/*.toml のキーと同じにする)" >&2
 			return 1
 		fi
-		value+="${value:+, }\"${tool}\""
 	done <<<"${tools}"
-	# 選んだ名前を印として残す (プリセットが更新されたことに allowlist_notes で気づけるように)
-	write_local_setting enable_tools "enable_tools = [${value}] # preset: ${name}" "${tools}"
+	# config.local.toml の enable_tools はプリセットより優先されるので、残っているとプリセットが効かない
+	if has_local_allowlist; then
+		echo "${local_file} の enable_tools がプリセットより優先されます。消してから選んでください" >&2
+		return 1
+	fi
+	mkdir -p "$(dirname "${preset_link}")"
+	ln -sfn "../presets/${name}.toml" "${preset_link}"
 	cmd_status
 }
 
@@ -426,8 +440,9 @@ summary) cmd_summary ;;
 disable) shift && cmd_disable "$@" ;;
 enable) shift && cmd_enable "$@" ;;
 preset) shift && cmd_preset "$@" ;;
+check) cmd_check ;;
 *)
-	echo "usage: $0 status|summary|disable [tool...]|enable [--no-install] [tool...]|preset [name|off]" >&2
+	echo "usage: $0 status|summary|disable [tool...]|enable [--no-install] [tool...]|preset [name|off]|check" >&2
 	exit 2
 	;;
 esac
