@@ -297,6 +297,44 @@ fi
 rm ~/.config/mise/config.local.toml
 test "$(disabled)" = "$preset"
 
+echo "::: 最小構成のマシン: プリセットで許可リストを選び、off で戻す"
+# プリセットのファイルは mise が自動で読まない (選んだときだけ config.local.toml に書かれる)
+if mise settings get enable_tools >/dev/null 2>&1; then
+	echo "NG: プリセットのファイルが自動で読まれている"
+	exit 1
+fi
+mise run tools:preset | grep -F "minimal"
+if mise run tools:preset nope; then
+	echo "NG: 無いプリセットを選べた"
+	exit 1
+fi
+printf "# このマシンのメモ\n" >~/.config/mise/config.local.toml
+mise run tools:preset minimal
+# 一覧はプリセットのファイルと同じになる (minimal の中身が変わっても、ここは直さなくてよい)
+test "$(mise settings get enable_tools | to_lines | LC_ALL=C sort | paste -sd" " -)" = "$(mise config get -f .config/mise/presets/minimal.toml settings.enable_tools | to_lines | LC_ALL=C sort | paste -sd" " -)"
+grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
+grep -qF "enable_tools = [\"argc\", \"bat\"" ~/.config/mise/config.local.toml
+mise run tools:status | grep -F "許可リスト: argc, bat"
+# 選び直しても一行だけになる
+mise run tools:preset minimal
+test "$(grep -c "enable_tools" ~/.config/mise/config.local.toml)" = 1
+mise run tools:preset off
+grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
+if grep -q "enable_tools" ~/.config/mise/config.local.toml; then
+	echo "NG: off の後も enable_tools が残っている"
+	exit 1
+fi
+test "$(disabled)" = "$preset"
+# 設定に無い名前のプリセットは、書く前に拒否する
+printf "[settings]\nenable_tools = [\"no-such-tool\"]\n" >"$dotfiles/.config/mise/presets/broken.toml"
+if mise run tools:preset broken; then
+	echo "NG: 設定に無いツールのプリセットを選べた"
+	exit 1
+fi
+rm "$dotfiles/.config/mise/presets/broken.toml"
+test "$(cat ~/.config/mise/config.local.toml)" = "# このマシンのメモ"
+rm ~/.config/mise/config.local.toml
+
 echo "::: mise run dot:add で新しい設定をリポジトリに取り込める"
 mkdir -p ~/.config/example && echo "enabled = true" >~/.config/example/example.conf
 mise run dot:add ~/.config/example

@@ -1,0 +1,19 @@
+# 最小構成のマシン用の許可リスト。`mise run tools:preset minimal` で選ぶ (`mise run tools:preset off` で戻す)。
+# ここに書いたツールだけを入れる。一覧を変えるときはこのファイルを編集する (README の「最小構成のマシン」)。
+# argc は `mise run bootstrap` の補完生成に、fzf は tools:* の選択に使う。lefthook は git の hook 用なので入れていない。
+# 名前は .config/mise/mise.toml と config.toml のキーと同じにする (tools:preset は設定に無い名前を拒否する)。
+[settings]
+enable_tools = [
+  "argc",
+  "bat",
+  "bun",
+  "claude",
+  "codex",
+  "eza",
+  "fzf",
+  "helix",
+  "herdr",
+  "node",
+  "starship",
+  "uv",
+]
