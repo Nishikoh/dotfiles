@@ -315,9 +315,24 @@ test "$(mise settings get enable_tools | to_lines | LC_ALL=C sort | paste -sd" "
 grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
 grep -qF "enable_tools = [\"argc\", \"bat\"" ~/.config/mise/config.local.toml
 mise run tools:status | grep -F "許可リスト: argc, bat"
-# 選び直しても一行だけになる
+# 選んだプリセットの名前を印として残し、プリセットどおりなら注意は出さない
+grep -qE "^enable_tools = \[.*\] # preset: minimal$" ~/.config/mise/config.local.toml
+mise run tools:status | grep -F "プリセット: minimal"
+if bash bootstrap/tools.sh summary | grep -F "注意"; then
+	echo "NG: プリセットどおりなのに注意を表示した"
+	exit 1
+fi
+# プリセットが更新されると (ここでは一覧を変えて模擬する)、bootstrap の最後と tools:status で知らせる
+sed -i "s/^enable_tools = .*/enable_tools = [\"argc\"] # preset: minimal/" ~/.config/mise/config.local.toml
+bash bootstrap/tools.sh summary | grep -F "一覧がプリセット minimal と違います"
+mise run tools:status | grep -F "mise run tools:preset minimal"
+# 選び直すと反映され、一行だけになる
 mise run tools:preset minimal
 test "$(grep -c "enable_tools" ~/.config/mise/config.local.toml)" = 1
+if bash bootstrap/tools.sh summary | grep -F "注意"; then
+	echo "NG: 選び直した後も注意を表示した"
+	exit 1
+fi
 mise run tools:preset off
 grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
 if grep -q "enable_tools" ~/.config/mise/config.local.toml; then
@@ -325,6 +340,14 @@ if grep -q "enable_tools" ~/.config/mise/config.local.toml; then
 	exit 1
 fi
 test "$(disabled)" = "$preset"
+# 環境変数だけの許可リスト (最初の bootstrap) は、保存されていないと知らせ、同じ一覧のプリセットを示す
+minimal_list="$(mise config get -f .config/mise/presets/minimal.toml settings.enable_tools | to_lines)"
+MISE_ENABLE_TOOLS="$(paste -sd, - <<<"$minimal_list")" bash bootstrap/tools.sh summary >/tmp/summary.log
+grep -F "保存されていません" /tmp/summary.log
+grep -F "mise run tools:preset minimal" /tmp/summary.log
+MISE_ENABLE_TOOLS=argc bash bootstrap/tools.sh summary | grep -F "mise run tools:preset <name>"
+# README の初回の MISE_ENABLE_TOOLS は minimal と同じ一覧
+test "$(grep -oE "MISE_ENABLE_TOOLS=[^ ]+" README.md | cut -d= -f2 | tr , "\n" | LC_ALL=C sort)" = "$minimal_list"
 # 設定に無い名前のプリセットは、書く前に拒否する
 printf "[settings]\nenable_tools = [\"no-such-tool\"]\n" >"$dotfiles/.config/mise/presets/broken.toml"
 if mise run tools:preset broken; then

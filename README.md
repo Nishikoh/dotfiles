@@ -127,13 +127,17 @@ mise run tools:disable                 # 引数を省くと fzf で選ぶ (TAB �
    MISE_ENABLE_TOOLS=argc,bat,bun,claude,codex,eza,fzf,helix,herdr,node,starship,uv ~/.local/bin/mise bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes
    ```
 
-2. 終わったら、プリセットを選ぶ。以後の `mise install` と `mise upgrade` はこの一覧に従う
+2. 終わったら、プリセットを選ぶ。以後の `mise install` と `mise upgrade` はこの一覧に従う。選ぶまでは、bootstrap の最後と `tools:status` に「保存されていません」と表示される
 
    ```sh
    mise run tools:preset minimal   # 一覧を ~/.config/mise/config.local.toml に書く
    ```
 
    プリセットは [.config/mise/presets/](.config/mise/presets/) にある。今の `minimal` は argc・bat・bun・claude・codex・eza・fzf・helix・herdr・node・starship・uv。ほかの一覧が要るときは、プリセットのファイルを足す。`mise run tools:preset off` で元の (外すツールを決める) 形に戻す
+
+- 選んだ時点の一覧が `config.local.toml` にコピーされ、行末に `# preset: minimal` の印が付く。あとで `minimal.toml` を更新すると、bootstrap の最後と `tools:status` で知らせるので、`mise run tools:preset minimal` で反映する
+- 一覧を手で変えるときは、行末の `# preset: ...` を消す (残すと、プリセットと違うと表示され続ける)
+- `minimal.toml` を変えたら、上の初回の `MISE_ENABLE_TOOLS` の一覧も同じにする (テストで確かめている)
 
 - 一覧には使うツールだけを書く。`argc` は `mise run bootstrap` が補完を生成するのに使う。`bun`・`uv`・`lefthook`・`fzf` は、npm: と pipx: のツール、git の hook、tools の選択で使うなら入れる
 - 一覧は置き換わる (プリセットに足されない)。一覧に無いツールは、プロジェクトの `mise.toml` に書いてあっても使われない
