@@ -161,6 +161,11 @@ arg "[tool]..." var=#true help="戻すツール。省略すると fzf で選ぶ"
 raw = true
 run = "bash '{{config_root}}/bootstrap/tools.sh' enable ${usage_no_install:+--no-install} ${usage_tool:-}"
 
+[tasks."tools:preset"]
+description = "このマシンで使うツールを、プリセット (許可リスト) に切り替える。off で戻す"
+usage = 'arg "[preset]" help="プリセットの名前 (.config/mise/presets/)。off で許可リストをやめる。省略するとプリセットを一覧する"'
+run = "bash '{{config_root}}/bootstrap/tools.sh' preset ${usage_preset:-}"
+
 [tasks."setup:copilot"]
 description = "GitHub Copilot CLI をセットアップする (対話的なログインが必要)"
 run = '''
