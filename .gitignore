@@ -1,3 +1,5 @@
 zsh/plugins/zsh-helix-mode
 # マシンごとの mise の設定 (使わないツールを disable_tools で外す)。~/.config/mise はこのディレクトリへの symlink
 .config/mise/config.local.toml
+# このマシンで選んだ許可リストのプリセット (mise run tools:preset が presets/ へ張る symlink)
+.config/mise/conf.d/preset.toml

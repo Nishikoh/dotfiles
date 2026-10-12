@@ -38,6 +38,7 @@ curl https://mise.run | sh
 - clone 先は `~/setup/dotfiles` にする。zsh の設定がこのパスを前提にしている
 - OS パッケージと `/etc/codex` を入れるときに sudo のパスワードを聞かれる (`--yes` が省くのは mise の確認だけ)
 - ツールのインストールで GitHub API のレート制限に当たったら、`GITHUB_TOKEN` を設定して再実行する
+- 使うツールが少ないマシンは、先に [最小構成のマシン](#最小構成のマシン) を読む
 
 ### 3. 実行後にやること
 
@@ -115,6 +116,30 @@ mise run tools:disable                 # 引数を省くと fzf で選ぶ (TAB �
 - 外したツールは、プロジェクトの `mise.toml` に書かれていても使われない。rust などを使うプロジェクトがあるマシンでは `mise run tools:enable rust` で戻す
 - bun・uv・lefthook・fzf は外さない (npm: と pipx: のツール、git の hook、zsh の設定と tools タスクの選択で使う)。`tools:disable` も外さない
 - リポジトリの別のチェックアウト (worktree) の中では、そのチェックアウトの `.config/mise/config.toml` が優先されるので、このマシンの設定に関係なくプリセットになる (`tools:status` は食い違うときに表示する)
+
+## 最小構成のマシン
+
+使うツールが少ないマシンでは、外すものを並べるより、使うものを並べる。プリセット ([.config/mise/presets/](.config/mise/presets/)) の `enable_tools` (許可リスト) に書いたツールだけを入れ、それ以外は入らない。`config.toml` の `disable_tools` は使われない。
+
+新しいマシンでは、ツールを入れずに bootstrap し、プリセットを選んでからツールを入れる。
+
+```sh
+# 1. ツールを入れずに bootstrap する (WSL では mise -E wsl bootstrap ...)
+~/.local/bin/mise bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes --skip tools,task
+# 2. プリセットを選ぶ
+cd ~/setup/dotfiles && ~/.local/bin/mise run tools:preset minimal
+# 3. 選んだツールだけを入れる
+~/.local/bin/mise bootstrap --yes
+```
+
+- `tools:preset minimal` は `~/.config/mise/conf.d/preset.toml` (git に無視される) から `presets/minimal.toml` へ symlink を張る。プリセットの変更は `git pull` でそのまま反映される。`mise run tools:preset off` でやめる
+- 今の `minimal` は argc・bat・bun・claude・codex・delta・eza・fzf・gh・helix・herdr・jq・node・starship・uv。jq・delta・gh はリポジトリの設定 (Claude の hook、git の pager と認証) が使うので外さない
+- プリセットのファイルの名前を変えたり消したりしない。選んでいるマシンではリンクが切れ、mise は何も言わずに許可リストなしに戻る。bootstrap はツールを入れる前に止まるが、`mise upgrade` は止まらない
+- 一覧は置き換わる (足されない)。一覧に無いツールは、プロジェクトの `mise.toml` に書いてあっても使われない
+- 名前を間違えても mise は何も言わない。`tools:preset` は設定に無い名前を拒否し、テストですべてのプリセットの名前を確かめている
+- そのマシンだけ一覧を変えるときは、`config.local.toml` に `enable_tools` を書く (プリセットより優先される)。`mise run tools:status` に設定元が出る
+- 許可リストのマシンでは `tools:disable` と `tools:enable` は使えない
+- 既存のマシンで後から選んだ場合、一覧から外れたツールは残り、shim を実行すると `not a valid shim` のエラーになる (zoxide などは zsh の起動のたびにエラーになる)。`mise uninstall --all <tool>` で消す (shim も消える)
 
 ## test
 
