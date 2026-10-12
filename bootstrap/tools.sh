@@ -9,6 +9,8 @@
 # 既定では .config/mise/config.toml の disable_tools (プリセット) を外す。マシンごとの値は
 # ~/.config/mise/config.local.toml (git に無視される) に書く。mise ではこの値がプリセットに足されず置き換わるので、
 # 今の値にツールを足したり引いたりした全体を書く。
+# enable_tools (許可リスト) を設定したマシン (最小構成のマシン) では、status と summary で一覧を表示し、disable と enable は失敗する。
+# 一覧は ~/.config/mise/config.local.toml を手で編集する (README の「最小構成のマシン」)。
 # `mise config set` は空のリストを書けない (--remove で空にするとキーごと消えてプリセットに戻る) ので、行を直接書き換える。
 set -euo pipefail
 
@@ -151,8 +153,24 @@ join_list() {
 	paste -sd, - | sed 's/,/, /g'
 }
 
+# 許可リスト (enable_tools) が設定されているか。環境変数 MISE_ENABLE_TOOLS も数える (最初の bootstrap を環境変数で絞るため)。
+# リポジトリの別のチェックアウトの設定は見ない
+allowlist_mode() {
+	(cd / && env -u MISE_DISABLE_TOOLS mise settings get enable_tools) >/dev/null 2>&1
+}
+
+allowed_tools() {
+	(cd / && env -u MISE_DISABLE_TOOLS mise settings get enable_tools) | to_lines | join_list
+}
+
 cmd_status() {
-	local disabled here
+	local disabled here allowed
+	if allowlist_mode; then
+		allowed="$(allowed_tools)"
+		echo "許可リスト: ${allowed:-なし} (enable_tools。ここに無いツールは入らず、disable_tools は使われない)"
+		echo "変更: ${local_file} の enable_tools を手で編集する (tools:disable / tools:enable は使えない)"
+		return 0
+	fi
 	disabled="$(disabled_tools | join_list)"
 	echo "外しているツール: ${disabled:-なし}"
 	if has_local_setting; then
@@ -169,7 +187,12 @@ cmd_status() {
 }
 
 cmd_summary() {
-	local disabled
+	local disabled allowed
+	if allowlist_mode; then
+		allowed="$(allowed_tools)"
+		echo "許可リスト: ${allowed:-なし} (enable_tools。ここに無いツールは入らない)"
+		return 0
+	fi
 	disabled="$(disabled_tools 2>/dev/null | join_list)" || return 0
 	if [[ -n "${disabled}" ]]; then
 		echo "外しているツール: ${disabled} (戻すときは mise run tools:enable)"
@@ -178,6 +201,10 @@ cmd_summary() {
 
 cmd_disable() {
 	local current configured
+	if allowlist_mode; then
+		echo "このマシンは許可リスト (enable_tools) でツールを決めています。${local_file} の enable_tools を手で編集してください" >&2
+		return 1
+	fi
 	read_current
 	configured="$(configured_tools)"
 	local tools=("$@")
@@ -225,6 +252,10 @@ cmd_disable() {
 
 cmd_enable() {
 	local install=1
+	if allowlist_mode; then
+		echo "このマシンは許可リスト (enable_tools) でツールを決めています。${local_file} の enable_tools を手で編集してください" >&2
+		return 1
+	fi
 	if [[ "${1:-}" == --no-install ]]; then
 		install=""
 		shift
