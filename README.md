@@ -38,6 +38,7 @@ curl https://mise.run | sh
 - clone 先は `~/setup/dotfiles` にする。zsh の設定がこのパスを前提にしている
 - OS パッケージと `/etc/codex` を入れるときに sudo のパスワードを聞かれる (`--yes` が省くのは mise の確認だけ)
 - ツールのインストールで GitHub API のレート制限に当たったら、`GITHUB_TOKEN` を設定して再実行する
+- 使うツールが少ないマシンは、先に [最小構成のマシン](#最小構成のマシン) を読む
 
 ### 3. 実行後にやること
 
@@ -115,6 +116,29 @@ mise run tools:disable                 # 引数を省くと fzf で選ぶ (TAB �
 - 外したツールは、プロジェクトの `mise.toml` に書かれていても使われない。rust などを使うプロジェクトがあるマシンでは `mise run tools:enable rust` で戻す
 - bun・uv・lefthook・fzf は外さない (npm: と pipx: のツール、git の hook、zsh の設定と tools タスクの選択で使う)。`tools:disable` も外さない
 - リポジトリの別のチェックアウト (worktree) の中では、そのチェックアウトの `.config/mise/config.toml` が優先されるので、このマシンの設定に関係なくプリセットになる (`tools:status` は食い違うときに表示する)
+
+## 最小構成のマシン
+
+使うツールが少ないマシンでは、外すものを並べるより、使うものを並べる。`~/.config/mise/config.local.toml` の `enable_tools` (許可リスト) に書いたツールだけを入れ、それ以外は入らない。プリセットの `disable_tools` は使われない。
+
+1. 初回の bootstrap は、環境変数で許可リストを渡す。`~/.config/mise` はまだ無いので、ファイルは書けない。全部入れてから外すと時間とディスクを使う
+
+   ```sh
+   MISE_ENABLE_TOOLS=argc,fzf ~/.local/bin/mise bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes
+   ```
+
+2. 終わったら、同じ一覧を `~/.config/mise/config.local.toml` に書く。以後の `mise install` と `mise upgrade` はこの一覧に従う
+
+   ```toml
+   [settings]
+   enable_tools = ["argc", "fzf"]
+   ```
+
+- 一覧には使うツールだけを書く。`argc` は `mise run bootstrap` が補完を生成するのに使う。`bun`・`uv`・`lefthook`・`fzf` は、npm: と pipx: のツール、git の hook、tools の選択で使うなら入れる
+- 一覧は置き換わる (プリセットに足されない)。一覧に無いツールは、プロジェクトの `mise.toml` に書いてあっても使われない
+- 名前を間違えても何も言われない。`mise ls` で入っているものを確かめる
+- `tools:disable` と `tools:enable` は使えない。一覧は手で編集し、`mise run tools:status` で確かめる
+- 既存のマシンで後から一覧を書いた場合、一覧から外れたツールは残り、shim を実行すると `not a valid shim` のエラーになる。`mise uninstall --all <tool>` で消す (shim も消える)
 
 ## test
 

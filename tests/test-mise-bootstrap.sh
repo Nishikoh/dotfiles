@@ -271,6 +271,32 @@ test "$(disabled)" = "$preset"
 # config.local.toml は git に無視される
 test -z "$(git status --porcelain -- .config/mise)" || { git status --short; exit 1; }
 
+echo "::: 最小構成のマシン: enable_tools に書いたツールだけを使い、tools:* では変えられない"
+printf "[settings]\nenable_tools = [\"argc\", \"fzf\"]\n" >~/.config/mise/config.local.toml
+test "$(mise settings get enable_tools | to_lines | paste -sd" " -)" = "argc fzf"
+mise run tools:status | grep -F "許可リスト: argc, fzf"
+bash bootstrap/tools.sh summary | grep -F "許可リスト: argc, fzf"
+if mise run tools:disable duckdb; then
+	echo "NG: 許可リストのマシンでツールを外せた"
+	exit 1
+fi
+if mise run tools:enable --no-install duckdb; then
+	echo "NG: 許可リストのマシンでツールを戻せた"
+	exit 1
+fi
+grep -qxF "enable_tools = [\"argc\", \"fzf\"]" ~/.config/mise/config.local.toml
+if [[ -z "$SKIP_ARGS" ]]; then
+	# 許可リストに無いツールは、入っていても使われない (mise ls に出ない)。許可したものは使える
+	mise ls --current --no-header | grep -q "^argc "
+	if mise ls --current --no-header | grep -q "^jq "; then
+		echo "NG: 許可リストに無い jq が使われている"
+		exit 1
+	fi
+	zsh -i -c "command -v argc" </dev/null
+fi
+rm ~/.config/mise/config.local.toml
+test "$(disabled)" = "$preset"
+
 echo "::: mise run dot:add で新しい設定をリポジトリに取り込める"
 mkdir -p ~/.config/example && echo "enabled = true" >~/.config/example/example.conf
 mise run dot:add ~/.config/example
@@ -338,6 +364,12 @@ git clone -q /src "$dotfiles"
 cd "$dotfiles"
 mise trust --quiet --all
 mise bootstrap --dry-run
+
+echo "::: 最小構成のマシン: 初回の bootstrap は MISE_ENABLE_TOOLS で許可したツールだけをインストール対象にする"
+MISE_ENABLE_TOOLS=argc,fzf mise bootstrap --dry-run --only tools 2>&1 | tee /tmp/enable-dry.log
+test "$(grep -c "would install" /tmp/enable-dry.log)" = 2
+grep -qE "argc@.*would install" /tmp/enable-dry.log
+grep -qE "fzf@.*would install" /tmp/enable-dry.log
 
 echo "::: 既存マシン: 以前の手順の状態を用意する"
 # 補完の生成物が残った argc-completions
