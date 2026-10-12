@@ -119,31 +119,27 @@ mise run tools:disable                 # 引数を省くと fzf で選ぶ (TAB �
 
 ## 最小構成のマシン
 
-使うツールが少ないマシンでは、外すものを並べるより、使うものを並べる。`~/.config/mise/config.local.toml` の `enable_tools` (許可リスト) に書いたツールだけを入れ、それ以外は入らない。プリセットの `disable_tools` は使われない。
+使うツールが少ないマシンでは、外すものを並べるより、使うものを並べる。プリセット ([.config/mise/presets/](.config/mise/presets/)) の `enable_tools` (許可リスト) に書いたツールだけを入れ、それ以外は入らない。`config.toml` の `disable_tools` は使われない。
 
-1. 初回の bootstrap は、環境変数で許可リストを渡す (`minimal` と同じ一覧)。`~/.config/mise` はまだ無いので、ファイルは書けない。全部入れてから外すと時間とディスクを使う
+新しいマシンでは、ツールを入れずに bootstrap し、プリセットを選んでからツールを入れる。
 
-   ```sh
-   MISE_ENABLE_TOOLS=argc,bat,bun,claude,codex,eza,fzf,helix,herdr,node,starship,uv ~/.local/bin/mise bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes
-   ```
+```sh
+# 1. ツールを入れずに bootstrap する (WSL では mise -E wsl bootstrap ...)
+~/.local/bin/mise bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes --skip tools,task
+# 2. プリセットを選ぶ
+cd ~/setup/dotfiles && ~/.local/bin/mise run tools:preset minimal
+# 3. 選んだツールだけを入れる
+~/.local/bin/mise bootstrap --yes
+```
 
-2. 終わったら、プリセットを選ぶ。以後の `mise install` と `mise upgrade` はこの一覧に従う。選ぶまでは、bootstrap の最後と `tools:status` に「保存されていません」と表示される
-
-   ```sh
-   mise run tools:preset minimal   # 一覧を ~/.config/mise/config.local.toml に書く
-   ```
-
-   プリセットは [.config/mise/presets/](.config/mise/presets/) にある。今の `minimal` は argc・bat・bun・claude・codex・eza・fzf・helix・herdr・node・starship・uv。ほかの一覧が要るときは、プリセットのファイルを足す。`mise run tools:preset off` で元の (外すツールを決める) 形に戻す
-
-- 選んだ時点の一覧が `config.local.toml` にコピーされ、行末に `# preset: minimal` の印が付く。あとで `minimal.toml` を更新すると、bootstrap の最後と `tools:status` で知らせるので、`mise run tools:preset minimal` で反映する
-- 一覧を手で変えるときは、行末の `# preset: ...` を消す (残すと、プリセットと違うと表示され続ける)
-- `minimal.toml` を変えたら、上の初回の `MISE_ENABLE_TOOLS` の一覧も同じにする (テストで確かめている)
-
-- 一覧には使うツールだけを書く。`argc` は `mise run bootstrap` が補完を生成するのに使う。`bun`・`uv`・`lefthook`・`fzf` は、npm: と pipx: のツール、git の hook、tools の選択で使うなら入れる
-- 一覧は置き換わる (プリセットに足されない)。一覧に無いツールは、プロジェクトの `mise.toml` に書いてあっても使われない
-- 名前を間違えても何も言われない。`mise ls` で入っているものを確かめる
-- 許可リストのマシンでは `tools:disable` と `tools:enable` は使えない。一覧を変えるのは `tools:preset` (または `config.local.toml` の `enable_tools` を手で編集する)。`mise run tools:status` で確かめる
-- 既存のマシンで後から一覧を書いた場合、一覧から外れたツールは残り、shim を実行すると `not a valid shim` のエラーになる。`mise uninstall --all <tool>` で消す (shim も消える)
+- `tools:preset minimal` は `~/.config/mise/conf.d/preset.toml` (git に無視される) から `presets/minimal.toml` へ symlink を張る。プリセットの変更は `git pull` でそのまま反映される。`mise run tools:preset off` でやめる
+- 今の `minimal` は argc・bat・bun・claude・codex・delta・eza・fzf・gh・helix・herdr・jq・node・starship・uv。jq・delta・gh はリポジトリの設定 (Claude の hook、git の pager と認証) が使うので外さない
+- プリセットのファイルの名前を変えたり消したりしない。選んでいるマシンではリンクが切れ、mise は何も言わずに許可リストなしに戻る。bootstrap はツールを入れる前に止まるが、`mise upgrade` は止まらない
+- 一覧は置き換わる (足されない)。一覧に無いツールは、プロジェクトの `mise.toml` に書いてあっても使われない
+- 名前を間違えても mise は何も言わない。`tools:preset` は設定に無い名前を拒否し、テストですべてのプリセットの名前を確かめている
+- そのマシンだけ一覧を変えるときは、`config.local.toml` に `enable_tools` を書く (プリセットより優先される)。`mise run tools:status` に設定元が出る
+- 許可リストのマシンでは `tools:disable` と `tools:enable` は使えない
+- 既存のマシンで後から選んだ場合、一覧から外れたツールは残り、shim を実行すると `not a valid shim` のエラーになる (zoxide などは zsh の起動のたびにエラーになる)。`mise uninstall --all <tool>` で消す (shim も消える)
 
 ## test
 
