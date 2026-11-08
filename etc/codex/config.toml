@@ -9,7 +9,7 @@ sandbox_mode = "workspace-write"
 # 通常作業と複雑な計画のバランス
 model_reasoning_effort = "high"
 plan_mode_reasoning_effort = "xhigh"
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 
 # 通常はキャッシュ検索。最新情報が必要なときだけliveへ変更
 web_search = "cached"
