@@ -7,7 +7,7 @@
 | 何を | どこで宣言しているか |
 | --- | --- |
 | OS パッケージ・clone するリポジトリ・symlink する dotfiles・タスク | [mise.toml](mise.toml) |
-| WSL だけの差し替え | [mise.wsl.toml](mise.wsl.toml) ([.miserc.toml](.miserc.toml) が WSL のときに読み込む) |
+| WSL だけの差し替え | [mise.wsl.toml](mise.wsl.toml) ([.config/mise/miserc.toml](.config/mise/miserc.toml) が WSL のときに読み込む) |
 | インストールするツール | [.config/mise/](.config/mise/) (`~/.config/mise` にリンクされる) |
 | codex の設定 | [etc/codex/config.toml](etc/codex/config.toml) (`/etc/codex/config.toml` にコピーされる) |
 
@@ -51,7 +51,7 @@ sudo chsh -s /usr/bin/zsh "$(id -un)"
 
 ## WSL
 
-- リポジトリ内で mise を実行すると、[.miserc.toml](.miserc.toml) が `WSL_DISTRO_NAME` を見て `wsl` 環境を選び、[mise.wsl.toml](mise.wsl.toml) が herdr の設定を `config.wsl.toml` に差し替える
+- グローバルの miserc ([.config/mise/miserc.toml](.config/mise/miserc.toml)。`~/.config/mise` にリンクされる) が `WSL_DISTRO_NAME` を見て `wsl` 環境を選び、[mise.wsl.toml](mise.wsl.toml) が herdr の設定を `config.wsl.toml` に差し替える。`wsl` 環境は WSL のどのディレクトリでも選ばれる
 - `WSL_DISTRO_NAME` が無い実行 (ssh 経由など) や、初回に `-E wsl` を付け忘れた場合は、次のメッセージで止まる。`mise -E wsl bootstrap` で再実行する
 
   ```text
