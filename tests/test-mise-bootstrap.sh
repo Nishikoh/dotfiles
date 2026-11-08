@@ -402,7 +402,7 @@ mkdir -p ~/.config/example && echo "enabled = true" >~/.config/example/example.c
 mise run dot:add ~/.config/example
 test "$(readlink ~/.config/example)" = "$dotfiles/.config/example"
 test -f "$dotfiles/.config/example/example.conf"
-grep -xF "\"~/.config/example\" = { source = \".config/example\" }" mise.toml
+grep -xF "\"~/.config/example\" = { source = \".config/example\", mode = \"symlink\" }" mise.toml
 
 echo "::: 別のチェックアウト (worktree など) で dot:add すると、そのチェックアウトに取り込まれ、main には触らない"
 git clone -q /src ~/other
@@ -413,7 +413,7 @@ git clone -q /src ~/other
 	mise run dot:add ~/.config/example2
 	test "$(readlink ~/.config/example2)" = "$HOME/other/.config/example2"
 	test -f ~/other/.config/example2/example.conf
-	grep -xF "\"~/.config/example2\" = { source = \".config/example2\" }" mise.toml
+	grep -xF "\"~/.config/example2\" = { source = \".config/example2\", mode = \"symlink\" }" mise.toml
 )
 test ! -e "$dotfiles/.config/example2"
 if grep -F example2 "$dotfiles/mise.toml"; then
