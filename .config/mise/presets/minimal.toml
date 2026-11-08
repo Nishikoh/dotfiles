@@ -1,0 +1,25 @@
+# 最小構成のマシン用の許可リスト。`mise run tools:preset minimal` で選ぶ (`mise run tools:preset off` でやめる)。
+# ここに書いたツールだけを入れる。選んだマシンはこのファイルへの symlink を読むので、編集は git pull でそのまま反映される。
+# - argc は `mise run bootstrap` の補完生成に、fzf は tools:* の選択に使う
+# - jq は Claude の hook (.claude/hooks/guard-sensitive-paths.sh)、delta は git の pager、gh は git の認証 (.gitconfig) が使う
+# - lefthook は git の hook 用なので入れていない
+# 名前は .config/mise/mise.toml と config.toml のキーと同じにする (違う名前は mise に無視される。テストで確かめている)。
+# ファイルの名前を変えたり消したりしない (選んでいるマシンではリンクが切れ、bootstrap がツールを入れる前に止まる)。
+[settings]
+enable_tools = [
+  "argc",
+  "bat",
+  "bun",
+  "claude",
+  "codex",
+  "delta",
+  "eza",
+  "fzf",
+  "gh",
+  "helix",
+  "herdr",
+  "jq",
+  "node",
+  "starship",
+  "uv",
+]

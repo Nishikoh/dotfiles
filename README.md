@@ -38,6 +38,7 @@ curl https://mise.run | sh
 - clone 先は `~/setup/dotfiles` にする。zsh の設定がこのパスを前提にしている
 - OS パッケージと `/etc/codex` を入れるときに sudo のパスワードを聞かれる (`--yes` が省くのは mise の確認だけ)
 - ツールのインストールで GitHub API のレート制限に当たったら、`GITHUB_TOKEN` を設定して再実行する
+- 使うツールが少ないマシンは、先に [最小構成のマシン](#最小構成のマシン) を読む
 
 ### 3. 実行後にやること
 
@@ -111,10 +112,35 @@ mise run tools:disable                 # 引数を省くと fzf で選ぶ (TAB �
 - 手で編集するときの注意 (タスクはこれらを扱う):
   - `disable_tools` はプリセットに足されず**置き換わる**。そのマシンで外すツールをすべて書く (`[]` ならすべて入れる)
   - 名前は [.config/mise/mise.toml](.config/mise/mise.toml) のキーと同じにする (例: `"github:tofuutils/tenv"`)。違う名前は何も言わずに無視される
-  - 外しただけではインストール済みのものが残り、shim を実行すると `not a valid shim` のエラーになる。`mise uninstall --all <tool>` で消す (`mise prune` では消えない)
+  - 外しただけではインストール済みのものが残り、shim を実行すると `not a valid shim` のエラーになる。`mise uninstall --all <tool>` で消す (`mise prune` では消えない)。残っているツールは `tools:status` と bootstrap の最後に `入っているが使われないツール` として表示される
 - 外したツールは、プロジェクトの `mise.toml` に書かれていても使われない。rust などを使うプロジェクトがあるマシンでは `mise run tools:enable rust` で戻す
+- terraform 関係 (tenv・terraform-ls・terraform-target) はまとめて外している。terraform のリポジトリを触るマシンでは `mise run tools:enable github:tofuutils/tenv terraform-ls http:terraform-target` で戻す (`lefthook/terraform.yaml` の hook も terraform を使う)
 - bun・uv・lefthook・fzf は外さない (npm: と pipx: のツール、git の hook、zsh の設定と tools タスクの選択で使う)。`tools:disable` も外さない
 - リポジトリの別のチェックアウト (worktree) の中では、そのチェックアウトの `.config/mise/config.toml` が優先されるので、このマシンの設定に関係なくプリセットになる (`tools:status` は食い違うときに表示する)
+
+## 最小構成のマシン
+
+使うツールが少ないマシンでは、外すものを並べるより、使うものを並べる。プリセット ([.config/mise/presets/](.config/mise/presets/)) の `enable_tools` (許可リスト) に書いたツールだけを入れ、それ以外は入らない。`config.toml` の `disable_tools` は使われない。
+
+新しいマシンでは、ツールを入れずに bootstrap し、プリセットを選んでからツールを入れる。
+
+```sh
+# 1. ツールを入れずに bootstrap する (WSL では mise -E wsl bootstrap ...)
+~/.local/bin/mise bootstrap --from https://github.com/Nishikoh/dotfiles.git --from-dir ~/setup/dotfiles --yes --skip tools,task
+# 2. プリセットを選ぶ
+cd ~/setup/dotfiles && ~/.local/bin/mise run tools:preset minimal
+# 3. 選んだツールだけを入れる
+~/.local/bin/mise bootstrap --yes
+```
+
+- `tools:preset minimal` は `~/.config/mise/conf.d/preset.toml` (git に無視される) から `presets/minimal.toml` へ symlink を張る。プリセットの変更は `git pull` でそのまま反映される。`mise run tools:preset off` でやめる
+- 今の `minimal` は argc・bat・bun・claude・codex・delta・eza・fzf・gh・helix・herdr・jq・node・starship・uv。jq・delta・gh はリポジトリの設定 (Claude の hook、git の pager と認証) が使うので外さない
+- プリセットのファイルの名前を変えたり消したりしない。選んでいるマシンではリンクが切れ、mise は何も言わずに許可リストなしに戻る。bootstrap はツールを入れる前に止まるが、`mise upgrade` は止まらない
+- 一覧は置き換わる (足されない)。一覧に無いツールは、プロジェクトの `mise.toml` に書いてあっても使われない
+- 名前を間違えても mise は何も言わない。`tools:preset` は設定に無い名前を拒否し、テストですべてのプリセットの名前を確かめている
+- ツールを足すときは、プリセットを編集するか、新しいプリセットを足す。そのマシンだけ一覧を変えるときは、`config.local.toml` に `enable_tools` の全体を書く (プリセットより優先される。以後プリセットの変更は届かない)。`mise run tools:status` に設定元が出る
+- 許可リストのマシンでは `tools:disable` と `tools:enable` は使えない
+- 既存のマシンで後から選んだ場合、一覧から外れたツールは残り、shim を実行すると `not a valid shim` のエラーになる (zoxide などは zsh の起動のたびにエラーになる)。`tools:status` と bootstrap の最後に `入っているが使われないツール` と、消すコマンド (`mise uninstall --all <tool>...`。shim も消える) が表示される
 
 ## test
 

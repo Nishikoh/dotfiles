@@ -85,7 +85,10 @@ post-dotfiles = [
   # WSL なのに WSL 以外の設定がリンクされたら失敗させる
   "sh '{{config_root}}/bootstrap/check-wsl-dotfiles.sh'",
 ]
-# 外しているツール (disable_tools) を最後に表示する。外したツールは実行しても command not found になるだけなので
+# 選んだプリセット (conf.d/preset.toml) のリンクが切れていたら、すべてのツールを入れてしまう前に止める。
+# リンクが切れると mise は何も言わずに許可リストなしに戻るため
+pre-tools = "bash '{{config_root}}/bootstrap/tools.sh' check"
+# 外しているツール (disable_tools) か許可リスト (enable_tools) を最後に表示する。入らなかったツールは実行しても command not found になるだけなので
 final = "bash '{{config_root}}/bootstrap/tools.sh' summary"
 
 # mise bootstrap の最後に毎回実行される
@@ -140,9 +143,9 @@ mise dot apply --yes "$target"
 '''
 
 # このマシンで外すツール (disable_tools)。既定は .config/mise/config.toml のプリセットで、
-# 変更は ~/.config/mise/config.local.toml に書く (処理は bootstrap/tools.sh)
+# 変更は ~/.config/mise/config.local.toml に書く。最小構成のマシンは tools:preset で許可リスト (enable_tools) を選ぶ (処理は bootstrap/tools.sh)
 [tasks."tools:status"]
-description = "このマシンで外しているツールを表示する"
+description = "このマシンで外しているツール、または許可リストを表示する"
 run = "bash '{{config_root}}/bootstrap/tools.sh' status"
 
 [tasks."tools:disable"]
@@ -160,6 +163,11 @@ arg "[tool]..." var=#true help="戻すツール。省略すると fzf で選ぶ"
 '''
 raw = true
 run = "bash '{{config_root}}/bootstrap/tools.sh' enable ${usage_no_install:+--no-install} ${usage_tool:-}"
+
+[tasks."tools:preset"]
+description = "このマシンで使うツールを、プリセット (許可リスト) に切り替える。off で戻す"
+usage = 'arg "[preset]" help="プリセットの名前 (.config/mise/presets/)。off で許可リストをやめる。省略するとプリセットを一覧する"'
+run = "bash '{{config_root}}/bootstrap/tools.sh' preset ${usage_preset:-}"
 
 [tasks."setup:copilot"]
 description = "GitHub Copilot CLI をセットアップする (対話的なログインが必要)"
