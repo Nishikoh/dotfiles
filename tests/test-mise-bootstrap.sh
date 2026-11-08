@@ -503,6 +503,10 @@ touch ~/setup/argc-completions/completions/lh.sh
 mkdir -p ~/.config
 ln -s "$dotfiles/.config/git" ~/.config/git
 echo "[user]" >"$dotfiles/.config/git/config"
+# ~/.config/mise が実ディレクトリで、中のファイルだけがリポジトリへのリンク (今はディレクトリごとリンクする)
+mkdir -p ~/.config/mise
+ln -s "$dotfiles/.config/mise/config.toml" ~/.config/mise/config.toml
+ln -s "$dotfiles/.config/mise/mise.toml" ~/.config/mise/mise.toml
 
 check_git_dir() {
 	# リポジトリの ignore は普通のファイルのまま変わっていない
@@ -513,6 +517,8 @@ check_git_dir() {
 	test "$(readlink ~/.config/git/ignore)" = "$dotfiles/.config/git/ignore"
 	test "$(cat ~/.config/git/config)" = "[user]"
 	test -z "$(git -C "$dotfiles" status --porcelain)" || { git -C "$dotfiles" status --short; exit 1; }
+	# ~/.config/mise はディレクトリごとのリンクになっている
+	test "$(readlink ~/.config/mise)" = "$dotfiles/.config/mise"
 }
 
 echo "::: 既存マシン: bootstrap できる"
@@ -524,6 +530,30 @@ mise dot status --missing
 echo "::: 既存マシン: --force-dotfiles でもリポジトリのファイルを壊さない"
 mise bootstrap --yes --skip tools,task --force-dotfiles
 check_git_dir
+
+echo "::: 既存マシン: リポジトリへのリンク以外があるディレクトリは、ディレクトリのリンクに替えない"
+fake_home=/tmp/fake-home
+for extra in file foreign-link subdir; do
+	rm -rf "$fake_home"
+	mkdir -p "$fake_home/.config/mise"
+	ln -s "$dotfiles/.config/mise/config.toml" "$fake_home/.config/mise/config.toml"
+	case "$extra" in
+	file) echo "local = true" >"$fake_home/.config/mise/config.local.toml" ;;
+	foreign-link) ln -s /etc/hostname "$fake_home/.config/mise/mise.toml" ;;
+	subdir) mkdir "$fake_home/.config/mise/conf.d" ;;
+	esac
+	HOME="$fake_home" bash "$dotfiles/bootstrap/migrate-dir-links.sh" "$dotfiles"
+	{ test -d "$fake_home/.config/mise" && ! test -L "$fake_home/.config/mise"; } || { echo "NG ($extra): ~/.config/mise を消した"; exit 1; }
+	test "$(readlink "$fake_home/.config/mise/config.toml")" = "$dotfiles/.config/mise/config.toml" || { echo "NG ($extra): リンクを消した"; exit 1; }
+done
+# リンク切れ (リポジトリから消えたファイルへのリンク) があっても止まらずに替える
+rm -rf "$fake_home"
+mkdir -p "$fake_home/.config/mise"
+ln -s "$dotfiles/.config/mise/config.toml" "$fake_home/.config/mise/config.toml"
+ln -s "$dotfiles/.config/mise/removed.toml" "$fake_home/.config/mise/removed.toml"
+HOME="$fake_home" bash "$dotfiles/bootstrap/migrate-dir-links.sh" "$dotfiles"
+test ! -e "$fake_home/.config/mise" && ! test -L "$fake_home/.config/mise"
+test -z "$(git -C "$dotfiles" status --porcelain)" || { git -C "$dotfiles" status --short; exit 1; }
 echo "::: OK"
 '
 
