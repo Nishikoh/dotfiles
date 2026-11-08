@@ -127,7 +127,8 @@ usage = 'arg "<target>" help="管理に加えるファイルかディレクト�
 dir = "{{config_root}}"
 # dotfiles.root はこのチェックアウトの場所を表せない (テンプレートが展開されず、相対パスは実行時のカレントディレクトリ基準)。
 # そこで --source にホームからの相対パスを渡し、mise.toml に相対パスで書かせる。
-# このとき作られるリンクは相対パスで壊れているので、続けて apply で張り直す
+# このとき作られるリンクは相対パスで壊れているので、続けて apply で張り直す。
+# mode は既定 (dotfiles.default_mode) に任せず明示し、ほかのエントリと同じ書き方にする
 run = '''
 target="$(realpath -s "$usage_target")"
 case "$target" in
@@ -138,7 +139,7 @@ case "$target" in
 	;;
 esac
 rel="${target#"$HOME"/}"
-mise dot add -p mise.toml --source "$rel" --yes "$target"
+mise dot add -p mise.toml --source "$rel" --mode symlink --yes "$target"
 mise dot apply --yes "$target"
 '''
 
