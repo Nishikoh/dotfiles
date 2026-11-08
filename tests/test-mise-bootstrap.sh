@@ -156,8 +156,8 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	test -f ~/setup/argc-completions/completions/lh.sh
 	# 生成物で argc-completions が dirty になると、次回の repos フェーズが失敗する
 	test -z "$(git -C ~/setup/argc-completions status --porcelain)" || { git -C ~/setup/argc-completions status --short; exit 1; }
-	# .zshrc を読み込んだ対話シェルで、mise のツールが使えること (cargo はプリセットで外した rust のツールなので無い)
-	zsh -i -c "command -v starship uv gh claude cpz rmz xcp pueue pueued ghalint github-comment argc terraform-target" </dev/null
+	# .zshrc を読み込んだ対話シェルで、mise のツールが使えること (cargo と terraform-target はプリセットで外したツールなので無い)
+	zsh -i -c "command -v starship uv gh claude cpz rmz xcp pueue pueued ghalint github-comment argc" </dev/null
 	# codex が System 設定を読み込むこと (features.multi_agent = false は既定値の true と異なる)
 	zsh -i -c "codex features list" </dev/null | grep -E "^multi_agent +.* false$"
 fi
