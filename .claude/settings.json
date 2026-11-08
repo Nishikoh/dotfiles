@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_SHELL": "/bin/bash"
+  },
   "permissions": {
     "deny": [
       "Read(//**/data/holdout/**)",
@@ -13,7 +16,7 @@
     ],
     "defaultMode": "auto"
   },
-  "model": "haiku",
+  "model": "opus",
   "hooks": {
     "PreToolUse": [
       {
@@ -33,12 +36,21 @@
   },
   "language": "日本語",
   "effortLevel": "xhigh",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "high"
+    },
+    "claude-sonnet-5-5": {
+      "effortLevel": "high"
+    }
+  },
+  "advisorModel": "fable",
   "awaySummaryEnabled": false,
   "askUserQuestionTimeout": "never",
   "skipWorkflowUsageWarning": true,
   "theme": "dark",
   "editorMode": "normal",
-  "autoCompactEnabled": false,
+  "autoCompactEnabled": true,
   "switchModelsOnFlag": true,
   "autoContinueAtUsageLimit": false,
   "remoteControlAtStartup": true,
