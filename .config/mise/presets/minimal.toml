@@ -22,4 +22,6 @@ enable_tools = [
   "node",
   "starship",
   "uv",
+  "aqua:worktrunk",
+  "dust"
 ]
