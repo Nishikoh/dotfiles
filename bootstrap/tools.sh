@@ -64,6 +64,34 @@ has_local_setting() {
 	[[ -f "${local_file}" ]] && global_mise config get -f "${local_file}" settings.disable_tools >/dev/null 2>&1
 }
 
+# 入っているのに使われないツール (外しているか、許可リストに無いもの) を名前順に 1 行ずつ出す。
+# 既存のマシンでプリセットに足したツールや、後から選んだ許可リストに無いツールは入ったまま残り、shim を実行すると
+# `not a valid shim` のエラーになる (mise prune でも消えない)。mise ls は使われないツールを出さないので、
+# 設定にあるすべてのツールを許可したときとの差を取る。--offline で GitHub API を使わない
+unused_tools() {
+	local all installed active
+	all="$(configured_tools | paste -sd, -)" || return 0
+	[[ -n "${all}" ]] || return 0
+	installed="$(cd / && MISE_DISABLE_TOOLS='' MISE_ENABLE_TOOLS="${all}" mise ls --installed --offline 2>/dev/null | awk '{ print $1 }' | LC_ALL=C sort -u)" || return 0
+	active="$(global_mise ls --installed --offline 2>/dev/null | awk '{ print $1 }' | LC_ALL=C sort -u)" || return 0
+	LC_ALL=C comm -23 <(printf '%s\n' "${installed}") <(printf '%s\n' "${active}") | sed '/^$/d'
+}
+
+# 入っているのに使われないツールがあれば、消し方と戻し方を示す。表示だけなので、調べられなくても失敗しない
+unused_note() {
+	local unused names how
+	unused="$(unused_tools)" || return 0
+	[[ -n "${unused}" ]] || return 0
+	names="$(paste -sd' ' - <<<"${unused}")"
+	if allowlist_mode; then
+		how="${allowlist_change}"
+	else
+		how="mise run tools:enable ${names}"
+	fi
+	echo "入っているが使われないツール: $(join_list <<<"${unused}") (shim を実行するとエラーになる)"
+	echo "  消す: mise uninstall --all ${names} / 使う: ${how}"
+}
+
 # プリセット (.config/mise/config.toml の disable_tools) を名前順に出力する
 preset_tools() {
 	if grep -qE '^[[:space:]]*disable_tools[[:space:]]*=' "${preset_file}" 2>/dev/null; then
@@ -227,10 +255,15 @@ broken_preset_note() {
 	fi
 }
 
+# 許可リストのマシンでツールを変える方法。mise の enable_tools は足し合わせられない (置き換わる) ので、
+# config.local.toml に書くとプリセットのコピーになり、以後プリセットの変更が届かない
+allowlist_change="プリセット (.config/mise/presets/) を編集するか足す (このマシンだけなら ${local_file} に enable_tools の全体を書く。以後プリセットの変更は届かない)"
+
 # 許可リストのマシンでは disable_tools が使われないので、tools:disable と tools:enable を使わせない
 refuse_in_allowlist() {
 	if allowlist_mode; then
 		echo "このマシンは許可リスト (enable_tools) でツールを決めているので、tools:disable と tools:enable は使えません (設定元: $(allowlist_source))" >&2
+		echo "ツールを変えるときは ${allowlist_change}" >&2
 		return 1
 	fi
 }
@@ -245,6 +278,7 @@ cmd_status() {
 		if [[ "${here}" != "${allowed}" ]]; then
 			echo "  ただし ${PWD} の中では、そのチェックアウトの設定が優先され、許可リスト: ${here:-なし}"
 		fi
+		unused_note
 		echo "変更: mise run tools:preset <name> (プリセットを選ぶ) / mise run tools:preset off (やめる)"
 		return 0
 	fi
@@ -261,6 +295,7 @@ cmd_status() {
 	if [[ "${here}" != "${disabled}" ]]; then
 		echo "  ただし ${PWD} の中では、そのチェックアウトの設定が優先され、外しているツール: ${here:-なし}"
 	fi
+	unused_note
 	echo "変更: mise run tools:disable [tool...] / mise run tools:enable [tool...] (引数を省くと fzf で選ぶ)"
 }
 
@@ -269,12 +304,14 @@ cmd_summary() {
 	broken_preset_note
 	if allowed="$(allowed_tools)"; then
 		echo "許可リスト: ${allowed:-なし} (設定元: $(allowlist_source)。ここに無いツールは入らない)"
+		unused_note
 		return 0
 	fi
 	disabled="$(disabled_tools 2>/dev/null | join_list)" || return 0
 	if [[ -n "${disabled}" ]]; then
 		echo "外しているツール: ${disabled} (戻すときは mise run tools:enable)"
 	fi
+	unused_note
 }
 
 # bootstrap の pre-tools hook から呼ぶ。リンクが切れていたら、すべてのツールを入れてしまう前に止める

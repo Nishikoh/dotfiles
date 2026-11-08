@@ -272,6 +272,19 @@ test "$(disabled)" = "$preset"
 # config.local.toml は git に無視される
 test -z "$(git status --porcelain -- .config/mise)" || { git status --short; exit 1; }
 
+echo "::: 外しているのに入っているツール (既存のマシンでプリセットに足したものなど) を、tools:status と bootstrap の最後に示す"
+# http:terraform-target はプリセットで外していて、バージョンを固定した URL から入るので GitHub API を使わない
+grep -qxF "http:terraform-target" <<<"$preset"
+if bash bootstrap/tools.sh status | grep -F "入っているが使われないツール"; then
+	echo "NG: 使われないツールが入っていないのに表示した"
+	exit 1
+fi
+MISE_DISABLE_TOOLS= mise install http:terraform-target
+test -x ~/.local/share/mise/shims/terraform-target
+mise run tools:status | grep -F "入っているが使われないツール: http:terraform-target"
+mise run tools:status | grep -F "消す: mise uninstall --all http:terraform-target / 使う: mise run tools:enable http:terraform-target"
+bash bootstrap/tools.sh summary | grep -F "入っているが使われないツール: http:terraform-target"
+
 echo "::: 最小構成のマシン: enable_tools に書いたツールだけを使い、tools:* では変えられない"
 printf "[settings]\nenable_tools = [\"argc\", \"fzf\"]\n" >~/.config/mise/config.local.toml
 test "$(mise settings get enable_tools | to_lines | paste -sd" " -)" = "argc fzf"
@@ -281,11 +294,15 @@ if mise run tools:disable duckdb; then
 	echo "NG: 許可リストのマシンでツールを外せた"
 	exit 1
 fi
-if mise run tools:enable --no-install duckdb; then
+if mise run tools:enable --no-install duckdb 2>&1 | tee /tmp/enable.log; then
 	echo "NG: 許可リストのマシンでツールを戻せた"
 	exit 1
 fi
+# ツールの足し方を示す
+grep -F "ツールを変えるときは プリセット (.config/mise/presets/) を編集するか足す" /tmp/enable.log
 grep -qxF "enable_tools = [\"argc\", \"fzf\"]" ~/.config/mise/config.local.toml
+# 許可リストに無いツールも、入っていれば使われないツールとして示す
+mise run tools:status | grep -E "^入っているが使われないツール: .*http:terraform-target"
 if [[ -z "$SKIP_ARGS" ]]; then
 	# 許可リストに無いツールは、入っていても使われない (mise ls に出ない)。許可したものは使える
 	mise ls --current --no-header | grep -q "^argc "
@@ -297,6 +314,13 @@ if [[ -z "$SKIP_ARGS" ]]; then
 fi
 rm ~/.config/mise/config.local.toml
 test "$(disabled)" = "$preset"
+# 示したコマンドで消すと、shim も消えて表示されなくなる
+mise uninstall --all http:terraform-target
+test ! -e ~/.local/share/mise/shims/terraform-target
+if mise run tools:status | grep -F "入っているが使われないツール"; then
+	echo "NG: 消したツールを使われないツールとして表示した"
+	exit 1
+fi
 
 echo "::: 最小構成のマシン: プリセットを symlink で選び、off でやめる"
 # プリセットのファイルは mise が自動で読まない (選んだときだけ conf.d から symlink を張る)
