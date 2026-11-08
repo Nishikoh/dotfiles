@@ -1,0 +1,6 @@
+[projects."github.com/Nishikoh/stock"]
+approved-commands = [
+    "uv sync --all-packages --all-extras --all-groups",
+    "bun install --frozen-lockfile",
+    "git pull origin mom",
+]

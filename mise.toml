@@ -52,22 +52,23 @@ mode = "0644"
 
 # 相対パスの source はこのファイルのディレクトリ (リポジトリのルート) からの相対パス
 [dotfiles]
-"~/.gitconfig" = { source = ".gitconfig", mode = "symlink" }
-"~/.vimrc" = { source = ".vimrc", mode = "symlink" }
-"~/.zshrc" = { source = ".zshrc", mode = "symlink" }
+"~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
+"~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
+"~/.claude/skills/dev-lsp" = { source = ".claude/skills/dev-lsp", mode = "symlink" }
+"~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }
+# ~/.config/git には他のツール (omarchy など) が config を置くので、ディレクトリではなくファイルをリンクする
+"~/.config/git/ignore" = { source = ".config/git/ignore", mode = "symlink" }
 "~/.config/helix" = { source = ".config/helix", mode = "symlink" }
+# ~/.config/herdr にはソケットやログもあるのでファイルをリンクする。WSL では mise.wsl.toml が config.wsl.toml に差し替える
+"~/.config/herdr/config.toml" = { source = ".config/herdr/config.toml", mode = "symlink" }
 "~/.config/lazygit" = { source = ".config/lazygit", mode = "symlink" }
 "~/.config/mise" = { source = ".config/mise", mode = "symlink" }
 "~/.config/starship.toml" = { source = ".config/starship.toml", mode = "symlink" }
+"~/.config/worktrunk" = { source = ".config/worktrunk", mode = "symlink" }
 "~/.config/yazi" = { source = ".config/yazi", mode = "symlink" }
-# ~/.config/git には他のツール (omarchy など) が config を置くので、ディレクトリではなくファイルをリンクする
-"~/.config/git/ignore" = { source = ".config/git/ignore", mode = "symlink" }
-# ~/.config/herdr にはソケットやログもあるのでファイルをリンクする。WSL では mise.wsl.toml が config.wsl.toml に差し替える
-"~/.config/herdr/config.toml" = { source = ".config/herdr/config.toml", mode = "symlink" }
-"~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
-"~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
-"~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }
-"~/.claude/skills/dev-lsp" = { source = ".claude/skills/dev-lsp", mode = "symlink" }
+"~/.gitconfig" = { source = ".gitconfig", mode = "symlink" }
+"~/.vimrc" = { source = ".vimrc", mode = "symlink" }
+"~/.zshrc" = { source = ".zshrc", mode = "symlink" }
 
 [bootstrap.hooks]
 # setup:completion の生成物で argc-completions が dirty になると repos フェーズが失敗するので、git から無視させる。
