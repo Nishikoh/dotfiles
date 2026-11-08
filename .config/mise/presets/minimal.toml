@@ -23,5 +23,6 @@ enable_tools = [
   "starship",
   "uv",
   "aqua:worktrunk",
-  "dust"
+  "dust",
+  "zoxide"
 ]
