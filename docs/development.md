@@ -28,7 +28,7 @@ grep -E '^(=====|:::|NG)' /tmp/bootstrap-test.log   # 出力が多いので区�
 
 ## つまずいた点
 
-- **グローバルの gitignore で新しいファイルが黙って除外される**: 古いグローバル ignore (`.*` や `*lefthook*`) が残っているマシンでは、`.miserc.toml` や `.config/` 配下の新しいファイルが `git add -A` で追加されない。コミット前に `git -c core.excludesFile=/dev/null status --short` と `git status --short` を見比べ、足りないものは `git add -f` する
+- **グローバルの gitignore で新しいファイルが黙って除外される**: 古いグローバル ignore (`.*` や `*lefthook*`) が残っているマシンでは、`.` で始まるファイルや `.config/` 配下の新しいファイルが `git add -A` で追加されない。コミット前に `git -c core.excludesFile=/dev/null status --short` と `git status --short` を見比べ、足りないものは `git add -f` する
 - **テストのスナップショットは git に登録済み (stage 済みを含む) のファイルだけで作る**: CI が checkout するのと同じ内容で、無視されている秘密情報などをコンテナに渡さないため。新しいファイルはテストの前に `git add` (グローバル ignore に当たるなら `git add -f`、中身をまだ stage しないなら `git add -N`) する。登録を忘れたファイルはテストでも使われないので、コミット漏れに気づける
 - **bootstrap の前にコンテナのホームにファイルを作らない**: `git config --global` で `~/.gitconfig` を作ると、dotfiles の配置と衝突する。git の設定は `GIT_CONFIG_COUNT` などの環境変数で渡す (テストスクリプト参照)
 - **git の hook から呼ばれるスクリプトは `GIT_DIR` などを消してから git を使う**: git は hook の実行時に `GIT_DIR` などを設定する。これを引き継いだ `git init` が一時ディレクトリではなく呼び出し元のリポジトリを再初期化し、worktree から push したときに共有の設定へ `core.bare=true` が書かれて main の作業ツリーが使えなくなったことがある。`while IFS= read -r v; do unset "$v"; done < <(git rev-parse --local-env-vars)` で消す (tests/lefthook-dump.sh 参照)。直すときは `git -C <main のパス> config core.bare false`
@@ -49,7 +49,8 @@ grep -E '^(=====|:::|NG)' /tmp/bootstrap-test.log   # 出力が多いので区�
 
 - Docker では本物の WSL を試せない。テストは `WSL_DISTRO_NAME` で模擬している
 - WSL の上で Docker を動かしても、コンテナからは通常 binfmt_misc (`WSLInterop`) が見えないので WSL ではない扱いになる。ガード (`bootstrap/check-wsl-dotfiles.sh`) の判定にカーネル名を使わないのはこのため
-- miserc のテンプレートでは環境変数しか使えない (`exec()` や `read_file()` は展開されずに TOML の解析エラーになる)
+- `wsl` 環境はグローバルの miserc (`.config/mise/miserc.toml`) で選ぶ。プロジェクトの `.miserc.toml` は信頼なしで読まれるので、mise 2026.10.19 からテンプレートで `get_env()` を使えず、`env` も空になる (`get_env()` は展開されずに TOML の解析エラーになる)
+- グローバルの miserc でもテンプレートでは環境変数しか使えない (`exec()` や `read_file()` は使えない)
 
 ## lefthook
 

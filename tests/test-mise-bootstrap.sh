@@ -201,7 +201,7 @@ echo "::: WSL: mise -E wsl bootstrap --from は WSL 用の設定をリンクす�
 mise -E wsl bootstrap --from /src --from-dir "$dotfiles" --yes --skip tools,task
 test "$(readlink ~/.config/herdr/config.toml)" = "$dotfiles/.config/herdr/config.wsl.toml"
 
-echo "::: WSL: リポジトリ内では .miserc.toml が wsl 環境を選ぶので、-E なしでも WSL 用のまま"
+echo "::: WSL: グローバルの miserc (~/.config/mise/miserc.toml) が wsl 環境を選ぶので、-E なしでも WSL 用のまま"
 cd "$dotfiles"
 mise bootstrap --yes --skip tools,task
 test "$(readlink ~/.config/herdr/config.toml)" = "$dotfiles/.config/herdr/config.wsl.toml"
