@@ -9,6 +9,11 @@
 # hard にすると古い mise ではリポジトリ内で mise が使えなくなるので、警告だけにする
 min_version = { soft = "2026.9.8" }
 
+# このリポジトリのタスクは、mise run の前に設定のツールを自動でインストールしない。
+# ツールは bootstrap の tools フェーズで入れる。自動で入れると、tools:disable が外すツールを先に入れてしまう
+[settings]
+task.run_auto_install = false
+
 [bootstrap.packages]
 "apt:zsh" = "latest"
 "apt:git" = "latest"
@@ -80,6 +85,8 @@ post-dotfiles = [
   # WSL なのに WSL 以外の設定がリンクされたら失敗させる
   "sh '{{config_root}}/bootstrap/check-wsl-dotfiles.sh'",
 ]
+# 外しているツール (disable_tools) を最後に表示する。外したツールは実行しても command not found になるだけなので
+final = "bash '{{config_root}}/bootstrap/tools.sh' summary"
 
 # mise bootstrap の最後に毎回実行される
 [tasks.bootstrap]
@@ -131,6 +138,28 @@ rel="${target#"$HOME"/}"
 mise dot add -p mise.toml --source "$rel" --yes "$target"
 mise dot apply --yes "$target"
 '''
+
+# このマシンで外すツール (disable_tools)。既定は .config/mise/config.toml のプリセットで、
+# 変更は ~/.config/mise/config.local.toml に書く (処理は bootstrap/tools.sh)
+[tasks."tools:status"]
+description = "このマシンで外しているツールを表示する"
+run = "bash '{{config_root}}/bootstrap/tools.sh' status"
+
+[tasks."tools:disable"]
+description = "ツールをこのマシンで外し、アンインストールする"
+usage = 'arg "[tool]..." var=#true help="外すツール (.config/mise/*.toml のキーと同じ名前)。省略すると fzf で選ぶ"'
+# fzf で選ぶため端末につなぐ
+raw = true
+run = "bash '{{config_root}}/bootstrap/tools.sh' disable ${usage_tool:-}"
+
+[tasks."tools:enable"]
+description = "外したツールをこのマシンで戻し、インストールする"
+usage = '''
+flag "--no-install" help="設定だけ戻し、インストールは次の mise install に任せる"
+arg "[tool]..." var=#true help="戻すツール。省略すると fzf で選ぶ"
+'''
+raw = true
+run = "bash '{{config_root}}/bootstrap/tools.sh' enable ${usage_no_install:+--no-install} ${usage_tool:-}"
 
 [tasks."setup:copilot"]
 description = "GitHub Copilot CLI をセットアップする (対話的なログインが必要)"
