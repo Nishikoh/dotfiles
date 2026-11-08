@@ -3,11 +3,27 @@
 
 onboarding = false
 
+[ui]
+show_agent_labels_on_pane_borders = true
+agent_panel_sort = "priority"
+host_cursor = "native" # ckj入力対策
+
 [ui.toast]
 delivery = "herdr"
 
-[ui.sound.agents]
-claude = "on"
-codex = "on"
-# claude = "off"
-# codex = "off"
+[ui.sound]
+enabled = true
+
+[theme]
+name = "catppuccin-latte"
+
+[remote]
+manage_ssh_config = false # wslからsshする時に必要な設定
+
+[experimental]
+allow_nested = true
+# reveal_hidden_cursor_for_cjk_ime = true
+# cjk_ime_agents = ["claude", "codex", "cursor"]
+# cjk_ime_cursor_shape = "bar"
+# switch_ascii_input_source_in_prefix = true
+
