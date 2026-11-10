@@ -42,3 +42,6 @@ alias set-aws-profile='export AWS_PROFILE=$(aws configure list-profiles | fzf)'
 if [[ "$(uname)" == "Darwin" ]]; then
 	alias beep='for i in {1..3}; do afplay /System/Library/Sounds/Submarine.aiff; done'
 fi
+
+# claude for work
+alias cw="CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude"
