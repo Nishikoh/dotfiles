@@ -24,5 +24,6 @@ enable_tools = [
   "uv",
   "aqua:worktrunk",
   "dust",
-  "zoxide"
+  "zoxide",
+  "lazygit"
 ]
