@@ -54,6 +54,7 @@ mode = "0644"
 [dotfiles]
 "~/.claude/hooks" = { source = ".claude/hooks", mode = "symlink" }
 "~/.claude/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
+"~/.claude-work/settings.json" = { source = ".claude/settings.json", mode = "symlink" }
 "~/.claude/skills/dev-lsp" = { source = ".claude/skills/dev-lsp", mode = "symlink" }
 "~/.claude/statusline-command.sh" = { source = ".claude/statusline-command.sh", mode = "symlink" }
 # ~/.config/git には他のツール (omarchy など) が config を置くので、ディレクトリではなくファイルをリンクする
