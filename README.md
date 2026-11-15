@@ -98,7 +98,7 @@ mise run dot:add ~/.config/foo
 
 ## たまに使うツール (lazy)
 
-[.config/mise/mise.toml](.config/mise/mise.toml) で `lazy = true` を付けたツール (gcloud・duckdb・yazi・go など) は、bootstrap では入れず、最初にコマンドを実行したときに shim から入る。どのマシンでも同じ一覧のまま、使ったものだけが入る。
+[.config/mise/mise.toml](.config/mise/mise.toml) で `lazy = true` を付けたツール (gcloud・duckdb・yazi・go・terraform 関係など) は、bootstrap では入れず、最初にコマンドを実行したときに shim から入る。どのマシンでも同じ一覧のまま、使ったものだけが入る。
 
 ```sh
 mise install --include-lazy   # lazy のツールも前もって入れる (オフラインで使うときなど)
@@ -107,22 +107,23 @@ mise install duckdb           # 1 つだけ前もって入れる
 
 - `mise upgrade` は、入っている lazy のツールを更新するが、まだ入っていないものは入れない
 - shim は入る前からあるので、`command -v` はインストール前でも成功する。実体があるかで分けるときは、PATH で見つかったのが shim (`~/.local/share/mise/shims/`) かを見る ([zsh/07plugin.zsh](zsh/07plugin.zsh) の gcloud)
-- 初めての実行ではダウンロードが始まり、ネットワークが要る。そのため zsh の起動時に呼ぶツール (starship・zoxide・fzf・worktrunk・argc・eza) と、git・hook・ほかの設定から呼ぶツール (delta・gh・lefthook・typos・rg・yq・ghalint・ghatm・pueue・jq・hunk・herdr・fd) は lazy にしない。テストで確かめている。go は例外で、`lefthook/go.yaml` の hook から呼ぶが lazy にしている (go のリポジトリで初めてのコミットが go のダウンロードを待つことがある)
-- shim は PATH の `/usr/local/bin` や `/usr/bin` より前にあるので、mise の外で入れたもの (apt や公式インストーラの gcloud など) を隠し、初めての実行で mise 版が入る。外で入れたものを使うマシンでは `mise run tools:disable gcloud` で外す
+- 初めての実行ではダウンロードが始まり、ネットワークが要る。そのため zsh の起動時に呼ぶツール (starship・zoxide・fzf・worktrunk・argc・eza) と、git・hook・ほかの設定から呼ぶツール (delta・gh・lefthook・typos・rg・yq・jq・hunk・herdr・fd) は lazy にしない。テストで確かめている。例外として、go (`lefthook/go.yaml`) と terraform 関係・pueue (`lefthook/terraform.yaml`) は hook から呼ぶが lazy にしている (そのリポジトリでの初めてのコミットがダウンロードを待つことがある)
+- shim は PATH の `/usr/local/bin` や `/usr/bin` より前にあるので、mise の外で入れたもの (apt や公式インストーラの gcloud・terraform など) を隠し、初めての実行で mise 版が入る。外で入れたものを使うマシンでは `mise run tools:disable gcloud` (terraform は `github:tofuutils/tenv`) で外す
 - `aqua:`・`github:`・`pipx:` などのツールを lazy にするときは、`lazy_bins` にコマンド名を書く (書かないと shim が作られず、`mise reshim` で警告が出る)
 - helix の LSP (marksman など) は `mise exec` で起動するので、初めて開いたときに入る (入るまで LSP は動かない)
 - Codex のサンドボックスの中でも入れられるよう、`etc/codex/config.toml` で mise のデータディレクトリ (`~/.local/share/mise/`) を書き込み可にしている
-- 外したツール (下の `disable_tools`) と、許可リスト (最小構成のマシン) に無いツールは、lazy でも入らない
+- 外したツール (下の `disable_tools`) と、許可リスト (最小構成のマシン) に無いツールは、lazy でも入らない。外したまま lazy を付けておくと、外すのをやめたマシンでは lazy になる (rust)
 - lazy のツールを外したマシンでも、そのツールを外していない場所 (このリポジトリの別の worktree など) で `mise run` すると shim が作り直される。実行しても入らずに `not a valid shim` で失敗するだけだが、`command -v` は成功する。外した設定の場所 (ホームなど) で `mise reshim` すると消える
 
 ## マシンごとにツールを外す
 
-外したツールは bootstrap や `mise upgrade` でインストールされず、PATH にも出ない。既定では [.config/mise/config.toml](.config/mise/config.toml) の `disable_tools` (プリセット。システムや別の管理方法と競合するツールなど、PATH に出したくないマシンが多いもの) を外す。大きいだけのツールは外さずに lazy にする。新しいマシンもプリセットのまま bootstrap し、必要ならあとから変える。
+外したツールは bootstrap や `mise upgrade` でインストールされず、PATH にも出ない。既定では [.config/mise/config.toml](.config/mise/config.toml) の `disable_tools` (プリセット。今は rust だけ) を外す。rust は shim が rustup の cargo を隠すので外している。大きいだけのツールは外さずに lazy にする。新しいマシンもプリセットのまま bootstrap し、必要ならあとから変える。
 
 ```sh
 # チェックアウトの中で実行する
 mise run tools:status                  # 外しているツールと、その設定元 (プリセットかこのマシンか) を表示する
 mise run tools:enable rust             # 戻してインストールする
+mise run tools:enable --no-install rust  # 戻すだけ。rust は lazy なので、初めて cargo を実行したときに入る
 mise run tools:disable duckdb rclone   # 外してアンインストールする (ディスクと shim も消える)
 mise run tools:disable                 # 引数を省くと fzf で選ぶ (TAB で選択、ENTER で決定)。tools:enable も同じ
 ```
@@ -133,7 +134,6 @@ mise run tools:disable                 # 引数を省くと fzf で選ぶ (TAB �
   - 名前は [.config/mise/mise.toml](.config/mise/mise.toml) のキーと同じにする (例: `"github:tofuutils/tenv"`)。違う名前は何も言わずに無視される
   - 外しただけではインストール済みのものが残り、shim を実行すると `not a valid shim` のエラーになる。`mise uninstall --all <tool>` で消す (`mise prune` では消えない)。残っているツールは `tools:status` と bootstrap の最後に `入っているが使われないツール` として表示される
 - 外したツールは、プロジェクトの `mise.toml` に書かれていても使われない。rust などを使うプロジェクトがあるマシンでは `mise run tools:enable rust` で戻す
-- terraform 関係 (tenv・terraform-ls・terraform-target) はまとめて外している。terraform のリポジトリを触るマシンでは `mise run tools:enable github:tofuutils/tenv terraform-ls http:terraform-target` で戻す (`lefthook/terraform.yaml` の hook も terraform を使う)
 - bun・uv・lefthook・fzf は外さない (npm: と pipx: のツール、git の hook、zsh の設定と tools タスクの選択で使う)。`tools:disable` も外さない
 - リポジトリの別のチェックアウト (worktree) の中では、そのチェックアウトの `.config/mise/config.toml` が優先されるので、このマシンの設定に関係なくプリセットになる (`tools:status` は食い違うときに表示する)
 

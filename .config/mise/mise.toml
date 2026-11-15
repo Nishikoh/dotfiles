@@ -1,6 +1,6 @@
 # いつも使うツール。bootstrap (mise install) で入れる。
-# zsh の起動時に呼ぶもの (starship・zoxide・fzf・worktrunk・argc・eza)、git や hook から呼ぶもの (delta・gh・lefthook・typos・rg・yq・
-# ghalint・ghatm・pueue)、ほかの設定から呼ぶもの (jq・hunk・herdr・fd) は lazy にしない (初回の実行でダウンロードが始まり、遅れたり失敗したりする)。
+# zsh の起動時に呼ぶもの (starship・zoxide・fzf・worktrunk・argc・eza)、git や hook から呼ぶもの (delta・gh・lefthook・typos・rg・yq)、
+# ほかの設定から呼ぶもの (jq・hunk・herdr・fd) は lazy にしない (初回の実行でダウンロードが始まり、遅れたり失敗したりする)。
 # テストでこれらが lazy でないことを確かめている
 [tools]
 bat = "latest"
@@ -20,20 +20,9 @@ yq = "latest"
 node = "latest"
 # jj = "latest"
 "aqua:worktrunk" = "latest"
-"aqua:Nukesor/pueue/pueue" = "latest"
-"aqua:Nukesor/pueue/pueued" = "latest"
 herdr = "latest"
 hunk = "latest"
 claude = "latest"
-ghalint = "latest"
-"aqua:suzuki-shunsuke/ghatm" = "latest"
-
-# 既定で外すツール (.config/mise/config.toml の disable_tools)。使うマシンで tools:enable すると、すぐに入れる
-terraform-ls = "latest"
-rust = "latest"
-"github:tofuutils/tenv" = "latest"
-# リリースの配布物が無いのでスクリプトを直接取得する (main は v0.1 と同じ内容)
-"http:terraform-target" = { version = "0.1", url = "https://raw.githubusercontent.com/soar/terraform-target/v{{version}}/terraform-target", checksum = "sha256:178544f67886288d202d1d543d88c376abccd9aefddc1fc4b921426d7e1038b4" }
 
 # たまに使うツール (lazy)。bootstrap (mise install) と mise upgrade では入れず、最初にコマンドを実行したときに shim から入れる。
 # 入った後は mise upgrade で更新される。前もって入れるときは mise install --include-lazy (または mise install <tool>)。
@@ -60,6 +49,21 @@ rmz = { version = "latest", lazy = true }
 "pipx:tldr" = { version = "latest", lazy = true, lazy_bins = "tldr" }
 "github:tarka/xcp" = { version = "latest", lazy = true, lazy_bins = "xcp" }
 "aqua:suzuki-shunsuke/github-comment" = { version = "latest", lazy = true, lazy_bins = "github-comment" }
+# GitHub Actions の lint。lefthook/gh-actions.yaml はまだ呼んでいない (コメントに URL があるだけ)
+ghalint = { version = "latest", lazy = true }
+"aqua:suzuki-shunsuke/ghatm" = { version = "latest", lazy = true, lazy_bins = "ghatm" }
+# pueue は lefthook/terraform.yaml の hook だけが呼ぶ (terraform のリポジトリで初めての hook が pueue のダウンロードを待つ)
+"aqua:Nukesor/pueue/pueue" = { version = "latest", lazy = true, lazy_bins = "pueue" }
+"aqua:Nukesor/pueue/pueued" = { version = "latest", lazy = true, lazy_bins = "pueued" }
+# terraform 関係。tenv の terraform・tofu などの shim は、mise の外で入れた terraform を PATH で隠す (README の lazy の節)
+"github:tofuutils/tenv" = { version = "latest", lazy = true, lazy_bins = ["tenv", "terraform", "tofu", "terragrunt", "terramate", "atmos", "tf"] }
+terraform-ls = { version = "latest", lazy = true }
+# リリースの配布物が無いのでスクリプトを直接取得する (main は v0.1 と同じ内容)
+"http:terraform-target" = { version = "0.1", url = "https://raw.githubusercontent.com/soar/terraform-target/v{{version}}/terraform-target", checksum = "sha256:178544f67886288d202d1d543d88c376abccd9aefddc1fc4b921426d7e1038b4", lazy = true, lazy_bins = "terraform-target" }
+
+# 既定で外すツール (.config/mise/config.toml の disable_tools)。外したままでも lazy を付けておくと、外すのをやめたマシンでは
+# bootstrap で入らず、初めて実行したときに入る (tools:enable は名前を指定してすぐに入れる。--no-install なら入れない)
+rust = { version = "latest", lazy = true }
 
 [settings]
 experimental = true
