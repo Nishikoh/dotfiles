@@ -45,6 +45,13 @@ grep -E '^(=====|:::|NG)' /tmp/bootstrap-test.log   # 出力が多いので区�
   - 名前を間違えても何も言われない。外しただけではインストール先と shim が残り、`mise prune` でも消えない (`mise uninstall --all <tool>` で消える)
   - `mise config set` は空のリストを書けない (`'[]'` は `["[]"]` になり、`--remove` で空にするとキーごと消えてプリセットに戻る)
   - `mise settings get` はリストを名前順に表示する
+- **`lazy = true` のツールの癖** (2026.9.8〜2026.11.8 で確かめた):
+  - bootstrap の tools フェーズ・`mise install`・`mise upgrade` は、まだ入っていない lazy のツールを入れない。入れるのは shim の初回の実行、`mise exec`、`mise install --include-lazy`、名前を指定した `mise install <tool>`
+  - `mise bootstrap status --missing` は、まだ入っていない lazy のツールを missing と数えて失敗する。テストでは、その実行だけ `MISE_DISABLE_TOOLS` に lazy のツールを足して調べる (`status_without_lazy`)
+  - registry にコマンド名が無いツール (`aqua:`・`github:`・`pipx:` など) は `lazy_bins` が要る。無いと `mise reshim` が `Skipping invalid lazy shim declaration` と警告し、shim を作らない
+  - shim は入る前からあるので `command -v` が成功する。`mise which <tool>` は入っていなければ失敗する (入れはしない)
+  - 2026.9.8 の `mise ls` は、入っていない lazy のツールを `(lazy)` ではなく `(missing)` と表示する
+- **`[bootstrap.directories]` で作るディレクトリは root の持ち物になる**: `~/.local/share/mise` を作らせたら、mise が shims を作れなくなった。ユーザーのディレクトリは hook の `mkdir -p` で作る
 - **1 回目が通るだけでは足りない**: 2 回目の `mise bootstrap` と、clone したリポジトリに変更が残っていないことまで確かめる。タスクの生成物で argc-completions が dirty になり、2 回目の repos フェーズが失敗したことがある
 - **Dockerfile の「素のマシン」の再現には意図がある**: パッケージリストの扱いや一般ユーザーで動かす理由は [Dockerfile](../Dockerfile) のコメントを参照
 - **ツールの挙動は Docker で試す**: codex や herdr が設定ファイルをどう書き換えるかは、ホストではなく Docker で試す (ホストでは herdr のサーバーが動いていて、実際に使っている設定がある)。スクリプトをマウントしてツールを入れて実行する

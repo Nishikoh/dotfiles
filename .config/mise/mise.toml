@@ -1,3 +1,7 @@
+# いつも使うツール。bootstrap (mise install) で入れる。
+# zsh の起動時に呼ぶもの (starship・zoxide・fzf・worktrunk・argc・eza)、git や hook から呼ぶもの (delta・gh・lefthook・typos・rg・yq・
+# ghalint・ghatm・pueue)、ほかの設定から呼ぶもの (jq・hunk・herdr・fd) は lazy にしない (初回の実行でダウンロードが始まり、遅れたり失敗したりする)。
+# テストでこれらが lazy でないことを確かめている
 [tools]
 bat = "latest"
 fd = "latest"
@@ -10,43 +14,52 @@ rg = "latest"
 zoxide = "latest"
 fzf = "latest"
 helix = "latest"
-gcloud = "latest"
 eza = "latest"
 argc = "latest"
-dust = "latest"
-zellij = "latest"
-lazygit = "latest"
-ctop = "latest"
-dotenvx = "latest"
-yazi = "latest"
-jnv = "latest"
 yq = "latest"
-terraform-ls = "latest"
 node = "latest"
 # jj = "latest"
-btop = "latest"
-duckdb = "latest"
-marksman = "latest"
-rclone = "latest"
-"github:tofuutils/tenv" = "latest"
-"github:htop-dev/htop" = "latest"
-"pipx:tldr" = "latest"
 "aqua:worktrunk" = "latest"
 "aqua:Nukesor/pueue/pueue" = "latest"
 "aqua:Nukesor/pueue/pueued" = "latest"
-go = "latest"
 herdr = "latest"
 hunk = "latest"
 claude = "latest"
-rust = "latest"
-cpz = "latest"
-rmz = "latest"
-"github:tarka/xcp" = "latest"
 ghalint = "latest"
 "aqua:suzuki-shunsuke/ghatm" = "latest"
-"aqua:suzuki-shunsuke/github-comment" = "latest"
+
+# 既定で外すツール (.config/mise/config.toml の disable_tools)。使うマシンで tools:enable すると、すぐに入れる
+terraform-ls = "latest"
+rust = "latest"
+"github:tofuutils/tenv" = "latest"
 # リリースの配布物が無いのでスクリプトを直接取得する (main は v0.1 と同じ内容)
 "http:terraform-target" = { version = "0.1", url = "https://raw.githubusercontent.com/soar/terraform-target/v{{version}}/terraform-target", checksum = "sha256:178544f67886288d202d1d543d88c376abccd9aefddc1fc4b921426d7e1038b4" }
+
+# たまに使うツール (lazy)。bootstrap (mise install) と mise upgrade では入れず、最初にコマンドを実行したときに shim から入れる。
+# 入った後は mise upgrade で更新される。前もって入れるときは mise install --include-lazy (または mise install <tool>)。
+# aqua: や github: などのツールは registry にコマンド名が無いので、lazy_bins に書く (無いと shim が作られず、警告が出る)
+gcloud = { version = "latest", lazy = true }
+dust = { version = "latest", lazy = true }
+zellij = { version = "latest", lazy = true }
+lazygit = { version = "latest", lazy = true }
+ctop = { version = "latest", lazy = true }
+dotenvx = { version = "latest", lazy = true }
+yazi = { version = "latest", lazy = true }
+jnv = { version = "latest", lazy = true }
+btop = { version = "latest", lazy = true }
+duckdb = { version = "latest", lazy = true }
+# helix は mise exec で起動するので、初めて開いたときに入る (それまで LSP は動かない)
+marksman = { version = "latest", lazy = true }
+rclone = { version = "latest", lazy = true }
+# go は lefthook/go.yaml の hook からも呼ぶが、例外として lazy にする (大きく、go のリポジトリでは hook より先に go を使うことが多い)。
+# 初めてのコミットが go のダウンロードを待つことがある
+go = { version = "latest", lazy = true }
+cpz = { version = "latest", lazy = true }
+rmz = { version = "latest", lazy = true }
+"github:htop-dev/htop" = { version = "latest", lazy = true, lazy_bins = "htop" }
+"pipx:tldr" = { version = "latest", lazy = true, lazy_bins = "tldr" }
+"github:tarka/xcp" = { version = "latest", lazy = true, lazy_bins = "xcp" }
+"aqua:suzuki-shunsuke/github-comment" = { version = "latest", lazy = true, lazy_bins = "github-comment" }
 
 [settings]
 experimental = true

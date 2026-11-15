@@ -86,6 +86,9 @@ post-dotfiles = [
   "mise trust --quiet '{{config_root}}/.config/mise/mise.toml'",
   # WSL なのに WSL 以外の設定がリンクされたら失敗させる
   "sh '{{config_root}}/bootstrap/check-wsl-dotfiles.sh'",
+  # Codex の System 設定 (etc/codex/config.toml) で書き込み先に挙げる mise のデータディレクトリ (lazy のツールが入る)。
+  # ツールを入れずに bootstrap したマシンでは作られないので作る ([bootstrap.directories] は root の持ち物にするので使わない)
+  "mkdir -p \"$HOME/.local/share/mise\"",
 ]
 # 選んだプリセット (conf.d/preset.toml) のリンクが切れていたら、すべてのツールを入れてしまう前に止める。
 # リンクが切れると mise は何も言わずに許可リストなしに戻るため

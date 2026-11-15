@@ -96,14 +96,32 @@ mise run dot:add ~/.config/foo
 - `etc/codex/config.toml` はコピーなので、編集したら `mise bootstrap` で反映する
 - symlink で配置したファイルは、`~/.config` 側で編集してもリポジトリに反映される
 
+## たまに使うツール (lazy)
+
+[.config/mise/mise.toml](.config/mise/mise.toml) で `lazy = true` を付けたツール (gcloud・duckdb・yazi・go など) は、bootstrap では入れず、最初にコマンドを実行したときに shim から入る。どのマシンでも同じ一覧のまま、使ったものだけが入る。
+
+```sh
+mise install --include-lazy   # lazy のツールも前もって入れる (オフラインで使うときなど)
+mise install duckdb           # 1 つだけ前もって入れる
+```
+
+- `mise upgrade` は、入っている lazy のツールを更新するが、まだ入っていないものは入れない
+- shim は入る前からあるので、`command -v` はインストール前でも成功する。実体があるかで分けるときは、PATH で見つかったのが shim (`~/.local/share/mise/shims/`) かを見る ([zsh/07plugin.zsh](zsh/07plugin.zsh) の gcloud)
+- 初めての実行ではダウンロードが始まり、ネットワークが要る。そのため zsh の起動時に呼ぶツール (starship・zoxide・fzf・worktrunk・argc・eza) と、git・hook・ほかの設定から呼ぶツール (delta・gh・lefthook・typos・rg・yq・ghalint・ghatm・pueue・jq・hunk・herdr・fd) は lazy にしない。テストで確かめている。go は例外で、`lefthook/go.yaml` の hook から呼ぶが lazy にしている (go のリポジトリで初めてのコミットが go のダウンロードを待つことがある)
+- shim は PATH の `/usr/local/bin` や `/usr/bin` より前にあるので、mise の外で入れたもの (apt や公式インストーラの gcloud など) を隠し、初めての実行で mise 版が入る。外で入れたものを使うマシンでは `mise run tools:disable gcloud` で外す
+- `aqua:`・`github:`・`pipx:` などのツールを lazy にするときは、`lazy_bins` にコマンド名を書く (書かないと shim が作られず、`mise reshim` で警告が出る)
+- helix の LSP (marksman など) は `mise exec` で起動するので、初めて開いたときに入る (入るまで LSP は動かない)
+- Codex のサンドボックスの中でも入れられるよう、`etc/codex/config.toml` で mise のデータディレクトリ (`~/.local/share/mise/`) を書き込み可にしている
+- 外したツール (下の `disable_tools`) と、許可リスト (最小構成のマシン) に無いツールは、lazy でも入らない
+
 ## マシンごとにツールを外す
 
-外したツールは bootstrap や `mise upgrade` でインストールされず、PATH にも出ない。既定では [.config/mise/config.toml](.config/mise/config.toml) の `disable_tools` (プリセット。大きいツールや、使わないマシンが多いツール) を外す。新しいマシンもプリセットのまま bootstrap し、必要ならあとから変える。
+外したツールは bootstrap や `mise upgrade` でインストールされず、PATH にも出ない。既定では [.config/mise/config.toml](.config/mise/config.toml) の `disable_tools` (プリセット。システムや別の管理方法と競合するツールなど、PATH に出したくないマシンが多いもの) を外す。大きいだけのツールは外さずに lazy にする。新しいマシンもプリセットのまま bootstrap し、必要ならあとから変える。
 
 ```sh
 # チェックアウトの中で実行する
 mise run tools:status                  # 外しているツールと、その設定元 (プリセットかこのマシンか) を表示する
-mise run tools:enable gcloud           # 戻してインストールする
+mise run tools:enable rust             # 戻してインストールする
 mise run tools:disable duckdb rclone   # 外してアンインストールする (ディスクと shim も消える)
 mise run tools:disable                 # 引数を省くと fzf で選ぶ (TAB で選択、ENTER で決定)。tools:enable も同じ
 ```
@@ -134,7 +152,7 @@ cd ~/setup/dotfiles && ~/.local/bin/mise run tools:preset minimal
 ```
 
 - `tools:preset minimal` は `~/.config/mise/conf.d/preset.toml` (git に無視される) から `presets/minimal.toml` へ symlink を張る。プリセットの変更は `git pull` でそのまま反映される。`mise run tools:preset off` でやめる
-- 今の `minimal` は argc・bat・bun・claude・codex・delta・eza・fzf・gh・helix・herdr・jq・node・starship・uv。jq・delta・gh はリポジトリの設定 (Claude の hook、git の pager と認証) が使うので外さない
+- 今の `minimal` は argc・aqua:worktrunk・bat・bun・claude・codex・delta・dust・eza・fzf・gh・helix・herdr・jq・lazygit・node・starship・uv・zoxide。jq・delta・gh はリポジトリの設定 (Claude の hook、git の pager と認証) が使うので外さない。このうち dust・lazygit は lazy なので、bootstrap では入らず、初めて実行したときに入る
 - プリセットのファイルの名前を変えたり消したりしない。選んでいるマシンではリンクが切れ、mise は何も言わずに許可リストなしに戻る。bootstrap はツールを入れる前に止まるが、`mise upgrade` は止まらない
 - 一覧は置き換わる (足されない)。一覧に無いツールは、プロジェクトの `mise.toml` に書いてあっても使われない
 - 名前を間違えても mise は何も言わない。`tools:preset` は設定に無い名前を拒否し、テストですべてのプリセットの名前を確かめている

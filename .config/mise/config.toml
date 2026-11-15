@@ -13,6 +13,7 @@ pipx.uvx = true
 python.uv_venv_auto = "create|source" # 無ければ作って有効にする (true は非推奨)
 minimum_release_age = "10d"
 
-# 既定で外すツール (大きく、使わないマシンが多いもの)。使うマシンは ~/.config/mise/config.local.toml で置き換える (README 参照)。
-# terraform 関係はまとめて外す (terraform は tenv が入れ、terraform-ls と terraform-target は terraform と使う)
-disable_tools = ["gcloud", "rust", "rclone", "github:tofuutils/tenv", "terraform-ls", "http:terraform-target", "zellij"]
+# 既定で外すツール (PATH に出したくないマシンが多いもの)。使うマシンは ~/.config/mise/config.local.toml で置き換える (README 参照)。
+# 大きいだけで、置いておいても困らないもの (gcloud・rclone・zellij など) は外さずに lazy にする (.config/mise/mise.toml)。
+# rust はシステムや rustup の cargo と競合する。terraform 関係はまとめて外す (terraform は tenv が入れ、terraform-ls と terraform-target は terraform と使う)
+disable_tools = ["rust", "github:tofuutils/tenv", "terraform-ls", "http:terraform-target"]
