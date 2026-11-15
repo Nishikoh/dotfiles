@@ -272,6 +272,17 @@ if mise run tools:status | grep -F "ただし"; then
 fi
 git clone -q /src ~/other-status
 (cd ~/other-status && mise trust --quiet --all && mise run tools:status | grep -F "ただし $HOME/other-status の中では、そのチェックアウトの設定が優先され、外しているツール: ${preset_line}")
+# 別のチェックアウトで mise run すると、そこでは外していない lazy の duckdb の shim が作り直される (shim はマシンで 1 つ)。
+# 外したマシンでは実行しても入らずに失敗し (not a valid shim)、このマシンの設定で mise reshim すると消える
+if [[ -e ~/.local/share/mise/shims/duckdb ]]; then
+	if ~/.local/share/mise/shims/duckdb --version; then
+		echo "NG: 外した duckdb を、別のチェックアウトが作った shim から実行できた"
+		exit 1
+	fi
+	test -z "$(find ~/.local/share/mise/installs/duckdb -mindepth 1 -maxdepth 1 -type d 2>/dev/null)"
+	mise reshim
+fi
+test ! -e ~/.local/share/mise/shims/duckdb
 if [[ -z "$SKIP_ARGS" ]]; then
 	# 外したツールは使われず、アンインストールされて PATH に残らない。missing とも扱わない
 	# (mise ls は latest の解決に GitHub API を使うので、ツールまで含めるときだけ確かめる)

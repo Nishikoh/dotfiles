@@ -5,9 +5,10 @@
 # ツール本体 ([tools]) は .config/mise/ のグローバル設定で管理する。
 # このファイルは clone したリポジトリをマシンに配置するための宣言だけを持つ。
 
-# mise dot と hook のテンプレート展開 ({{config_root}}) に 2026.9.8 以上が必要。
+# mise dot と hook のテンプレート展開 ({{config_root}}) に 2026.9.8 以上が必要。lazy のツール (.config/mise/mise.toml) は
+# 2026.11.3 以上で確かめている (それより古い版はテストしていない)。
 # hard にすると古い mise ではリポジトリ内で mise が使えなくなるので、警告だけにする
-min_version = { soft = "2026.9.8" }
+min_version = { soft = "2026.11.3" }
 
 # このリポジトリのタスクは、mise run の前に設定のツールを自動でインストールしない。
 # ツールは bootstrap の tools フェーズで入れる。自動で入れると、tools:disable が外すツールを先に入れてしまう

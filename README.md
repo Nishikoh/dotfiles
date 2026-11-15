@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Nishikoh/dotfiles/actions/workflows/setup.yml/badge.svg?branch=master)](https://github.com/Nishikoh/dotfiles/actions/workflows/setup.yml)
 
-[mise bootstrap](https://mise.jdx.dev/bootstrap.html) で Ubuntu と Arch (どちらも WSL を含む) をセットアップする。mise は 2026.9.8 以上が必要。
+[mise bootstrap](https://mise.jdx.dev/bootstrap.html) で Ubuntu と Arch (どちらも WSL を含む) をセットアップする。mise は 2026.11.3 以上が必要。
 
 | 何を | どこで宣言しているか |
 | --- | --- |
@@ -64,7 +64,7 @@ sudo chsh -s /usr/bin/zsh "$(id -un)"
 
 ## 既存のマシンに適用する
 
-前提: `~/setup/dotfiles` に clone してあり、2026.9.8 以上の mise が `~/.local/bin/mise` にある (`curl https://mise.run | sh` で入る。パッケージマネージャーで入れた mise だけだと、zsh の起動時に `~/.local/bin/mise` が見つからずエラーになる。`mise --version` で確認し、古ければ `mise self-update`)。
+前提: `~/setup/dotfiles` に clone してあり、2026.11.3 以上の mise が `~/.local/bin/mise` にある (`curl https://mise.run | sh` で入る。パッケージマネージャーで入れた mise だけだと、zsh の起動時に `~/.local/bin/mise` が見つからずエラーになる。`mise --version` で確認し、古ければ `mise self-update`)。
 
 ```sh
 cd ~/setup/dotfiles
@@ -113,6 +113,7 @@ mise install duckdb           # 1 つだけ前もって入れる
 - helix の LSP (marksman など) は `mise exec` で起動するので、初めて開いたときに入る (入るまで LSP は動かない)
 - Codex のサンドボックスの中でも入れられるよう、`etc/codex/config.toml` で mise のデータディレクトリ (`~/.local/share/mise/`) を書き込み可にしている
 - 外したツール (下の `disable_tools`) と、許可リスト (最小構成のマシン) に無いツールは、lazy でも入らない
+- lazy のツールを外したマシンでも、そのツールを外していない場所 (このリポジトリの別の worktree など) で `mise run` すると shim が作り直される。実行しても入らずに `not a valid shim` で失敗するだけだが、`command -v` は成功する。外した設定の場所 (ホームなど) で `mise reshim` すると消える
 
 ## マシンごとにツールを外す
 
