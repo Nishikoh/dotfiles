@@ -57,8 +57,10 @@ status_line = [
 exclude_tmpdir_env_var = false  # Allow $TMPDIR
 exclude_slash_tmp = false       # Allow /tmp
 # mise は trust の記録などを状態ディレクトリに書く。書けないと、新しい worktree で mise trust や mise run が失敗する。
-# 人間が trust 済みの worktree をそのまま使えるよう、別の場所に向けずにこのディレクトリを書き込み可にする
-writable_roots = ["{{ env.HOME }}/.cache/", "{{ env.HOME }}/.local/state/mise/"]
+# 人間が trust 済みの worktree をそのまま使えるよう、別の場所に向けずにこのディレクトリを書き込み可にする。
+# lazy のツール (.config/mise/mise.toml) は初めて実行したときにデータディレクトリへ入るので、そこも書き込み可にする
+# (書けないと、Codex の中で初めて使う lazy のツールが入らずに失敗する。代わりに、Codex が入れたツールのファイルも書き換えられる)
+writable_roots = ["{{ env.HOME }}/.cache/", "{{ env.HOME }}/.local/state/mise/", "{{ env.HOME }}/.local/share/mise/"]
 network_access = true          # Opt in to outbound network
 
 [features]

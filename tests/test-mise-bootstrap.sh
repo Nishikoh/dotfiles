@@ -131,11 +131,12 @@ for f in .gitconfig .vimrc .zshrc .config/git/ignore .config/helix .config/lazyg
 done
 
 echo "::: check codex system config"
-grep -qxF "writable_roots = [\"$HOME/.cache/\", \"$HOME/.local/state/mise/\"]" /etc/codex/config.toml
+grep -qxF "writable_roots = [\"$HOME/.cache/\", \"$HOME/.local/state/mise/\", \"$HOME/.local/share/mise/\"]" /etc/codex/config.toml
 grep -qxF "set = { UV_TOOL_DIR = \"$HOME/.cache/codex-uv-tools\" }" /etc/codex/config.toml
 test "$(stat -c %U:%a /etc/codex/config.toml)" = root:644
-# 書き込み許可先に挙げた mise の状態ディレクトリが、bootstrap の後に存在すること
+# 書き込み許可先に挙げた mise の状態ディレクトリとデータディレクトリ (lazy のツールが入る) が、bootstrap の後に存在すること
 test -d ~/.local/state/mise
+test -d ~/.local/share/mise
 
 cd "$dotfiles"
 echo "::: check status"
@@ -150,13 +151,57 @@ if grep -F ".cargo/env" /tmp/zsh.log; then
 	exit 1
 fi
 
+echo "::: lazy のツール: 初回の実行で入るので、zsh の起動時や git・hook から呼ぶツールは lazy にしない"
+# lazy = true のツール (.config/mise/*.toml のキー) を名前順に 1 行ずつ出す
+lazy_tools() { sed -nE "s/^\"?([^\" =]+)\"? = \\{.*lazy = true.*/\\1/p" .config/mise/mise.toml .config/mise/config.toml | LC_ALL=C sort -u; }
+test -n "$(lazy_tools)"
+for tool in starship zoxide fzf aqua:worktrunk argc eza delta gh jq lefthook typos rg yq ghalint aqua:suzuki-shunsuke/ghatm \
+	aqua:Nukesor/pueue/pueue aqua:Nukesor/pueue/pueued hunk herdr fd bun uv claude codex; do
+	if lazy_tools | grep -qxF "$tool"; then
+		echo "NG: $tool は zsh の起動時か、git・hook・ほかの設定から呼ぶので lazy にしない"
+		exit 1
+	fi
+done
+# lazy のツールはすべて shim が作られる (aqua: などは lazy_bins が無いと作られず、警告が出る)
+mise reshim 2>&1 | tee /tmp/reshim.log
+if grep -F "lazy" /tmp/reshim.log; then
+	echo "NG: lazy のツールの shim が作られない (lazy_bins を書く)"
+	exit 1
+fi
+for bin in gcloud duckdb xcp tldr htop github-comment; do
+	test -L ~/.local/share/mise/shims/"$bin" || test -x ~/.local/share/mise/shims/"$bin" || { echo "NG: lazy の $bin の shim が無い"; exit 1; }
+done
+# zsh の起動では何も入らず、gcloud の shim しか無いときは fzf-gcloud のプラグインを読まない (プラグインの関数が無い)
+ls ~/.local/share/mise/installs >/tmp/installs-before 2>/dev/null || true
+zsh -i -c "whence -p gcloud; whence -w __gcloud_cmd_cache || true" </dev/null >/tmp/zsh.log 2>&1 || { cat /tmp/zsh.log; exit 1; }
+grep -qxF "$HOME/.local/share/mise/shims/gcloud" /tmp/zsh.log
+if grep -F "__gcloud_cmd_cache: function" /tmp/zsh.log; then
+	echo "NG: gcloud の shim しか無いのに fzf-gcloud のプラグインを読んだ"
+	exit 1
+fi
+ls ~/.local/share/mise/installs >/tmp/installs-after 2>/dev/null || true
+diff /tmp/installs-before /tmp/installs-after || { echo "NG: zsh の起動でツールが入った"; exit 1; }
+# 入っていない lazy のツールは bootstrap status で missing と数えられるので、その実行だけ外して (今外しているものに足して) 調べる
+status_without_lazy() {
+	MISE_DISABLE_TOOLS="$({ mise settings get disable_tools | sed -e "s/[][\" ]//g" -e "s/,/\n/g"; lazy_tools; } | sed "/^\$/d" | paste -sd, -)" \
+		mise bootstrap status --missing
+}
+
 if [[ -z "$SKIP_ARGS" ]]; then
 	echo "::: check tools"
-	mise bootstrap status --missing
+	status_without_lazy
+	# lazy のツールは bootstrap では入らない
+	installed_lazy="$(mise ls --installed --no-header | awk "{ print \$1 }" | LC_ALL=C sort -u | grep -xF -f <(lazy_tools) || true)"
+	test -z "$installed_lazy" || { echo "NG: bootstrap で lazy のツールが入った: $installed_lazy"; exit 1; }
+	# 初めて実行すると shim から入り、以後は入ったものが使われる (jnv は小さい)
+	zsh -i -c "jnv --version" </dev/null
+	mise ls --installed --no-header | grep -q "^jnv "
+	zsh -i -c "whence -p jnv" </dev/null | grep -F "/installs/jnv/"
 	test -f ~/setup/argc-completions/completions/lh.sh
 	# 生成物で argc-completions が dirty になると、次回の repos フェーズが失敗する
 	test -z "$(git -C ~/setup/argc-completions status --porcelain)" || { git -C ~/setup/argc-completions status --short; exit 1; }
-	# .zshrc を読み込んだ対話シェルで、mise のツールが使えること (cargo と terraform-target はプリセットで外したツールなので無い)
+	# .zshrc を読み込んだ対話シェルで、mise のツールが使えること (cargo と terraform-target はプリセットで外したツールなので無い)。
+	# cpz・rmz・xcp・github-comment は lazy なので、ここでは shim があることを確かめている
 	zsh -i -c "command -v starship uv gh claude cpz rmz xcp pueue pueued ghalint github-comment argc" </dev/null
 	# codex が System 設定を読み込むこと (features.multi_agent = false は既定値の true と異なる)
 	zsh -i -c "codex features list" </dev/null | grep -E "^multi_agent +.* false$"
@@ -183,7 +228,8 @@ test "$(disabled)" = "$preset"
 test "$(cd / && disabled)" = "$preset"
 mise run tools:status | grep -F "外しているツール: ${preset_line}"
 if [[ -z "$SKIP_ARGS" ]]; then
-	# プリセットで外したツールは 1 回目の bootstrap で入らない (いちばん大きい gcloud で確かめる)
+	# プリセットで外したツールは 1 回目の bootstrap で入らない (いちばん大きい rust で確かめる。gcloud は lazy なので入らない)
+	test ! -e ~/.local/share/mise/installs/rust
 	test ! -e ~/.local/share/mise/installs/gcloud
 fi
 # 別の書き方の disable_tools も置き換える (settings.disable_tools と、コメント付きの [settings])
@@ -226,6 +272,17 @@ if mise run tools:status | grep -F "ただし"; then
 fi
 git clone -q /src ~/other-status
 (cd ~/other-status && mise trust --quiet --all && mise run tools:status | grep -F "ただし $HOME/other-status の中では、そのチェックアウトの設定が優先され、外しているツール: ${preset_line}")
+# 別のチェックアウトで mise run すると、そこでは外していない lazy の duckdb の shim が作り直される (shim はマシンで 1 つ)。
+# 外したマシンでは実行しても入らずに失敗し (not a valid shim)、このマシンの設定で mise reshim すると消える
+if [[ -e ~/.local/share/mise/shims/duckdb ]]; then
+	if ~/.local/share/mise/shims/duckdb --version; then
+		echo "NG: 外した duckdb を、別のチェックアウトが作った shim から実行できた"
+		exit 1
+	fi
+	test -z "$(find ~/.local/share/mise/installs/duckdb -mindepth 1 -maxdepth 1 -type d 2>/dev/null)"
+	mise reshim
+fi
+test ! -e ~/.local/share/mise/shims/duckdb
 if [[ -z "$SKIP_ARGS" ]]; then
 	# 外したツールは使われず、アンインストールされて PATH に残らない。missing とも扱わない
 	# (mise ls は latest の解決に GitHub API を使うので、ツールまで含めるときだけ確かめる)
@@ -242,7 +299,7 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	test -z "$(find ~/.local/share/mise/installs/duckdb -mindepth 1 -maxdepth 1 -type d 2>/dev/null)"
 	test ! -e ~/.local/share/mise/shims/duckdb
 	test ! -L ~/.local/share/mise/shims/duckdb
-	mise bootstrap status --missing
+	status_without_lazy
 	# 戻すとインストールされる
 	mise run tools:enable duckdb
 	zsh -i -c "command -v duckdb" </dev/null
@@ -266,7 +323,7 @@ grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
 # [settings] しか残らなければファイルごと消える
 sed -i "/^# このマシンのメモ\$/d" ~/.config/mise/config.local.toml
 mise run tools:disable $preset
-test ! -e ~/.local/share/mise/installs/gcloud
+test ! -e ~/.local/share/mise/installs/rust
 test ! -e ~/.config/mise/config.local.toml
 test "$(disabled)" = "$preset"
 # config.local.toml は git に無視される
@@ -465,12 +522,16 @@ mise bootstrap --from /src --from-dir "$dotfiles" --yes --skip tools,task
 cd "$dotfiles"
 mise run tools:preset minimal
 minimal="$(mise config get -f .config/mise/presets/minimal.toml settings.enable_tools | to_lines)"
+# プリセットのうち lazy のツール (dust など) は bootstrap では入れず、初めて実行したときに入る
+lazy="$(sed -nE "s/^\"?([^\" =]+)\"? = \\{.*lazy = true.*/\\1/p" .config/mise/mise.toml .config/mise/config.toml | LC_ALL=C sort -u)"
+eager="$(LC_ALL=C comm -23 <(echo "$minimal") <(echo "$lazy"))"
+test -n "$(LC_ALL=C comm -12 <(echo "$minimal") <(echo "$lazy"))"
 
 echo "::: 最小構成のマシン: 選んだツールだけを入れる"
 if [[ -n "$SKIP_ARGS" ]]; then
-	# ツールは入れずに、入れる対象がプリセットのツールだけであることを確かめる
+	# ツールは入れずに、入れる対象がプリセットのツール (lazy を除く) だけであることを確かめる
 	mise bootstrap --dry-run --only tools 2>&1 | tee /tmp/dry.log
-	test "$(grep -c "would install" /tmp/dry.log)" = "$(wc -l <<<"$minimal")"
+	test "$(grep -c "would install" /tmp/dry.log)" = "$(wc -l <<<"$eager")"
 	mise bootstrap --yes $SKIP_ARGS 2>&1 | tee /tmp/run.log
 else
 	mise bootstrap --yes 2>&1 | tee /tmp/run.log

@@ -14,4 +14,4 @@
 - dotfiles のリンクをディレクトリ単位からファイル単位に変えるときは、`bootstrap/migrate-dir-links.sh` に対象を追加し、既存マシンのテストを足す (`--force-dotfiles` がリポジトリのファイルを壊したことがある)
 - worktree で `lh` を実行したり `.lefthook-local.yaml` を作ったりしない
 - `master` 以外をベースにした PR では CI が自動で動かないので `gh workflow run setup.yml --ref <branch>` で起動する
-- 必要な mise は 2026.9.8 以上。ホストの mise はコンテナと別物なので、ホストで設定を読めるかは別に確かめる
+- 必要な mise は 2026.11.3 以上。ホストの mise はコンテナと別物なので、ホストで設定を読めるかは別に確かめる

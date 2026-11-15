@@ -20,10 +20,11 @@ grep -E '^(=====|:::|NG)' /tmp/bootstrap-test.log   # 出力が多いので区�
 
 ## mise のバージョン
 
-- 必要な mise は **2026.9.8 以上**
+- 必要な mise は **2026.11.3 以上** (lazy のツールを確かめた最も古い版。それより古い版はテストしていない)
   - 2026.9.1: bootstrap の hook で `{{config_root}}` が展開されず、bootstrap が失敗する
   - 2026.9.4〜9.7: bootstrap は通るが `mise dot` コマンドが無い (README の手順やテストで使う)
-- テストのイメージはキャッシュされるので、mise は最初にビルドしたときのバージョンのまま使われる。新しい mise で試すには `REBUILD=1`、特定のバージョンで試すには `MISE_VERSION=v2026.9.8` を付ける
+  - 2026.9.8: lazy は効くが、`mise ls` が入っていない lazy のツールを `(lazy)` ではなく `(missing)` と表示する
+- テストのイメージはキャッシュされるので、mise は最初にビルドしたときのバージョンのまま使われる。新しい mise で試すには `REBUILD=1`、特定のバージョンで試すには `MISE_VERSION=v2026.11.3` を付ける
 - ホストの mise はコンテナと別物。Docker で通っても、ホストで設定を読めるかは別に確かめる (作業ツリーで `MISE_TRUSTED_CONFIG_PATHS=$PWD mise config ls` など、書き込まないコマンドで)
 
 ## つまずいた点
@@ -45,6 +46,13 @@ grep -E '^(=====|:::|NG)' /tmp/bootstrap-test.log   # 出力が多いので区�
   - 名前を間違えても何も言われない。外しただけではインストール先と shim が残り、`mise prune` でも消えない (`mise uninstall --all <tool>` で消える)
   - `mise config set` は空のリストを書けない (`'[]'` は `["[]"]` になり、`--remove` で空にするとキーごと消えてプリセットに戻る)
   - `mise settings get` はリストを名前順に表示する
+- **`lazy = true` のツールの癖** (2026.11.3〜2026.11.8 で確かめた):
+  - bootstrap の tools フェーズ・`mise install`・`mise upgrade` は、まだ入っていない lazy のツールを入れない。入れるのは shim の初回の実行、`mise exec`、`mise install --include-lazy`、名前を指定した `mise install <tool>`
+  - `mise bootstrap status --missing` は、まだ入っていない lazy のツールを missing と数えて失敗する。テストでは、その実行だけ `MISE_DISABLE_TOOLS` に lazy のツールを足して調べる (`status_without_lazy`)
+  - registry にコマンド名が無いツール (`aqua:`・`github:`・`pipx:` など) は `lazy_bins` が要る。無いと `mise reshim` が `Skipping invalid lazy shim declaration` と警告し、shim を作らない
+  - shim は入る前からあるので `command -v` が成功する。`mise which <tool>` は入っていなければ失敗する (入れはしない)
+  - shim はマシンで 1 つなので、`mise run` を実行した場所の設定で作り直される。テストでは、duckdb を外したあと別のチェックアウトで `mise run tools:status` すると duckdb の shim が戻り、CI の「外した duckdb が PATH に残っている」で失敗した (手元の SKIP_TOOLS=1 ではこの確認をしないので気づかなかった)。外した場所で `mise reshim` すると消える
+- **`[bootstrap.directories]` で作るディレクトリは root の持ち物になる**: `~/.local/share/mise` を作らせたら、mise が shims を作れなくなった。ユーザーのディレクトリは hook の `mkdir -p` で作る
 - **1 回目が通るだけでは足りない**: 2 回目の `mise bootstrap` と、clone したリポジトリに変更が残っていないことまで確かめる。タスクの生成物で argc-completions が dirty になり、2 回目の repos フェーズが失敗したことがある
 - **Dockerfile の「素のマシン」の再現には意図がある**: パッケージリストの扱いや一般ユーザーで動かす理由は [Dockerfile](../Dockerfile) のコメントを参照
 - **ツールの挙動は Docker で試す**: codex や herdr が設定ファイルをどう書き換えるかは、ホストではなく Docker で試す (ホストでは herdr のサーバーが動いていて、実際に使っている設定がある)。スクリプトをマウントしてツールを入れて実行する

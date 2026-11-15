@@ -5,7 +5,10 @@
 # zsh設定ディレクトリのパス
 ZSH_CONFIG_PATH="${ZSH_CONFIG_PATH:-$HOME/setup/dotfiles/zsh}"
 
-if command -v gcloud &>/dev/null; then
+# gcloud は lazy (.config/mise/mise.toml) なので、入る前から mise の shim が PATH にある。shim しか無いときは読み込まない
+# (読むと、使わないマシンでも関数とキーの割り当てが入る。プラグインは gcloud の実体の場所からドキュメントを探すので、shim では使えない)。
+# mise activate が .zshrc の途中で PATH を整えるので、入った後は実体が shim より先に見つかる
+if [[ -n "${commands[gcloud]}" && "${commands[gcloud]}" != "${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}/shims/gcloud" ]]; then
 	source "$ZSH_CONFIG_PATH/plugins/.fzf-gcloud.plugin.zsh"
 fi
 
