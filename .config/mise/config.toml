@@ -14,6 +14,7 @@ python.uv_venv_auto = "create|source" # 無ければ作って有効にする (tr
 minimum_release_age = "10d"
 
 # 既定で外すツール (PATH に出したくないマシンが多いもの)。使うマシンは ~/.config/mise/config.local.toml で置き換える (README 参照)。
-# 大きいだけで、置いておいても困らないもの (gcloud・rclone・zellij など) は外さずに lazy にする (.config/mise/mise.toml)。
-# rust はシステムや rustup の cargo と競合する。terraform 関係はまとめて外す (terraform は tenv が入れ、terraform-ls と terraform-target は terraform と使う)
-disable_tools = ["rust", "github:tofuutils/tenv", "terraform-ls", "http:terraform-target"]
+# 大きいだけで、置いておいても困らないもの (gcloud・terraform 関係など) は外さずに lazy にする (.config/mise/mise.toml)。
+# rust は lazy でも cargo や rustc の shim が PATH で ~/.cargo/bin より前に来て、rustup の cargo を隠すので外す
+# (rust にも lazy を付けているので、外すのをやめたマシンでは初めて cargo を実行したときに入る)
+disable_tools = ["rust"]

@@ -405,7 +405,7 @@ cmd_enable() {
 	if [[ -n "${install}" ]]; then
 		global_mise install "${tools[@]}"
 	else
-		echo "インストールは次の mise install (または mise bootstrap) で行われます"
+		echo "インストールは次の mise install (または mise bootstrap) で行われます (lazy のツールは、初めて実行したとき)"
 	fi
 	cmd_status
 }

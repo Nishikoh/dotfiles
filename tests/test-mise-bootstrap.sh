@@ -155,8 +155,8 @@ echo "::: lazy のツール: 初回の実行で入るので、zsh の起動時�
 # lazy = true のツール (.config/mise/*.toml のキー) を名前順に 1 行ずつ出す
 lazy_tools() { sed -nE "s/^\"?([^\" =]+)\"? = \\{.*lazy = true.*/\\1/p" .config/mise/mise.toml .config/mise/config.toml | LC_ALL=C sort -u; }
 test -n "$(lazy_tools)"
-for tool in starship zoxide fzf aqua:worktrunk argc eza delta gh jq lefthook typos rg yq ghalint aqua:suzuki-shunsuke/ghatm \
-	aqua:Nukesor/pueue/pueue aqua:Nukesor/pueue/pueued hunk herdr fd bun uv claude codex; do
+# (pueue は terraform の hook から、go は go の hook から呼ぶが、例外として lazy にしている)
+for tool in starship zoxide fzf aqua:worktrunk argc eza delta gh jq lefthook typos rg yq hunk herdr fd bun uv claude codex; do
 	if lazy_tools | grep -qxF "$tool"; then
 		echo "NG: $tool は zsh の起動時か、git・hook・ほかの設定から呼ぶので lazy にしない"
 		exit 1
@@ -168,9 +168,12 @@ if grep -F "lazy" /tmp/reshim.log; then
 	echo "NG: lazy のツールの shim が作られない (lazy_bins を書く)"
 	exit 1
 fi
-for bin in gcloud duckdb xcp tldr htop github-comment; do
+for bin in gcloud duckdb xcp tldr htop github-comment ghalint ghatm pueue pueued tenv terraform tofu terraform-ls terraform-target; do
 	test -L ~/.local/share/mise/shims/"$bin" || test -x ~/.local/share/mise/shims/"$bin" || { echo "NG: lazy の $bin の shim が無い"; exit 1; }
 done
+# rust は lazy だが外しているので、shim も作られない (rustup の cargo を隠さない)
+grep -qE "^rust = \\{.*lazy = true" .config/mise/mise.toml
+test ! -e ~/.local/share/mise/shims/cargo
 # zsh の起動では何も入らず、gcloud の shim しか無いときは fzf-gcloud のプラグインを読まない (プラグインの関数が無い)
 ls ~/.local/share/mise/installs >/tmp/installs-before 2>/dev/null || true
 zsh -i -c "whence -p gcloud; whence -w __gcloud_cmd_cache || true" </dev/null >/tmp/zsh.log 2>&1 || { cat /tmp/zsh.log; exit 1; }
@@ -200,9 +203,13 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	test -f ~/setup/argc-completions/completions/lh.sh
 	# 生成物で argc-completions が dirty になると、次回の repos フェーズが失敗する
 	test -z "$(git -C ~/setup/argc-completions status --porcelain)" || { git -C ~/setup/argc-completions status --short; exit 1; }
-	# .zshrc を読み込んだ対話シェルで、mise のツールが使えること (cargo と terraform-target はプリセットで外したツールなので無い)。
-	# cpz・rmz・xcp・github-comment は lazy なので、ここでは shim があることを確かめている
-	zsh -i -c "command -v starship uv gh claude cpz rmz xcp pueue pueued ghalint github-comment argc" </dev/null
+	# .zshrc を読み込んだ対話シェルで、mise のツールが使えること (cargo はプリセットで外したツールなので無い)。
+	# cpz・rmz・xcp・pueue・ghalint・github-comment・terraform は lazy なので、ここでは shim があることを確かめている
+	zsh -i -c "command -v starship uv gh claude cpz rmz xcp pueue pueued ghalint github-comment terraform argc" </dev/null
+	if zsh -i -c "command -v cargo" </dev/null; then
+		echo "NG: 外した rust の cargo が PATH にある"
+		exit 1
+	fi
 	# codex が System 設定を読み込むこと (features.multi_agent = false は既定値の true と異なる)
 	zsh -i -c "codex features list" </dev/null | grep -E "^multi_agent +.* false$"
 fi
@@ -319,19 +326,30 @@ mise run tools:enable --no-install $preset
 test "$(mise settings get disable_tools)" = "[]"
 test "$(cd / && mise settings get disable_tools)" = "[]"
 grep -qxF "# このマシンのメモ" ~/.config/mise/config.local.toml
+# 外すのをやめた rust は lazy になる: shim はできるが、mise install (bootstrap) では入らない
+mise reshim
+test -L ~/.local/share/mise/shims/cargo || test -x ~/.local/share/mise/shims/cargo
+MISE_ENABLE_TOOLS=rust mise install --dry-run 2>&1 | tee /tmp/rust-dry.log
+if grep -F "rust" /tmp/rust-dry.log | grep -F "would install"; then
+	echo "NG: 外すのをやめた rust が mise install で入る (lazy になっていない)"
+	exit 1
+fi
+test ! -e ~/.local/share/mise/installs/rust
 # 2 回目の bootstrap でプリセットのツールを入れないよう、外した状態に戻す (タスクがツールを自動でインストールしないことも確かめる)。
 # [settings] しか残らなければファイルごと消える
 sed -i "/^# このマシンのメモ\$/d" ~/.config/mise/config.local.toml
 mise run tools:disable $preset
 test ! -e ~/.local/share/mise/installs/rust
+test ! -e ~/.local/share/mise/shims/cargo
 test ! -e ~/.config/mise/config.local.toml
 test "$(disabled)" = "$preset"
 # config.local.toml は git に無視される
 test -z "$(git status --porcelain -- .config/mise)" || { git status --short; exit 1; }
 
 echo "::: 外しているのに入っているツール (既存のマシンでプリセットに足したものなど) を、tools:status と bootstrap の最後に示す"
-# http:terraform-target はプリセットで外していて、バージョンを固定した URL から入るので GitHub API を使わない
-grep -qxF "http:terraform-target" <<<"$preset"
+# http:terraform-target はバージョンを固定した URL から入るので GitHub API を使わない。このマシンで外してから、外したまま入れる
+mise run tools:disable http:terraform-target
+grep -qxF "http:terraform-target" <(disabled)
 if bash bootstrap/tools.sh status | grep -F "入っているが使われないツール"; then
 	echo "NG: 使われないツールが入っていないのに表示した"
 	exit 1
@@ -369,8 +387,9 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	fi
 	zsh -i -c "command -v argc" </dev/null
 fi
-rm ~/.config/mise/config.local.toml
-test "$(disabled)" = "$preset"
+# 許可リストをやめ、terraform-target を外した状態に戻す
+printf "[settings]\ndisable_tools = [%s]\n" "$(printf "\"%s\"\n" $preset http:terraform-target | paste -sd, -)" >~/.config/mise/config.local.toml
+grep -qxF "http:terraform-target" <(disabled)
 # 示したコマンドで消すと、shim も消えて表示されなくなる
 mise uninstall --all http:terraform-target
 test ! -e ~/.local/share/mise/shims/terraform-target
@@ -378,6 +397,12 @@ if mise run tools:status | grep -F "入っているが使われないツール";
 	echo "NG: 消したツールを使われないツールとして表示した"
 	exit 1
 fi
+# 戻すとプリセットに従い (このマシンの設定は消える)、lazy の shim ができる
+mise run tools:enable --no-install http:terraform-target
+test ! -e ~/.config/mise/config.local.toml
+test "$(disabled)" = "$preset"
+mise reshim
+test -x ~/.local/share/mise/shims/terraform-target || test -L ~/.local/share/mise/shims/terraform-target
 
 echo "::: 最小構成のマシン: プリセットを symlink で選び、off でやめる"
 # プリセットのファイルは mise が自動で読まない (選んだときだけ conf.d から symlink を張る)
