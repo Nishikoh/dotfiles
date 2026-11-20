@@ -40,19 +40,36 @@ _zsh_comp_gen() {
 	print -r -- "$stamp" >|"$failed"
 	# 同時に開いたシェルと取り合わないよう、一時ファイルに書いてから置き換える
 	tmp="$_zsh_comp_dir/tmp.$name.$$"
-	# ツールが止まってもシェルが開くよう、timeout があれば 5 秒で打ち切る (作れなかった扱いになる)。
-	# --foreground は Ctrl-C で止められるようにする
+	# ツールが止まってもシェルが開くよう、5 秒で打ち切る (作れなかった扱いになる)。--foreground は Ctrl-C で止められるようにする。
+	# timeout が無いマシン (coreutils の無い macOS) では perl の alarm で打ち切る
 	if (( $+commands[timeout] )); then
 		limit=(timeout --foreground 5)
 	elif (( $+commands[gtimeout] )); then
 		limit=(gtimeout --foreground 5)
+	elif (( $+commands[perl] )); then
+		limit=(perl -e 'alarm shift; exec @ARGV or exit 127' 5)
 	fi
-	if $limit "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
-		# 前に作った補完スクリプトは、作れたときだけ置き換える (作れなければ前のものをそのまま使う)
-		{ print -r -- "$line"; print -r -- "$stamp"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out" && rm -f "$failed"
-	fi
-	rm -f "$tmp" "$tmp.new"
+	local -i rc=1
+	{
+		$limit "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null
+		rc=$?
+		if (( rc == 0 )) && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
+			# 前に作った補完スクリプトは、作れたときだけ置き換える (作れなければ前のものをそのまま使う)
+			{ print -r -- "$line"; print -r -- "$stamp"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out" &&
+				rm -f "$failed" && _zsh_comp_changed=1
+		fi
+	} always {
+		# Ctrl-C などで中断したときは、作れなかった記録を消す (次に開くシェルで作り直す)。
+		# 中断は取り消して、.zshrc の残り (compinit やエイリアス) を読み込む
+		if (( TRY_BLOCK_INTERRUPT || rc == 129 || rc == 130 || rc == 143 )); then
+			rm -f "$failed"
+			TRY_BLOCK_INTERRUPT=0
+		fi
+		rm -f "$tmp" "$tmp.new"
+	}
 }
+# mise の補完スクリプトは補完のたびに mise __complete_word__ を呼ぶ (usage は要らない。テストで確かめている)
+_zsh_comp_changed=0
 # gh・uv・rg などは argc-completions にあるので作らない (99local.zsh などで argc-completions を読むと、後から読むそちらが使われる)
 _zsh_comp_gen mise completion zsh
 _zsh_comp_gen codex completion zsh
@@ -61,8 +78,11 @@ _zsh_comp_gen hunk completion zsh
 unfunction _zsh_comp_gen
 unset _zsh_comp_dir
 
-# 自動補完を有効にする
+# 自動補完を有効にする。
+# 補完スクリプトを作り直したときは、ダンプを作り直させる (ファイルの数が変わらないと、#compdef の変更が反映されない)
 autoload -Uz compinit
+(( _zsh_comp_changed )) && rm -f "${ZDOTDIR:-$HOME}/.zcompdump"
+unset _zsh_comp_changed
 compinit -u
 
 # 単語の入力途中でもTab補完を有効化

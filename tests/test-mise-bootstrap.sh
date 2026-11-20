@@ -191,6 +191,9 @@ test "$(cat /tmp/comps)" = "_claude _mise" || { echo "NG: 補完が登録され�
 mise_bin="$(readlink -f "$(command -v mise)")"
 head -2 ~/.cache/zsh/completions/_mise | grep -qxF "# source: ${mise_bin} $(stat -c %Y "$mise_bin")" ||
 	{ echo "NG: _mise に作ったときの mise のパスと mtime が無い"; head -2 ~/.cache/zsh/completions/_mise; exit 1; }
+# _mise は補完のたびに mise __complete_word__ を呼ぶ (usage CLI は要らない。usage はこのマシンに入れていない)
+grep -qE "mise.? __complete_word__ --shell zsh" ~/.cache/zsh/completions/_mise || { echo "NG: _mise が mise __complete_word__ を呼ばない"; exit 1; }
+mise __complete_word__ --shell zsh --line "mise us" | cut -f1 | grep -qx use || { echo "NG: mise __complete_word__ が候補を返さない"; exit 1; }
 if [[ -n "$SKIP_ARGS" ]]; then
 	# 補完スクリプトを作れないツールは、変わるか 1 日たつまで起動のたびには実行しない (hunk が入っていないときに偽物で確かめる)
 	failed=~/.cache/zsh/completions/failed.hunk
@@ -215,20 +218,29 @@ if [[ -n "$SKIP_ARGS" ]]; then
 	fake_hunk_runs 3 "変わった hunk で実行し直さなかった"
 	fake_hunk_runs 3 "変わった hunk で実行し直した後に記録しなかった"
 	# 止まったツールは 5 秒で打ち切り、シェルは開く (作れなかった扱いになる)
-	printf "#!/bin/sh\nexec sleep 120\n" >/tmp/fake-bin/hunk
+	printf "#!/bin/sh\necho run >>/tmp/fake-hunk.log\nexec sleep 120\n" >/tmp/fake-bin/hunk
 	started=$(date +%s)
-	PATH="/tmp/fake-bin:$PATH" zsh -i -c true </dev/null >/dev/null 2>&1
+	fake_hunk_runs 4 "止まる hunk を実行しなかった"
 	test $(($(date +%s) - started)) -lt 60 || { echo "NG: 止まった hunk でシェルの起動が終わらなかった"; exit 1; }
-	grep -q "^# source: /tmp/fake-bin/hunk [0-9]*\$" "$failed" || { echo "NG: 止まった hunk を作れなかったと記録しなかった"; cat "$failed"; exit 1; }
+	grep -qxF "# source: /tmp/fake-bin/hunk $(stat -c %Y /tmp/fake-bin/hunk)" "$failed" || { echo "NG: 止まった hunk を作れなかったと記録しなかった"; cat "$failed"; exit 1; }
 	# 作っている途中に開いたシェルは、止まったツールを待たない (先に作れなかったと記録する)
 	touch -d "@$(($(date +%s) - 3 * 86400))" /tmp/fake-bin/hunk
 	PATH="/tmp/fake-bin:$PATH" zsh -i -c true </dev/null >/dev/null 2>&1 &
-	sleep 2
-	started=$(date +%s)
-	PATH="/tmp/fake-bin:$PATH" zsh -i -c true </dev/null >/dev/null 2>&1
-	test $(($(date +%s) - started)) -lt 4 || { echo "NG: 作っている途中に開いたシェルが、止まった hunk を待った"; exit 1; }
+	for _ in $(seq 60); do
+		grep -qxF "# source: /tmp/fake-bin/hunk $(stat -c %Y /tmp/fake-bin/hunk)" "$failed" 2>/dev/null && break
+		sleep 0.5
+	done
+	fake_hunk_runs 5 "作っている途中に開いたシェルが、止まった hunk をもう一度実行した"
 	wait
-	rm -rf /tmp/fake-bin /tmp/fake-hunk.log "$failed"
+	# 作り直した補完スクリプトの #compdef が変わったら、反映する (ダンプを作り直す)
+	printf "#!/bin/sh\necho run >>/tmp/fake-hunk.log\necho \"#compdef hunk\"\n" >/tmp/fake-bin/hunk
+	fake_hunk_runs 6 "補完スクリプトを出す hunk を実行しなかった"
+	printf "#!/bin/sh\necho run >>/tmp/fake-hunk.log\necho \"#compdef hunk hunk2\"\n" >/tmp/fake-bin/hunk
+	touch -d "@$(($(date +%s) - 3 * 86400))" /tmp/fake-bin/hunk
+	PATH="/tmp/fake-bin:$PATH" zsh -i -c "print -r -- \"\$_comps[hunk2]\" >|/tmp/comps" </dev/null >/dev/null 2>&1
+	test "$(cat /tmp/comps)" = _hunk || { echo "NG: 作り直した補完スクリプトの #compdef の変更が反映されない"; exit 1; }
+	test ! -e "$failed" || { echo "NG: 作れたのに作れなかった記録が残っている"; exit 1; }
+	rm -rf /tmp/fake-bin /tmp/fake-hunk.log "$failed" ~/.cache/zsh/completions/_hunk
 fi
 # 入っていない lazy のツールは bootstrap status で missing と数えられるので、その実行だけ外して (今外しているものに足して) 調べる
 status_without_lazy() {
