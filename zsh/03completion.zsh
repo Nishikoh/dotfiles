@@ -15,34 +15,41 @@ fpath=("$_zsh_comp_dir" $fpath)
 # _zsh_comp_gen <コマンド> <補完スクリプトを出力する引数...>
 _zsh_comp_gen() {
 	# 補完関数のほかのファイルの名前は _ で始めない (compinit が補完関数として拾う)
-	local name=$1 bin=${commands[$1]} out="$_zsh_comp_dir/_$1" failed="$_zsh_comp_dir/failed.$1" src line tmp
+	local name=$1 bin=${commands[$1]} out="$_zsh_comp_dir/_$1" failed="$_zsh_comp_dir/failed.$1" stamp line tmp
+	local -a mtime limit
 	shift
 	# 無いときと、lazy のツールで shim しか無いとき (実行するとインストールが始まる) は作らない
 	[[ -n $bin && $bin != "${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}/shims/"* ]] || return 0
-	src=${bin:A}
 	setopt local_options extended_glob
-	# 実行したときの実体のパスを、補完スクリプトの 2 行目 (作れなかったときは failed.<コマンド>) に書いておき、
-	# ツールが変わるまでは実行しない。作れなかったときは、一時的な失敗かもしれないので 1 日たったら実行し直す
-	if [[ -s $out && ! $src -nt $out ]]; then
+	zmodload -F zsh/stat b:zstat || return 0
+	zstat -A mtime +mtime -- "${bin:A}" || return 0
+	# 実行したときの実体のパスと mtime を、補完スクリプトの 2 行目 (作れなかったときは failed.<コマンド>) に書いておき、
+	# 変わるまでは実行しない (自己更新で mtime が古くなっても気づく)。
+	# 作れなかったときは、一時的な失敗かもしれないので 1 日たったら実行し直す
+	stamp="# source: ${bin:A} $mtime[1]"
+	if [[ -s $out ]]; then
 		{ read -r line; read -r line } <"$out"
-		[[ $line == "# source: $src" ]] && return 0
+		[[ $line == "$stamp" ]] && return 0
 	fi
-	if [[ -s $failed && ! $src -nt $failed && -n $failed(#qN.mh-24) ]]; then
+	if [[ -n $failed(#qN.mh-24) ]]; then
 		read -r line <"$failed"
-		[[ $line == "# source: $src" ]] && return 0
+		[[ $line == "$stamp" ]] && return 0
 	fi
 	mkdir -p "$_zsh_comp_dir" || return 0
-	# 同時に開いたシェル (herdr のペインなど) と取り合わないよう、一時ファイルに書いてから置き換える
+	# 先に作れなかったと記録しておく。同時に開いたシェル (herdr のペインなど) は、ツールが止まっていても待たずに済む
+	print -r -- "$stamp" >|"$failed"
+	# 同時に開いたシェルと取り合わないよう、一時ファイルに書いてから置き換える
 	tmp="$_zsh_comp_dir/tmp.$name.$$"
-	# ツールが止まってもシェルが開くよう、timeout があれば 10 秒で打ち切る (作れなかった扱いになる)
-	local -a limit=()
-	(( $+commands[timeout] )) && limit=(timeout 10)
+	# ツールが止まってもシェルが開くよう、timeout があれば 5 秒で打ち切る (作れなかった扱いになる)。
+	# --foreground は Ctrl-C で止められるようにする
+	if (( $+commands[timeout] )); then
+		limit=(timeout --foreground 5)
+	elif (( $+commands[gtimeout] )); then
+		limit=(gtimeout --foreground 5)
+	fi
 	if $limit "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
-		{ print -r -- "$line"; print -r -- "# source: $src"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out"
-		rm -f "$failed"
-	else
-		# 前に作った補完スクリプトがあれば、そのまま使う
-		print -r -- "# source: $src" >|"$failed"
+		# 前に作った補完スクリプトは、作れたときだけ置き換える (作れなければ前のものをそのまま使う)
+		{ print -r -- "$line"; print -r -- "$stamp"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out" && rm -f "$failed"
 	fi
 	rm -f "$tmp" "$tmp.new"
 }
