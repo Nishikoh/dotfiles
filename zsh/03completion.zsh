@@ -8,6 +8,7 @@ fpath=("${ZSH_CONFIG_PATH:-$HOME/setup/dotfiles/zsh}/completions" $fpath)
 
 # mise で入れたツールが出力する補完スクリプト。生成物はリポジトリではなくキャッシュに置き、
 # ツールが入れ替わったとき (パスが変わる mise upgrade と、mtime が変わる自己更新) だけ作り直す。
+# 作り直しは起動を待たせないよう裏で行い、次に開くシェルから効く。
 # プロジェクトの mise.toml でこれらのツールのバージョンを変えると、そのディレクトリで開くたびに作り直す (今はどこでも latest なので起きない)
 _zsh_comp_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/completions"
 fpath=("$_zsh_comp_dir" $fpath)
@@ -36,53 +37,53 @@ _zsh_comp_gen() {
 		[[ $line == "$stamp" ]] && return 0
 	fi
 	mkdir -p "$_zsh_comp_dir" || return 0
-	# 先に作れなかったと記録しておく。同時に開いたシェル (herdr のペインなど) は、ツールが止まっていても待たずに済む
-	print -r -- "$stamp" >|"$failed"
-	# 同時に開いたシェルと取り合わないよう、一時ファイルに書いてから置き換える
+	# 同時に開いたシェル (herdr のペインなど) と取り合わないよう、一時ファイルに書いてから置き換える
 	tmp="$_zsh_comp_dir/tmp.$name.$$"
-	# ツールが止まってもシェルが開くよう、5 秒で打ち切る (作れなかった扱いになる)。--foreground は Ctrl-C で止められるようにする。
+	# 止まったツールが残らないよう、5 秒で打ち切る (作れなかった扱いになる)。
 	# timeout が無いマシン (coreutils の無い macOS) では perl の alarm で打ち切る
 	if (( $+commands[timeout] )); then
-		limit=(timeout --foreground 5)
+		limit=(timeout -k 1 5)
 	elif (( $+commands[gtimeout] )); then
-		limit=(gtimeout --foreground 5)
+		limit=(gtimeout -k 1 5)
 	elif (( $+commands[perl] )); then
 		limit=(perl -e 'alarm shift; exec @ARGV or exit 127' 5)
 	fi
-	local -i rc=1
-	{
-		$limit "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null
-		rc=$?
-		if (( rc == 0 )) && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
-			# 前に作った補完スクリプトは、作れたときだけ置き換える (作れなければ前のものをそのまま使う)
-			{ print -r -- "$line"; print -r -- "$stamp"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out" &&
-				rm -f "$failed" && _zsh_comp_changed=1
-		fi
-	} always {
-		# Ctrl-C などで中断したときは、作れなかった記録を消す (次に開くシェルで作り直す)。
-		# 中断は取り消して、.zshrc の残り (compinit やエイリアス) を読み込む
-		if (( TRY_BLOCK_INTERRUPT || rc == 129 || rc == 130 || rc == 143 )); then
-			rm -f "$failed"
-			TRY_BLOCK_INTERRUPT=0
-		fi
-		rm -f "$tmp" "$tmp.new"
-	}
+	if $limit "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
+		# 前に作った補完スクリプトは、作れたときだけ置き換える (作れなければ前のものをそのまま使う)。
+		# 置き換えたら updated を置き、次に開くシェルの compinit の前でダンプを消させる
+		{ print -r -- "$line"; print -r -- "$stamp"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out" &&
+			rm -f "$failed" && : >|"$_zsh_comp_dir/updated"
+	else
+		print -r -- "$stamp" >|"$failed"
+	fi
+	rm -f "$tmp" "$tmp.new"
 }
+# 裏で作る (止まったツールや Ctrl-C でシェルの起動を止めない)。ZSH_COMP_GEN_FOREGROUND=1 なら待つ (テスト用)。
+# gh・uv・rg などは argc-completions にあるので作らない (99local.zsh などで argc-completions を読むと、後から読むそちらが使われる)。
 # mise の補完スクリプトは補完のたびに mise __complete_word__ を呼ぶ (usage は要らない。テストで確かめている)
-_zsh_comp_changed=0
-# gh・uv・rg などは argc-completions にあるので作らない (99local.zsh などで argc-completions を読むと、後から読むそちらが使われる)
-_zsh_comp_gen mise completion zsh
-_zsh_comp_gen codex completion zsh
-_zsh_comp_gen herdr completion zsh
-_zsh_comp_gen hunk completion zsh
-unfunction _zsh_comp_gen
-unset _zsh_comp_dir
+_zsh_comp_gen_all() {
+	# 端末を閉じるなどで途中で終わったときの一時ファイルを片付ける
+	rm -f "$_zsh_comp_dir"/tmp.*(N.mmin+10)
+	_zsh_comp_gen mise completion zsh
+	_zsh_comp_gen codex completion zsh
+	_zsh_comp_gen herdr completion zsh
+	_zsh_comp_gen hunk completion zsh
+}
+if [[ -n $ZSH_COMP_GEN_FOREGROUND ]]; then
+	_zsh_comp_gen_all
+else
+	_zsh_comp_gen_all </dev/null >/dev/null 2>&1 &!
+fi
+unfunction _zsh_comp_gen _zsh_comp_gen_all
 
 # 自動補完を有効にする。
-# 補完スクリプトを作り直したときは、ダンプを作り直させる (ファイルの数が変わらないと、#compdef の変更が反映されない)
+# 補完スクリプトを作り直していたら、ダンプを消して作り直させる。ファイルの数が変わらないと #compdef の変更が反映されず、
+# 裏で作っている途中の compinit は、新しいファイルを数えたのに登録していないダンプを書くことがある (裏で直接消すと、その後に書かれる)
 autoload -Uz compinit
-(( _zsh_comp_changed )) && rm -f "${ZDOTDIR:-$HOME}/.zcompdump"
-unset _zsh_comp_changed
+if [[ -e $_zsh_comp_dir/updated ]]; then
+	rm -f "$_zsh_comp_dir/updated" "${ZDOTDIR:-$HOME}/.zcompdump"
+fi
+unset _zsh_comp_dir
 compinit -u
 
 # 単語の入力途中でもTab補完を有効化

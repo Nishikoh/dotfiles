@@ -9,6 +9,7 @@
 #                               R・O は <x...> のように複数の値を取るもの。値の名前は help の <x> の x (無ければ -)
 #   v フラグ 選択肢...          (choices: ...) のあるオプションの値
 _claude_help() {
+	(( $+commands[claude] )) || return 1
 	zmodload -F zsh/datetime p:EPOCHSECONDS
 	zmodload -F zsh/stat b:zstat
 	(( ${+_claude_help_cache} )) || typeset -gA _claude_help_cache _claude_help_failed
