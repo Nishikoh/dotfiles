@@ -284,10 +284,10 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	for f in _codex _herdr _hunk; do wait_file ~/.cache/zsh/completions/$f; done
 	zsh -i -c "print -r -- \"\$_comps[codex] \$_comps[herdr] \$_comps[hunk]\" >|/tmp/comps" </dev/null >/dev/null 2>&1
 	test "$(cat /tmp/comps)" = "_codex _herdr _hunk" || { echo "NG: 補完が登録されていない: $(cat /tmp/comps)"; exit 1; }
-	stat -c "%n %Y" ~/.cache/zsh/completions/_* >/tmp/comp-mtime
-	zsh -i -c true </dev/null >/dev/null 2>&1
-	sleep 3 # 裏で作り直していたら終わるのを待つ
-	stat -c "%n %Y" ~/.cache/zsh/completions/_* | diff /tmp/comp-mtime - || { echo "NG: 2 回目の起動で補完を作り直した"; exit 1; }
+	# (作り直したかを起動の後すぐに見るため、ここでは起動の中で作らせる。作れなかった記録 failed.* も比べる)
+	stat -c "%n %Y" ~/.cache/zsh/completions/* >/tmp/comp-mtime
+	ZSH_COMP_GEN_FOREGROUND=1 zsh -i -c true </dev/null >/dev/null 2>&1
+	stat -c "%n %Y" ~/.cache/zsh/completions/* | diff /tmp/comp-mtime - || { echo "NG: 2 回目の起動で補完を作り直した"; exit 1; }
 	# claude の補完は help を読むので、help の形が変わってサブコマンド・オプション・選択肢を読めなくなったら失敗させる
 	zsh -i -c "source \"\$ZSH_CONFIG_PATH/completions/_claude\"; { _claude_help; _claude_help mcp } >|/tmp/claude-comp" </dev/null >/dev/null 2>&1
 	tab="$(printf "\t")"

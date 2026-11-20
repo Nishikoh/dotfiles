@@ -37,8 +37,10 @@ _zsh_comp_gen() {
 		[[ $line == "$stamp" ]] && return 0
 	fi
 	mkdir -p "$_zsh_comp_dir" || return 0
-	# 同時に開いたシェル (herdr のペインなど) と取り合わないよう、一時ファイルに書いてから置き換える
-	tmp="$_zsh_comp_dir/tmp.$name.$$"
+	# 同時に開いたシェル (herdr のペインなど) と取り合わないよう、一時ファイルに書いてから置き換える。
+	# 名前には裏の処理自身の PID を使う ($$ は親のシェルの PID で、exec zsh の後の処理と重なる)
+	zmodload -F zsh/system p:sysparams || return 0
+	tmp="$_zsh_comp_dir/tmp.$name.$sysparams[pid]"
 	# 止まったツールが残らないよう、5 秒で打ち切る (作れなかった扱いになる)。
 	# timeout が無いマシン (coreutils の無い macOS) では perl の alarm で打ち切る
 	if (( $+commands[timeout] )); then
@@ -50,9 +52,9 @@ _zsh_comp_gen() {
 	fi
 	if $limit "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
 		# 前に作った補完スクリプトは、作れたときだけ置き換える (作れなければ前のものをそのまま使う)。
-		# 置き換えたら updated を置き、次に開くシェルの compinit の前でダンプを消させる
+		# 置き換えたら updated に時刻を書き、ダンプを作り直させる (compinit の前と後で見る)
 		{ print -r -- "$line"; print -r -- "$stamp"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out" &&
-			rm -f "$failed" && : >|"$_zsh_comp_dir/updated"
+			rm -f "$failed" && zmodload -F zsh/datetime p:EPOCHREALTIME && print -r -- "$EPOCHREALTIME" >|"$_zsh_comp_dir/updated"
 	else
 		print -r -- "$stamp" >|"$failed"
 	fi
@@ -77,14 +79,22 @@ fi
 unfunction _zsh_comp_gen _zsh_comp_gen_all
 
 # 自動補完を有効にする。
-# 補完スクリプトを作り直していたら、ダンプを消して作り直させる。ファイルの数が変わらないと #compdef の変更が反映されず、
-# 裏で作っている途中の compinit は、新しいファイルを数えたのに登録していないダンプを書くことがある (裏で直接消すと、その後に書かれる)
+# 補完スクリプトを作り直したら (updated の時刻が変わったら)、ダンプを消して作り直させる。ファイルの数が変わらないと
+# #compdef の変更が反映されず、裏で作っている途中の compinit は、新しいファイルを数えたのに登録していないダンプを書くことがある。
+# compinit の最中に変わったときは、このシェルが書いたダンプを消す (同時に開いたシェルが先に作り直していても、後から古いダンプで上書きしないように)。
+# ダンプを作ったときの時刻は dumped に書いておく
 autoload -Uz compinit
-if [[ -e $_zsh_comp_dir/updated ]]; then
-	rm -f "$_zsh_comp_dir/updated" "${ZDOTDIR:-$HOME}/.zcompdump"
-fi
-unset _zsh_comp_dir
+_zsh_comp_updated= _zsh_comp_dumped=
+[[ -r $_zsh_comp_dir/updated ]] && _zsh_comp_updated="$(<"$_zsh_comp_dir/updated")"
+[[ -r $_zsh_comp_dir/dumped ]] && _zsh_comp_dumped="$(<"$_zsh_comp_dir/dumped")"
+[[ $_zsh_comp_updated != "$_zsh_comp_dumped" ]] && rm -f "${ZDOTDIR:-$HOME}/.zcompdump"
 compinit -u
+if [[ -r $_zsh_comp_dir/updated && "$(<"$_zsh_comp_dir/updated")" != "$_zsh_comp_updated" ]]; then
+	rm -f "${ZDOTDIR:-$HOME}/.zcompdump"
+elif [[ $_zsh_comp_updated != "$_zsh_comp_dumped" ]]; then
+	print -r -- "$_zsh_comp_updated" >|"$_zsh_comp_dir/dumped"
+fi
+unset _zsh_comp_dir _zsh_comp_updated _zsh_comp_dumped
 
 # 単語の入力途中でもTab補完を有効化
 setopt complete_in_word
