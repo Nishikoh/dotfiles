@@ -2,6 +2,44 @@
 # Completion
 # -----------------------------
 
+# 補完スクリプトを fpath に置く (compinit より前に置く)
+# リポジトリの補完 (zsh/completions)。ツールが補完スクリプトを出せない claude など
+fpath=("${ZSH_CONFIG_PATH:-$HOME/setup/dotfiles/zsh}/completions" $fpath)
+
+# mise で入れたツールが出力する補完スクリプト。生成物はリポジトリではなくキャッシュに置き、
+# ツールが入れ替わったとき (パスが変わる mise upgrade と、mtime が変わる自己更新) だけ作り直す
+_zsh_comp_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/completions"
+fpath=("$_zsh_comp_dir" $fpath)
+
+# _zsh_comp_gen <コマンド> <補完スクリプトを出力する引数...>
+_zsh_comp_gen() {
+	local name=$1 bin=${commands[$1]} out="$_zsh_comp_dir/_$1" src line tmp
+	shift
+	# 無いときと、lazy のツールで shim しか無いとき (実行するとインストールが始まる) は作らない
+	[[ -n $bin && $bin != "${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}/shims/"* ]] || return 0
+	src=${bin:A}
+	# 2 行目に、作ったときの実体のパスを書いておく
+	if [[ -s $out && ! $src -nt $out ]]; then
+		{ read -r line; read -r line } <"$out"
+		[[ $line == "# source: $src" ]] && return 0
+	fi
+	mkdir -p "$_zsh_comp_dir" || return 0
+	# 同時に開いたシェル (herdr のペインなど) と取り合わないよう、一時ファイルに書いてから置き換える。
+	# 一時ファイルの名前は _ で始めない (compinit が補完関数として拾う)
+	tmp="$_zsh_comp_dir/tmp.$name.$$"
+	if "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
+		{ print -r -- "$line"; print -r -- "# source: $src"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out"
+	fi
+	rm -f "$tmp" "$tmp.new"
+}
+# gh・uv・rg などは argc-completions にあるので作らない (99local.zsh などで argc-completions を読むと、後から読むそちらが使われる)
+_zsh_comp_gen mise completion zsh
+_zsh_comp_gen codex completion zsh
+_zsh_comp_gen herdr completion zsh
+_zsh_comp_gen hunk completion zsh
+unfunction _zsh_comp_gen
+unset _zsh_comp_dir
+
 # 自動補完を有効にする
 autoload -Uz compinit
 compinit -u

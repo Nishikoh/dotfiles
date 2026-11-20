@@ -1,0 +1,132 @@
+#compdef claude
+# Claude Code の補完。claude には補完スクリプトを出すコマンドが無く、`claude completion zsh` のような知らない単語は
+# プロンプトとして送られてしまう。そこで commander が出す --help を読んで、サブコマンドとオプション (と選択肢) を補完する。
+# claude は必ず --help 付きで、親の help の Commands にあった名前だけを並べて実行する。help の解析結果はシェルごとに覚える
+
+# claude [サブコマンド...] --help を 1 行 1 項目 (タブ区切り) にする
+#   c 名前 説明            サブコマンド (別名も 1 行ずつ)
+#   o フラグ 値 説明       オプション (別名のフラグも 1 行ずつ)。値は "-" (取らない)・r (必須)・o (省略できる)
+#   v フラグ 選択肢...     (choices: ...) のあるオプションの値
+_claude_help() {
+	(( ${+_claude_help_cache} )) || typeset -gA _claude_help_cache
+	if (( ! ${+_claude_help_cache[$*]} )); then
+		_claude_help_cache[$*]="$(_call_program help command claude "$@" --help </dev/null 2>/dev/null | awk '
+			function flush(   w, n, i, f, names, arg, ch) {
+				if (head == "") return
+				sub(/^ +/, "", desc)
+				if (sec == "Options:") {
+					arg = head ~ / </ ? "r" : (head ~ / \[/ ? "o" : "-")
+					ch = ""
+					if (match(desc, /\(choices: [^)]*\)/)) {
+						ch = substr(desc, RSTART + 10, RLENGTH - 11)
+						sub(/,? *default:.*/, "", ch)
+						gsub(/[",]/, "", ch)
+					}
+				}
+				# 一覧で折り返さないよう、説明は最初の文の 70 文字まで
+				sub(/ *\((choices|default):.*/, "", desc)
+				sub(/\. .*/, "", desc)
+				if (length(desc) > 70) desc = substr(desc, 1, 67) "..."
+				n = split(head, w, " ")
+				if (sec == "Commands:") {
+					n = split(w[1], names, "|")
+					for (i = 1; i <= n; i++)
+						if (names[i] ~ /^[A-Za-z0-9][-A-Za-z0-9_]*$/) print "c\t" names[i] "\t" desc
+				} else {
+					for (i = 1; i <= n; i++) {
+						f = w[i]
+						sub(/,$/, "", f)
+						if (f !~ /^-/) break
+						print "o\t" f "\t" arg "\t" desc
+						if (ch != "") print "v\t" f "\t" ch
+					}
+				}
+				head = ""
+				desc = ""
+			}
+			/^[A-Z][A-Za-z ]*:$/ { flush(); sec = $0; next }
+			sec != "Options:" && sec != "Commands:" { next }
+			/^  [^ ]/ {
+				flush()
+				head = substr($0, 3)
+				desc = ""
+				if (match(head, /  +/)) {
+					desc = substr(head, RSTART + RLENGTH)
+					head = substr(head, 1, RSTART - 1)
+				}
+				next
+			}
+			/^   +[^ ]/ && head != "" { d = $0; sub(/^ +/, "", d); desc = desc " " d; next }
+			{ flush() }
+			END { flush() }
+		')"
+	fi
+	print -r -- "$_claude_help_cache[$*]"
+}
+
+_claude() {
+	local -a chain cmds opts
+	local -A iscmd argof choices
+	local i w f line t a b c positional=0
+
+	# chain (入力済みのサブコマンド) の help を読み込む
+	_claude_load() {
+		cmds=() opts=() iscmd=() argof=() choices=()
+		for line in ${(f)"$(_claude_help $chain)"}; do
+			IFS=$'\t' read -r t a b c <<<"$line"
+			case $t in
+			# help はたどらない (`claude mcp help --help` は終了ステータスが 1 になる)
+			c) cmds+=("$a:$b"); [[ $a == help ]] || iscmd[$a]=1 ;;
+			o) opts+=("$a:$c") argof[$a]=$b ;;
+			v) choices[$a]=$b ;;
+			esac
+		done
+	}
+
+	(( $+commands[claude] )) || { _default; return }
+	_claude_load
+	for (( i = 2; i < CURRENT; i++ )); do
+		w=$words[i]
+		if [[ $w == -* ]]; then
+			# 値を取るオプションは次の語を値として飛ばす (--opt=値 のときと、今入力している語が値のときは飛ばさない)
+			if [[ $w != *=* && ${argof[$w]:--} != - ]] && (( i + 1 < CURRENT )); then
+				[[ ${argof[$w]} == r || $words[i+1] != -* ]] && (( i++ ))
+			fi
+		elif (( ! positional && ${+iscmd[$w]} )); then
+			chain+=("$w")
+			_claude_load
+		else
+			# サブコマンドの引数 (トップレベルではプロンプト)。これより後ろではサブコマンドを出さない
+			positional=1
+		fi
+	done
+
+	w=$words[CURRENT]
+	f=$words[CURRENT-1]
+	if [[ $w == -*=* ]]; then
+		f=${w%%=*}
+		compset -P '*='
+		if [[ -n ${choices[$f]} ]]; then
+			compadd -- ${=choices[$f]}
+		else
+			_default
+		fi
+	elif [[ $f == -* && $f != *=* && ${argof[$f]:--} != - ]] && [[ ${argof[$f]} == r || $w != -* ]]; then
+		if [[ -n ${choices[$f]} ]]; then
+			compadd -- ${=choices[$f]}
+		else
+			_default
+		fi
+	elif [[ $w == -* ]]; then
+		_describe -t options option opts
+	elif (( ! positional && $#cmds )); then
+		_describe -t commands command cmds
+	else
+		_default
+	fi
+}
+
+# compinit の autoload から呼ばれたときだけ補完する (source したときは関数を定義するだけ。テストが _claude_help を使う)
+if [[ $funcstack[1] == _claude ]]; then
+	_claude "$@"
+fi

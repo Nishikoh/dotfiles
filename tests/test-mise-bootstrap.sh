@@ -184,6 +184,11 @@ if grep -F "__gcloud_cmd_cache: function" /tmp/zsh.log; then
 fi
 ls ~/.local/share/mise/installs >/tmp/installs-after 2>/dev/null || true
 diff /tmp/installs-before /tmp/installs-after || { echo "NG: zsh の起動でツールが入った"; exit 1; }
+
+echo "::: 補完: claude はリポジトリの zsh/completions/_claude、mise などはツールが出す補完スクリプトを起動時にキャッシュへ作る"
+zsh -i -c "print -r -- \"\$_comps[claude] \$_comps[mise]\" >|/tmp/comps" </dev/null >/dev/null 2>&1
+test "$(cat /tmp/comps)" = "_claude _mise" || { echo "NG: 補完が登録されていない: $(cat /tmp/comps)"; exit 1; }
+head -2 ~/.cache/zsh/completions/_mise | grep -qxF "# source: $(readlink -f "$(command -v mise)")"
 # 入っていない lazy のツールは bootstrap status で missing と数えられるので、その実行だけ外して (今外しているものに足して) 調べる
 status_without_lazy() {
 	MISE_DISABLE_TOOLS="$({ mise settings get disable_tools | sed -e "s/[][\" ]//g" -e "s/,/\n/g"; lazy_tools; } | sed "/^\$/d" | paste -sd, -)" \
@@ -212,6 +217,18 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	fi
 	# codex が System 設定を読み込むこと (features.multi_agent = false は既定値の true と異なる)
 	zsh -i -c "codex features list" </dev/null | grep -E "^multi_agent +.* false$"
+	# mise で入れたツールの補完は起動時に作り、ツールが変わらなければ 2 回目の起動では作り直さない
+	zsh -i -c "print -r -- \"\$_comps[codex] \$_comps[herdr] \$_comps[hunk]\" >|/tmp/comps" </dev/null >/dev/null 2>&1
+	test "$(cat /tmp/comps)" = "_codex _herdr _hunk" || { echo "NG: 補完が登録されていない: $(cat /tmp/comps)"; exit 1; }
+	stat -c "%n %Y" ~/.cache/zsh/completions/_* >/tmp/comp-mtime
+	zsh -i -c true </dev/null >/dev/null 2>&1
+	stat -c "%n %Y" ~/.cache/zsh/completions/_* | diff /tmp/comp-mtime - || { echo "NG: 2 回目の起動で補完を作り直した"; exit 1; }
+	# claude の補完は help を読むので、help の形が変わってサブコマンド・オプション・選択肢を読めなくなったら失敗させる
+	zsh -i -c "source \"\$ZSH_CONFIG_PATH/completions/_claude\"; { _claude_help; _claude_help mcp } >|/tmp/claude-comp" </dev/null >/dev/null 2>&1
+	tab="$(printf "\t")"
+	for re in "^c${tab}mcp${tab}" "^c${tab}add${tab}" "^o${tab}--model${tab}r${tab}" "^o${tab}-p${tab}-${tab}" "^v${tab}--permission-mode${tab}(.* )?plan( |\$)"; do
+		grep -qE "$re" /tmp/claude-comp || { echo "NG: claude の help から補完を作れない ($re)"; cat /tmp/claude-comp; exit 1; }
+	done
 fi
 
 echo "::: 既定では disable_tools のプリセット (.config/mise/config.toml) を外し、tools:* タスクでマシンごとに変えられる"
