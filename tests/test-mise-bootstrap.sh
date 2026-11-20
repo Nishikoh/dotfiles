@@ -188,8 +188,9 @@ diff /tmp/installs-before /tmp/installs-after || { echo "NG: zsh の起動でツ
 echo "::: 補完: claude はリポジトリの zsh/completions/_claude、mise などはツールが出す補完スクリプトを起動時にキャッシュへ作る"
 zsh -i -c "print -r -- \"\$_comps[claude] \$_comps[mise]\" >|/tmp/comps" </dev/null >/dev/null 2>&1
 test "$(cat /tmp/comps)" = "_claude _mise" || { echo "NG: 補完が登録されていない: $(cat /tmp/comps)"; exit 1; }
-head -2 ~/.cache/zsh/completions/_mise | grep -qxF "# source: $(readlink -f "$(command -v mise)")" ||
-	{ echo "NG: _mise に作ったときの mise のパスが無い"; head -2 ~/.cache/zsh/completions/_mise; exit 1; }
+mise_bin="$(readlink -f "$(command -v mise)")"
+head -2 ~/.cache/zsh/completions/_mise | grep -qxF "# source: ${mise_bin} $(stat -c %Y "$mise_bin")" ||
+	{ echo "NG: _mise に作ったときの mise のパスと mtime が無い"; head -2 ~/.cache/zsh/completions/_mise; exit 1; }
 if [[ -n "$SKIP_ARGS" ]]; then
 	# 補完スクリプトを作れないツールは、変わるか 1 日たつまで起動のたびには実行しない (hunk が入っていないときに偽物で確かめる)
 	failed=~/.cache/zsh/completions/failed.hunk
