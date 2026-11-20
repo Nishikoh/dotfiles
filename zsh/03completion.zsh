@@ -2,9 +2,99 @@
 # Completion
 # -----------------------------
 
-# 自動補完を有効にする
+# 補完スクリプトを fpath に置く (compinit より前に置く)
+# リポジトリの補完 (zsh/completions)。ツールが補完スクリプトを出せない claude など
+fpath=("${ZSH_CONFIG_PATH:-$HOME/setup/dotfiles/zsh}/completions" $fpath)
+
+# mise で入れたツールが出力する補完スクリプト。生成物はリポジトリではなくキャッシュに置き、
+# ツールが入れ替わったとき (パスが変わる mise upgrade と、mtime が変わる自己更新) だけ作り直す。
+# 作り直しは起動を待たせないよう裏で行い、次に開くシェルから効く。
+# プロジェクトの mise.toml でこれらのツールのバージョンを変えると、そのディレクトリで開くたびに作り直す (今はどこでも latest なので起きない)
+_zsh_comp_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/completions"
+fpath=("$_zsh_comp_dir" $fpath)
+
+# _zsh_comp_gen <コマンド> <補完スクリプトを出力する引数...>
+_zsh_comp_gen() {
+	# 補完関数のほかのファイルの名前は _ で始めない (compinit が補完関数として拾う)
+	local name=$1 bin=${commands[$1]} out="$_zsh_comp_dir/_$1" failed="$_zsh_comp_dir/failed.$1" stamp line tmp
+	local -a mtime limit
+	shift
+	# 無いときと、lazy のツールで shim しか無いとき (実行するとインストールが始まる) は作らない
+	[[ -n $bin && $bin != "${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}/shims/"* ]] || return 0
+	setopt local_options extended_glob
+	zmodload -F zsh/stat b:zstat || return 0
+	zstat -A mtime +mtime -- "${bin:A}" || return 0
+	# 実行したときの実体のパスと mtime を、補完スクリプトの 2 行目 (作れなかったときは failed.<コマンド>) に書いておき、
+	# 変わるまでは実行しない (自己更新で mtime が古くなっても気づく)。
+	# 作れなかったときは、一時的な失敗かもしれないので 1 日たったら実行し直す
+	stamp="# source: ${bin:A} $mtime[1]"
+	if [[ -s $out ]]; then
+		{ read -r line; read -r line } <"$out"
+		[[ $line == "$stamp" ]] && return 0
+	fi
+	if [[ -n $failed(#qN.mh-24) ]]; then
+		read -r line <"$failed"
+		[[ $line == "$stamp" ]] && return 0
+	fi
+	mkdir -p "$_zsh_comp_dir" || return 0
+	# 同時に開いたシェル (herdr のペインなど) と取り合わないよう、一時ファイルに書いてから置き換える。
+	# 名前には裏の処理自身の PID を使う ($$ は親のシェルの PID で、exec zsh の後の処理と重なる)
+	zmodload -F zsh/system p:sysparams || return 0
+	tmp="$_zsh_comp_dir/tmp.$name.$sysparams[pid]"
+	# 止まったツールが残らないよう、5 秒で打ち切る (作れなかった扱いになる)。
+	# timeout が無いマシン (coreutils の無い macOS) では perl の alarm で打ち切る
+	if (( $+commands[timeout] )); then
+		limit=(timeout -k 1 5)
+	elif (( $+commands[gtimeout] )); then
+		limit=(gtimeout -k 1 5)
+	elif (( $+commands[perl] )); then
+		limit=(perl -e 'alarm shift; exec @ARGV or exit 127' 5)
+	fi
+	if $limit "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
+		# 前に作った補完スクリプトは、作れたときだけ置き換える (作れなければ前のものをそのまま使う)。
+		# 置き換えたら updated に時刻を書き、ダンプを作り直させる (compinit の前と後で見る)
+		{ print -r -- "$line"; print -r -- "$stamp"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out" &&
+			rm -f "$failed" && zmodload -F zsh/datetime p:EPOCHREALTIME && print -r -- "$EPOCHREALTIME" >|"$_zsh_comp_dir/updated"
+	else
+		print -r -- "$stamp" >|"$failed"
+	fi
+	rm -f "$tmp" "$tmp.new"
+}
+# 裏で作る (止まったツールや Ctrl-C でシェルの起動を止めない)。ZSH_COMP_GEN_FOREGROUND=1 なら待つ (テスト用)。
+# gh・uv・rg などは argc-completions にあるので作らない (99local.zsh などで argc-completions を読むと、後から読むそちらが使われる)。
+# mise の補完スクリプトは補完のたびに mise __complete_word__ を呼ぶ (usage は要らない。テストで確かめている)
+_zsh_comp_gen_all() {
+	# 端末を閉じるなどで途中で終わったときの一時ファイルを片付ける
+	rm -f "$_zsh_comp_dir"/tmp.*(N.mmin+10)
+	_zsh_comp_gen mise completion zsh
+	_zsh_comp_gen codex completion zsh
+	_zsh_comp_gen herdr completion zsh
+	_zsh_comp_gen hunk completion zsh
+}
+if [[ -n $ZSH_COMP_GEN_FOREGROUND ]]; then
+	_zsh_comp_gen_all
+else
+	_zsh_comp_gen_all </dev/null >/dev/null 2>&1 &!
+fi
+unfunction _zsh_comp_gen _zsh_comp_gen_all
+
+# 自動補完を有効にする。
+# 補完スクリプトを作り直したら (updated の時刻が変わったら)、ダンプを消して作り直させる。ファイルの数が変わらないと
+# #compdef の変更が反映されず、裏で作っている途中の compinit は、新しいファイルを数えたのに登録していないダンプを書くことがある。
+# compinit の最中に変わったときは、このシェルが書いたダンプを消す (同時に開いたシェルが先に作り直していても、後から古いダンプで上書きしないように)。
+# ダンプを作ったときの時刻は dumped に書いておく
 autoload -Uz compinit
+_zsh_comp_updated= _zsh_comp_dumped=
+[[ -r $_zsh_comp_dir/updated ]] && _zsh_comp_updated="$(<"$_zsh_comp_dir/updated")"
+[[ -r $_zsh_comp_dir/dumped ]] && _zsh_comp_dumped="$(<"$_zsh_comp_dir/dumped")"
+[[ $_zsh_comp_updated != "$_zsh_comp_dumped" ]] && rm -f "${ZDOTDIR:-$HOME}/.zcompdump"
 compinit -u
+if [[ -r $_zsh_comp_dir/updated && "$(<"$_zsh_comp_dir/updated")" != "$_zsh_comp_updated" ]]; then
+	rm -f "${ZDOTDIR:-$HOME}/.zcompdump"
+elif [[ $_zsh_comp_updated != "$_zsh_comp_dumped" ]]; then
+	print -r -- "$_zsh_comp_updated" >|"$_zsh_comp_dir/dumped"
+fi
+unset _zsh_comp_dir _zsh_comp_updated _zsh_comp_dumped
 
 # 単語の入力途中でもTab補完を有効化
 setopt complete_in_word

@@ -184,6 +184,73 @@ if grep -F "__gcloud_cmd_cache: function" /tmp/zsh.log; then
 fi
 ls ~/.local/share/mise/installs >/tmp/installs-after 2>/dev/null || true
 diff /tmp/installs-before /tmp/installs-after || { echo "NG: zsh の起動でツールが入った"; exit 1; }
+
+echo "::: 補完: claude はリポジトリの zsh/completions/_claude、mise などはツールが出す補完スクリプトを裏でキャッシュへ作り、次に開くシェルから効く"
+# 裏で作り終わるまで待つ (最大 15 秒)
+wait_file() { for _ in $(seq 150); do test -s "$1" && return 0; sleep 0.1; done; echo "NG: $1 ができない"; exit 1; }
+# 新しいマシンと同じく、補完スクリプトもダンプも無いところから始める
+# (裏で作っている途中の compinit が書いたダンプで、次のシェルに登録されないことがあった。Arch で起きる)
+rm -rf ~/.cache/zsh/completions ~/.zcompdump
+zsh -i -c true </dev/null >/dev/null 2>&1
+wait_file ~/.cache/zsh/completions/_mise
+zsh -i -c "print -r -- \"\$_comps[claude] \$_comps[mise]\" >|/tmp/comps" </dev/null >/dev/null 2>&1
+test "$(cat /tmp/comps)" = "_claude _mise" || { echo "NG: 補完が登録されていない: $(cat /tmp/comps)"; exit 1; }
+mise_bin="$(readlink -f "$(command -v mise)")"
+head -2 ~/.cache/zsh/completions/_mise | grep -qxF "# source: ${mise_bin} $(stat -c %Y "$mise_bin")" ||
+	{ echo "NG: _mise に作ったときの mise のパスと mtime が無い"; head -2 ~/.cache/zsh/completions/_mise; exit 1; }
+# _mise は補完のたびに mise __complete_word__ を呼ぶ (usage CLI は要らない。usage はこのマシンに入れていない)
+grep -qE "mise.? __complete_word__ --shell zsh" ~/.cache/zsh/completions/_mise || { echo "NG: _mise が mise __complete_word__ を呼ばない"; exit 1; }
+mise __complete_word__ --shell zsh --line "mise us" | cut -f1 | grep -qx use || { echo "NG: mise __complete_word__ が候補を返さない"; exit 1; }
+if [[ -n "$SKIP_ARGS" ]]; then
+	# 補完スクリプトを作れないツールは、変わるか 1 日たつまで起動のたびには実行しない (hunk が入っていないときに偽物で確かめる)。
+	# 実行した回数を数えるため、ここでは裏ではなく起動の中で作らせる (ZSH_COMP_GEN_FOREGROUND)
+	failed=~/.cache/zsh/completions/failed.hunk
+	rm -rf /tmp/fake-bin /tmp/fake-hunk.log "$failed"
+	mkdir /tmp/fake-bin
+	printf "#!/bin/sh\necho run >>/tmp/fake-hunk.log\n" >/tmp/fake-bin/hunk
+	chmod +x /tmp/fake-bin/hunk
+	# 起動して、偽物の hunk を実行した回数を確かめる
+	fake_hunk_runs() {
+		ZSH_COMP_GEN_FOREGROUND=1 PATH="/tmp/fake-bin:$PATH" zsh -i -c true </dev/null >/dev/null 2>&1
+		test "$(wc -l </tmp/fake-hunk.log)" = "$1" || { echo "NG: $2 (hunk を実行した回数: $(wc -l </tmp/fake-hunk.log)、期待: $1)"; exit 1; }
+	}
+	fake_hunk_runs 1 "補完スクリプトを作れない hunk を実行しなかった"
+	fake_hunk_runs 1 "補完スクリプトを作れない hunk を起動のたびに実行した"
+	test ! -e ~/.cache/zsh/completions/_hunk || { echo "NG: 作れなかったのに _hunk がある"; exit 1; }
+	# 1 日たったら (hunk は変わらなくても) 実行し直し、また記録する
+	touch -d "@$(($(date +%s) - 2 * 86400))" "$failed"
+	fake_hunk_runs 2 "作れなかった記録が 1 日たっても実行し直さなかった"
+	fake_hunk_runs 2 "実行し直した後に記録しなかった"
+	# 変わったら (自己更新など。mtime が古くなっても) 実行し直し、また記録する
+	touch -d "@$(($(date +%s) - 3 * 86400))" /tmp/fake-bin/hunk
+	fake_hunk_runs 3 "変わった hunk で実行し直さなかった"
+	fake_hunk_runs 3 "変わった hunk で実行し直した後に記録しなかった"
+	# 作り直した補完スクリプトの #compdef が変わったら、反映する (ダンプを作り直す)
+	printf "#!/bin/sh\necho run >>/tmp/fake-hunk.log\necho \"#compdef hunk\"\n" >/tmp/fake-bin/hunk
+	fake_hunk_runs 4 "補完スクリプトを出す hunk を実行しなかった"
+	test ! -e "$failed" || { echo "NG: 作れたのに作れなかった記録が残っている"; exit 1; }
+	printf "#!/bin/sh\necho run >>/tmp/fake-hunk.log\necho \"#compdef hunk hunk2\"\n" >/tmp/fake-bin/hunk
+	touch -d "@$(($(date +%s) - 3 * 86400))" /tmp/fake-bin/hunk
+	ZSH_COMP_GEN_FOREGROUND=1 PATH="/tmp/fake-bin:$PATH" zsh -i -c "print -r -- \"\$_comps[hunk2]\" >|/tmp/comps" </dev/null >/dev/null 2>&1
+	test "$(cat /tmp/comps)" = _hunk || { echo "NG: 作り直した補完スクリプトの #compdef の変更が反映されない"; exit 1; }
+	# 裏で作るので、止まったツールでもシェルの起動は待たない。止まったツールは 5 秒で打ち切られて残らず、作れなかったと記録する
+	printf "#!/bin/sh\necho run >>/tmp/fake-hunk.log\nexec sleep 120\n" >/tmp/fake-bin/hunk
+	started=$(date +%s)
+	PATH="/tmp/fake-bin:$PATH" zsh -i -c true </dev/null >/dev/null 2>&1
+	test $(($(date +%s) - started)) -lt 5 || { echo "NG: 止まった hunk がシェルの起動を待たせた"; exit 1; }
+	for _ in $(seq 150); do
+		grep -qxF "# source: /tmp/fake-bin/hunk $(stat -c %Y /tmp/fake-bin/hunk)" "$failed" 2>/dev/null && break
+		sleep 0.1
+	done
+	grep -qxF "# source: /tmp/fake-bin/hunk $(stat -c %Y /tmp/fake-bin/hunk)" "$failed" || { echo "NG: 止まった hunk を打ち切って、作れなかったと記録しなかった"; exit 1; }
+	test "$(wc -l </tmp/fake-hunk.log)" = 6 || { echo "NG: 止まる hunk を一度だけ実行しなかった (回数: $(wc -l </tmp/fake-hunk.log))"; exit 1; }
+	sleep 1
+	if for p in /proc/[0-9]*; do tr "\0" " " <"$p/cmdline" 2>/dev/null; echo; done | grep -qx "sleep 120 "; then
+		echo "NG: 止まった hunk が打ち切られずに残っている"
+		exit 1
+	fi
+	rm -rf /tmp/fake-bin /tmp/fake-hunk.log "$failed" ~/.cache/zsh/completions/_hunk
+fi
 # 入っていない lazy のツールは bootstrap status で missing と数えられるので、その実行だけ外して (今外しているものに足して) 調べる
 status_without_lazy() {
 	MISE_DISABLE_TOOLS="$({ mise settings get disable_tools | sed -e "s/[][\" ]//g" -e "s/,/\n/g"; lazy_tools; } | sed "/^\$/d" | paste -sd, -)" \
@@ -212,6 +279,22 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	fi
 	# codex が System 設定を読み込むこと (features.multi_agent = false は既定値の true と異なる)
 	zsh -i -c "codex features list" </dev/null | grep -E "^multi_agent +.* false$"
+	# mise で入れたツールの補完は裏で作り、次に開くシェルから効く。ツールが変わらなければ作り直さない
+	zsh -i -c true </dev/null >/dev/null 2>&1
+	for f in _codex _herdr _hunk; do wait_file ~/.cache/zsh/completions/$f; done
+	zsh -i -c "print -r -- \"\$_comps[codex] \$_comps[herdr] \$_comps[hunk]\" >|/tmp/comps" </dev/null >/dev/null 2>&1
+	test "$(cat /tmp/comps)" = "_codex _herdr _hunk" || { echo "NG: 補完が登録されていない: $(cat /tmp/comps)"; exit 1; }
+	# (作り直したかを起動の後すぐに見るため、ここでは起動の中で作らせる。作れなかった記録 failed.* も比べる)
+	stat -c "%n %Y" ~/.cache/zsh/completions/* >/tmp/comp-mtime
+	ZSH_COMP_GEN_FOREGROUND=1 zsh -i -c true </dev/null >/dev/null 2>&1
+	stat -c "%n %Y" ~/.cache/zsh/completions/* | diff /tmp/comp-mtime - || { echo "NG: 2 回目の起動で補完を作り直した"; exit 1; }
+	# claude の補完は help を読むので、help の形が変わってサブコマンド・オプション・選択肢を読めなくなったら失敗させる
+	zsh -i -c "source \"\$ZSH_CONFIG_PATH/completions/_claude\"; { _claude_help; _claude_help mcp } >|/tmp/claude-comp" </dev/null >/dev/null 2>&1
+	tab="$(printf "\t")"
+	for re in "^c${tab}mcp${tab}" "^c${tab}add${tab}" "^o${tab}--model${tab}r${tab}model${tab}" "^o${tab}-p${tab}-${tab}-${tab}" \
+		"^o${tab}--add-dir${tab}R${tab}directories${tab}" "^v${tab}--permission-mode${tab}(.* )?plan( |\$)"; do
+		grep -qE "$re" /tmp/claude-comp || { echo "NG: claude の help から補完を作れない ($re)"; cat /tmp/claude-comp; exit 1; }
+	done
 fi
 
 echo "::: 既定では disable_tools のプリセット (.config/mise/config.toml) を外し、tools:* タスクでマシンごとに変えられる"
