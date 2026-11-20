@@ -188,7 +188,24 @@ diff /tmp/installs-before /tmp/installs-after || { echo "NG: zsh の起動でツ
 echo "::: 補完: claude はリポジトリの zsh/completions/_claude、mise などはツールが出す補完スクリプトを起動時にキャッシュへ作る"
 zsh -i -c "print -r -- \"\$_comps[claude] \$_comps[mise]\" >|/tmp/comps" </dev/null >/dev/null 2>&1
 test "$(cat /tmp/comps)" = "_claude _mise" || { echo "NG: 補完が登録されていない: $(cat /tmp/comps)"; exit 1; }
-head -2 ~/.cache/zsh/completions/_mise | grep -qxF "# source: $(readlink -f "$(command -v mise)")"
+head -2 ~/.cache/zsh/completions/_mise | grep -qxF "# source: $(readlink -f "$(command -v mise)")" ||
+	{ echo "NG: _mise に作ったときの mise のパスが無い"; head -2 ~/.cache/zsh/completions/_mise; exit 1; }
+if [[ -n "$SKIP_ARGS" ]]; then
+	# 補完スクリプトを作れないツールは、変わるまで起動のたびに実行しない (hunk が入っていないときに偽物で確かめる)
+	mkdir -p ~/bin
+	printf "#!/bin/sh\necho run >>/tmp/fake-hunk.log\n" >~/bin/hunk
+	chmod +x ~/bin/hunk
+	zsh -i -c true </dev/null >/dev/null 2>&1
+	zsh -i -c true </dev/null >/dev/null 2>&1
+	test "$(wc -l </tmp/fake-hunk.log)" = 1 || { echo "NG: 補完スクリプトを作れない hunk を起動のたびに実行した"; exit 1; }
+	test ! -e ~/.cache/zsh/completions/_hunk
+	# 変わったら (自己更新など) 実行し直す
+	touch -d "@$(($(date +%s) + 60))" ~/bin/hunk
+	zsh -i -c true </dev/null >/dev/null 2>&1
+	test "$(wc -l </tmp/fake-hunk.log)" = 2 || { echo "NG: 変わった hunk で補完スクリプトを作り直さなかった"; exit 1; }
+	rm -f ~/bin/hunk ~/.cache/zsh/completions/failed.hunk /tmp/fake-hunk.log
+	rmdir ~/bin
+fi
 # 入っていない lazy のツールは bootstrap status で missing と数えられるので、その実行だけ外して (今外しているものに足して) 調べる
 status_without_lazy() {
 	MISE_DISABLE_TOOLS="$({ mise settings get disable_tools | sed -e "s/[][\" ]//g" -e "s/,/\n/g"; lazy_tools; } | sed "/^\$/d" | paste -sd, -)" \
@@ -226,7 +243,8 @@ if [[ -z "$SKIP_ARGS" ]]; then
 	# claude の補完は help を読むので、help の形が変わってサブコマンド・オプション・選択肢を読めなくなったら失敗させる
 	zsh -i -c "source \"\$ZSH_CONFIG_PATH/completions/_claude\"; { _claude_help; _claude_help mcp } >|/tmp/claude-comp" </dev/null >/dev/null 2>&1
 	tab="$(printf "\t")"
-	for re in "^c${tab}mcp${tab}" "^c${tab}add${tab}" "^o${tab}--model${tab}r${tab}" "^o${tab}-p${tab}-${tab}" "^v${tab}--permission-mode${tab}(.* )?plan( |\$)"; do
+	for re in "^c${tab}mcp${tab}" "^c${tab}add${tab}" "^o${tab}--model${tab}r${tab}model${tab}" "^o${tab}-p${tab}-${tab}-${tab}" \
+		"^o${tab}--add-dir${tab}R${tab}directories${tab}" "^v${tab}--permission-mode${tab}(.* )?plan( |\$)"; do
 		grep -qE "$re" /tmp/claude-comp || { echo "NG: claude の help から補完を作れない ($re)"; cat /tmp/claude-comp; exit 1; }
 	done
 fi

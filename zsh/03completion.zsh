@@ -13,22 +13,31 @@ fpath=("$_zsh_comp_dir" $fpath)
 
 # _zsh_comp_gen <コマンド> <補完スクリプトを出力する引数...>
 _zsh_comp_gen() {
-	local name=$1 bin=${commands[$1]} out="$_zsh_comp_dir/_$1" src line tmp
+	# 補完関数のほかのファイルの名前は _ で始めない (compinit が補完関数として拾う)
+	local name=$1 bin=${commands[$1]} out="$_zsh_comp_dir/_$1" failed="$_zsh_comp_dir/failed.$1" src line tmp
 	shift
 	# 無いときと、lazy のツールで shim しか無いとき (実行するとインストールが始まる) は作らない
 	[[ -n $bin && $bin != "${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}/shims/"* ]] || return 0
 	src=${bin:A}
-	# 2 行目に、作ったときの実体のパスを書いておく
+	# 実行したときの実体のパスを、補完スクリプトの 2 行目 (作れなかったときは failed.<コマンド>) に書いておき、
+	# ツールが変わるまでは実行しない (作れないツールを起動のたびに実行しない)
 	if [[ -s $out && ! $src -nt $out ]]; then
 		{ read -r line; read -r line } <"$out"
 		[[ $line == "# source: $src" ]] && return 0
 	fi
+	if [[ -s $failed && ! $src -nt $failed ]]; then
+		read -r line <"$failed"
+		[[ $line == "# source: $src" ]] && return 0
+	fi
 	mkdir -p "$_zsh_comp_dir" || return 0
-	# 同時に開いたシェル (herdr のペインなど) と取り合わないよう、一時ファイルに書いてから置き換える。
-	# 一時ファイルの名前は _ で始めない (compinit が補完関数として拾う)
+	# 同時に開いたシェル (herdr のペインなど) と取り合わないよう、一時ファイルに書いてから置き換える
 	tmp="$_zsh_comp_dir/tmp.$name.$$"
 	if "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
 		{ print -r -- "$line"; print -r -- "# source: $src"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out"
+		rm -f "$failed"
+	else
+		# 前に作った補完スクリプトがあれば、そのまま使う
+		print -r -- "# source: $src" >|"$failed"
 	fi
 	rm -f "$tmp" "$tmp.new"
 }
