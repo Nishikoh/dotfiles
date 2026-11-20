@@ -191,20 +191,29 @@ test "$(cat /tmp/comps)" = "_claude _mise" || { echo "NG: 補完が登録され�
 head -2 ~/.cache/zsh/completions/_mise | grep -qxF "# source: $(readlink -f "$(command -v mise)")" ||
 	{ echo "NG: _mise に作ったときの mise のパスが無い"; head -2 ~/.cache/zsh/completions/_mise; exit 1; }
 if [[ -n "$SKIP_ARGS" ]]; then
-	# 補完スクリプトを作れないツールは、変わるまで起動のたびに実行しない (hunk が入っていないときに偽物で確かめる)
-	mkdir -p ~/bin
-	printf "#!/bin/sh\necho run >>/tmp/fake-hunk.log\n" >~/bin/hunk
-	chmod +x ~/bin/hunk
-	zsh -i -c true </dev/null >/dev/null 2>&1
-	zsh -i -c true </dev/null >/dev/null 2>&1
-	test "$(wc -l </tmp/fake-hunk.log)" = 1 || { echo "NG: 補完スクリプトを作れない hunk を起動のたびに実行した"; exit 1; }
-	test ! -e ~/.cache/zsh/completions/_hunk
-	# 変わったら (自己更新など) 実行し直す
-	touch -d "@$(($(date +%s) + 60))" ~/bin/hunk
-	zsh -i -c true </dev/null >/dev/null 2>&1
-	test "$(wc -l </tmp/fake-hunk.log)" = 2 || { echo "NG: 変わった hunk で補完スクリプトを作り直さなかった"; exit 1; }
-	rm -f ~/bin/hunk ~/.cache/zsh/completions/failed.hunk /tmp/fake-hunk.log
-	rmdir ~/bin
+	# 補完スクリプトを作れないツールは、変わるか 1 日たつまで起動のたびには実行しない (hunk が入っていないときに偽物で確かめる)
+	mkdir /tmp/fake-bin
+	printf "#!/bin/sh\necho run >>/tmp/fake-hunk.log\n" >/tmp/fake-bin/hunk
+	chmod +x /tmp/fake-bin/hunk
+	failed=~/.cache/zsh/completions/failed.hunk
+	# 起動して、偽物の hunk を実行した回数を確かめる
+	fake_hunk_runs() {
+		PATH="/tmp/fake-bin:$PATH" zsh -i -c true </dev/null >/dev/null 2>&1
+		test "$(wc -l </tmp/fake-hunk.log)" = "$1" || { echo "NG: $2 (hunk を実行した回数: $(wc -l </tmp/fake-hunk.log)、期待: $1)"; exit 1; }
+	}
+	fake_hunk_runs 1 "補完スクリプトを作れない hunk を実行しなかった"
+	fake_hunk_runs 1 "補完スクリプトを作れない hunk を起動のたびに実行した"
+	test ! -e ~/.cache/zsh/completions/_hunk || { echo "NG: 作れなかったのに _hunk がある"; exit 1; }
+	# 1 日たったら実行し直し、また記録する
+	touch -d "@$(($(date +%s) - 2 * 86400))" "$failed"
+	fake_hunk_runs 2 "作れなかった記録が 1 日たっても実行し直さなかった"
+	fake_hunk_runs 2 "実行し直した後に記録しなかった"
+	# 変わったら (自己更新など) 実行し直し、また記録する
+	touch -d "@$(($(date +%s) - 60))" "$failed"
+	touch /tmp/fake-bin/hunk
+	fake_hunk_runs 3 "変わった hunk で実行し直さなかった"
+	fake_hunk_runs 3 "変わった hunk で実行し直した後に記録しなかった"
+	rm -rf /tmp/fake-bin /tmp/fake-hunk.log "$failed"
 fi
 # 入っていない lazy のツールは bootstrap status で missing と数えられるので、その実行だけ外して (今外しているものに足して) 調べる
 status_without_lazy() {

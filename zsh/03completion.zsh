@@ -19,13 +19,14 @@ _zsh_comp_gen() {
 	# 無いときと、lazy のツールで shim しか無いとき (実行するとインストールが始まる) は作らない
 	[[ -n $bin && $bin != "${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}/shims/"* ]] || return 0
 	src=${bin:A}
+	setopt local_options extended_glob
 	# 実行したときの実体のパスを、補完スクリプトの 2 行目 (作れなかったときは failed.<コマンド>) に書いておき、
-	# ツールが変わるまでは実行しない (作れないツールを起動のたびに実行しない)
+	# ツールが変わるまでは実行しない。作れなかったときは、一時的な失敗かもしれないので 1 日たったら実行し直す
 	if [[ -s $out && ! $src -nt $out ]]; then
 		{ read -r line; read -r line } <"$out"
 		[[ $line == "# source: $src" ]] && return 0
 	fi
-	if [[ -s $failed && ! $src -nt $failed ]]; then
+	if [[ -s $failed && ! $src -nt $failed && -n $failed(#qN.mh-24) ]]; then
 		read -r line <"$failed"
 		[[ $line == "# source: $src" ]] && return 0
 	fi

@@ -9,11 +9,14 @@
 #                               R・O は <x...> のように複数の値を取るもの。値の名前は help の <x> の x (無ければ -)
 #   v フラグ 選択肢...          (choices: ...) のあるオプションの値
 _claude_help() {
-	(( ${+_claude_help_cache} )) || typeset -gA _claude_help_cache
+	zmodload -F zsh/datetime p:EPOCHSECONDS
+	(( ${+_claude_help_cache} )) || typeset -gA _claude_help_cache _claude_help_failed
 	if (( ${+_claude_help_cache[$*]} )); then
 		print -r -- "$_claude_help_cache[$*]"
 		return
 	fi
+	# 読めなかったときは、30 秒は読み直さない (TAB のたびに claude の起動を待たせない)
+	(( EPOCHSECONDS - ${_claude_help_failed[$*]:-0} < 30 )) && return
 	local help="$(_call_program help command claude "$@" --help </dev/null 2>/dev/null | awk '
 		function flush(   w, n, i, f, names, arg, ph, ch) {
 			if (head == "") return
@@ -70,8 +73,12 @@ _claude_help() {
 		{ flush() }
 		END { flush() }
 	')"
-	# 読めなかったとき (claude の自己更新の途中など) は覚えず、次の TAB で読み直す
-	[[ -n $help ]] && _claude_help_cache[$*]=$help
+	# 読めなかったとき (claude の自己更新の途中など) は覚えず、少したってから読み直す
+	if [[ -n $help ]]; then
+		_claude_help_cache[$*]=$help
+	else
+		_claude_help_failed[$*]=$EPOCHSECONDS
+	fi
 	print -r -- "$help"
 }
 
@@ -94,14 +101,16 @@ _claude() {
 		done
 	}
 
-	# オプションの値: 選択肢があれば選択肢、ディレクトリやファイルを取るものはパス、ほかは何を入れるかだけを示す
+	# オプションの値: 選択肢があれば選択肢、ディレクトリやファイルを取るものはパス、ほかは何を入れるかだけを示す。
+	# パスかどうかは値の名前 (<json-or-file> など) を単語に分けて見る (<profile> を file と見なさない)
 	_claude_value() {
 		local ph=${phof[$1]}
+		local -a parts=(${(s:-:)${(L)ph//[_|. ]/-}})
 		if [[ -n ${choices[$1]} ]]; then
 			compadd -- ${=choices[$1]}
-		elif [[ $ph == *dir* ]]; then
+		elif (( ${parts[(I)(dir|dirs|directory|directories|cwd)]} )); then
 			_files -/
-		elif [[ $ph == *(path|file|config)* ]]; then
+		elif (( ${parts[(I)(path|paths|file|files|config|configs)]} )); then
 			_files
 		else
 			_message -e values "${ph:-value}"
@@ -138,7 +147,12 @@ _claude() {
 	if [[ $w == -*=* ]]; then
 		f=${w%%=*}
 		compset -P '*='
-		_claude_value $f
+		# 値を取らないか help に無いオプションは、何を入れるか分からないのでふつうに補完する
+		if [[ ${argof[$f]} == [roRO] ]]; then
+			_claude_value $f
+		else
+			_default
+		fi
 	elif [[ -n $varopt && $w != -* ]]; then
 		_claude_value $varopt
 	elif [[ $f == -* && $f != *=* ]] && [[ ${argof[$f]} == r || ( ${argof[$f]} == o && $w != -* ) ]]; then
