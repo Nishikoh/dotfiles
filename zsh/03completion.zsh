@@ -7,7 +7,8 @@
 fpath=("${ZSH_CONFIG_PATH:-$HOME/setup/dotfiles/zsh}/completions" $fpath)
 
 # mise で入れたツールが出力する補完スクリプト。生成物はリポジトリではなくキャッシュに置き、
-# ツールが入れ替わったとき (パスが変わる mise upgrade と、mtime が変わる自己更新) だけ作り直す
+# ツールが入れ替わったとき (パスが変わる mise upgrade と、mtime が変わる自己更新) だけ作り直す。
+# プロジェクトの mise.toml でこれらのツールのバージョンを変えると、そのディレクトリで開くたびに作り直す (今はどこでも latest なので起きない)
 _zsh_comp_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/completions"
 fpath=("$_zsh_comp_dir" $fpath)
 
@@ -33,7 +34,10 @@ _zsh_comp_gen() {
 	mkdir -p "$_zsh_comp_dir" || return 0
 	# 同時に開いたシェル (herdr のペインなど) と取り合わないよう、一時ファイルに書いてから置き換える
 	tmp="$_zsh_comp_dir/tmp.$name.$$"
-	if "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
+	# ツールが止まってもシェルが開くよう、timeout があれば 10 秒で打ち切る (作れなかった扱いになる)
+	local -a limit=()
+	(( $+commands[timeout] )) && limit=(timeout 10)
+	if $limit "$bin" "$@" </dev/null >|"$tmp" 2>/dev/null && { read -r line } <"$tmp" && [[ $line == "#compdef "* ]]; then
 		{ print -r -- "$line"; print -r -- "# source: $src"; tail -n +2 "$tmp" } >|"$tmp.new" && mv -f "$tmp.new" "$out"
 		rm -f "$failed"
 	else

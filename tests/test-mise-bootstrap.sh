@@ -204,7 +204,8 @@ if [[ -n "$SKIP_ARGS" ]]; then
 	fake_hunk_runs 1 "補完スクリプトを作れない hunk を実行しなかった"
 	fake_hunk_runs 1 "補完スクリプトを作れない hunk を起動のたびに実行した"
 	test ! -e ~/.cache/zsh/completions/_hunk || { echo "NG: 作れなかったのに _hunk がある"; exit 1; }
-	# 1 日たったら実行し直し、また記録する
+	# 1 日たったら実行し直し、また記録する (hunk は記録より前のままにして、期限だけで実行し直すことを確かめる)
+	touch -d "@$(($(date +%s) - 3 * 86400))" /tmp/fake-bin/hunk
 	touch -d "@$(($(date +%s) - 2 * 86400))" "$failed"
 	fake_hunk_runs 2 "作れなかった記録が 1 日たっても実行し直さなかった"
 	fake_hunk_runs 2 "実行し直した後に記録しなかった"
@@ -213,6 +214,13 @@ if [[ -n "$SKIP_ARGS" ]]; then
 	touch /tmp/fake-bin/hunk
 	fake_hunk_runs 3 "変わった hunk で実行し直さなかった"
 	fake_hunk_runs 3 "変わった hunk で実行し直した後に記録しなかった"
+	# 止まったツールは 10 秒で打ち切り、シェルは開く (作れなかった扱いになる)
+	printf "#!/bin/sh\nexec sleep 120\n" >/tmp/fake-bin/hunk
+	touch -d "@$(($(date +%s) - 60))" "$failed"
+	started=$(date +%s)
+	PATH="/tmp/fake-bin:$PATH" zsh -i -c true </dev/null >/dev/null 2>&1
+	test $(($(date +%s) - started)) -lt 60 || { echo "NG: 止まった hunk でシェルの起動が終わらなかった"; exit 1; }
+	test "$(cat "$failed")" = "# source: /tmp/fake-bin/hunk" || { echo "NG: 止まった hunk を作れなかったと記録しなかった"; exit 1; }
 	rm -rf /tmp/fake-bin /tmp/fake-hunk.log "$failed"
 fi
 # 入っていない lazy のツールは bootstrap status で missing と数えられるので、その実行だけ外して (今外しているものに足して) 調べる

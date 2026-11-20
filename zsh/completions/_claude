@@ -121,7 +121,13 @@ _claude() {
 	_claude_load
 	for (( i = 2; i < CURRENT; i++ )); do
 		w=$words[i]
-		if [[ $w == -* ]]; then
+		if (( positional == 2 )); then
+			continue
+		elif [[ $w == -- ]]; then
+			# -- の後ろはすべて引数 (プロンプト)
+			positional=2
+			varopt=
+		elif [[ $w == -* ]]; then
 			varopt=
 			[[ $w == *=* ]] && continue
 			# 値を取るオプションは次の語を値として飛ばす (今入力している語が値のときは飛ばさない)。
@@ -144,7 +150,9 @@ _claude() {
 
 	w=$words[CURRENT]
 	f=$words[CURRENT-1]
-	if [[ $w == -*=* ]]; then
+	if (( positional == 2 )); then
+		_default
+	elif [[ $w == -*=* ]]; then
 		f=${w%%=*}
 		compset -P '*='
 		# 値を取らないか help に無いオプションは、何を入れるか分からないのでふつうに補完する
