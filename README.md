@@ -61,6 +61,7 @@ sudo chsh -s /usr/bin/zsh "$(id -un)"
   ```
 
 - [bin/ssh](bin/ssh) は WSL では Windows の `ssh.exe` を使う (仕組みはファイル冒頭のコメント)
+- [bin/wsl-disk](bin/wsl-disk) は今のディストリビューションの VHDX の容量と、compact で減る容量の目安・compact の手順を表示する
 
 ## 既存のマシンに適用する
 
@@ -178,4 +179,6 @@ GITHUB_TOKEN=... bash tests/test-mise-bootstrap.sh
 
 # bin/ssh のテスト
 bash tests/test-ssh-wrapper.sh
+# bin/wsl-disk のテスト
+bash tests/test-wsl-disk.sh
 ```

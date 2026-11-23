@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# wsl-disk — 今の WSL ディストリビューションの仮想ディスク (ext4.vhdx) の容量と、compact で減る量の目安を表示する。
+#
+# 仕組み:
+#   - VHDX の場所は Windows のレジストリ (HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss) の
+#     DistributionName が $WSL_DISTRO_NAME のエントリの BasePath と VhdFileName から求める。
+#   - VHDX が Windows のディスクで使っている容量は /mnt/c 経由の stat の割り当てブロック数で測る
+#     (0 ならファイルの長さ)。ext4 の使用量は df / で測る。
+#   - 減る量の最大 = VHDX の容量 - ext4 の使用量。ext4 のメタデータ (inode テーブル・ジャーナルなど) は
+#     df の使用量にも合計にも入らないので、ブロックデバイスの大きさ - df の合計をメタデータの量とみなし、
+#     それも引いたものを最小とする。compact は VHDX のブロック単位でしか解放しないので、実際はこの範囲より減らないこともある。
+#   - 対象は今のディストリビューションの VHDX だけ。Docker Desktop のデータのディスクなどは含まない。
+#
+# 環境変数 (テストで差し替える):
+#   WSL_DISK_SYS_BLOCK  ブロックデバイスの情報のディレクトリ (既定: /sys/class/block)
+#
+# テスト: bash tests/test-wsl-disk.sh
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: wsl-disk
+
+今の WSL ディストリビューションの仮想ディスク (ext4.vhdx) の容量、ext4 の使用量、
+compact したときに減る容量の目安と、compact の手順を表示する。
+EOF
+}
+
+case "${1:-}" in
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  "") ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
+
+die() {
+  echo "wsl-disk: $*" >&2
+  exit 1
+}
+
+distro="${WSL_DISTRO_NAME:-}"
+[[ -n "${distro}" ]] || die "WSL_DISTRO_NAME が空です (WSL の中で実行してください)"
+command -v powershell.exe >/dev/null || die "powershell.exe が見つかりません (WSL interop が無効かもしれません)"
+sys_block="${WSL_DISK_SYS_BLOCK:-/sys/class/block}"
+
+# 登録されているディストリビューションを「名前<TAB>BasePath<TAB>VhdFileName」で 1 行ずつ出す。
+# 日本語のパスが化けないように UTF-8 で出させ、CRLF の CR を消す。
+# shellcheck disable=SC2016 # $_ などは PowerShell が展開する
+registry=$(powershell.exe -NoProfile -NonInteractive -Command '
+  [Console]::OutputEncoding = [Text.Encoding]::UTF8
+  Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss | ForEach-Object {
+    $p = Get-ItemProperty $_.PSPath
+    "{0}`t{1}`t{2}" -f $p.DistributionName, $p.BasePath, $p.VhdFileName
+  }' | tr -d '\r') || die "powershell.exe でレジストリを読めませんでした"
+
+entry=$(awk -F '\t' -v name="${distro}" '$1 == name { print; exit }' <<<"${registry}")
+[[ -n "${entry}" ]] || die "レジストリに ${distro} が見つかりません"
+
+IFS=$'\t' read -r _ base_path vhd_file <<<"${entry}"
+base_path="${base_path#\\\\?\\}" # \\?\C:\... の接頭辞を外す
+vhd_win="${base_path%\\}\\${vhd_file:-ext4.vhdx}"
+
+vhd_unix=$(wslpath -u "${vhd_win}" 2>/dev/null) || die "${vhd_win} を WSL のパスに変換できません"
+[[ -f "${vhd_unix}" ]] || die "${vhd_unix} が見つかりません"
+
+# %s はファイルの長さ、%b × %B は実際に割り当てられた容量
+read -r vhd_length vhd_blocks vhd_block_size < <(stat -c '%s %b %B' "${vhd_unix}")
+vhd_size=$((vhd_blocks * vhd_block_size))
+((vhd_size > 0)) || vhd_size="${vhd_length}"
+
+read -r fs_source fs_size fs_used fs_avail < <(df -B1 --output=source,size,used,avail / | tail -n 1)
+
+# メタデータの量。デバイスの大きさが読めなければ 0 とみなす (範囲ではなく最大だけを出す)
+overhead=0
+dev_sectors_file="${sys_block}/${fs_source#/dev/}/size"
+if [[ "${fs_source}" == /dev/* && -r "${dev_sectors_file}" ]]; then
+  overhead=$(($(<"${dev_sectors_file}") * 512 - fs_size))
+  ((overhead > 0)) || overhead=0
+fi
+
+clamp() { if (($1 > 0)); then echo "$1"; else echo 0; fi; }
+reclaim_max=$(clamp $((vhd_size - fs_used)))
+reclaim_min=$(clamp $((reclaim_max - overhead)))
+
+human() {
+  numfmt --to=iec-i --suffix=B --format='%.1f' "$1"
+}
+
+if ((reclaim_min == reclaim_max)); then
+  reclaim="最大 $(human "${reclaim_max}")"
+else
+  reclaim="約 $(human "${reclaim_min}") 〜 $(human "${reclaim_max}")"
+fi
+
+cat <<EOF
+WSL ディスク: ${distro}
+  VHDX:                 ${vhd_win}
+  VHDX の容量:          $(human "${vhd_size}")
+  ext4 の使用量:        $(human "${fs_used}") / $(human "${fs_size}") (空き $(human "${fs_avail}"))
+  ext4 のメタデータ:    $(human "${overhead}")
+  compact で減る目安:   ${reclaim}
+
+compact の手順 (Windows の PowerShell で):
+  wsl --shutdown
+  wsl --manage ${distro} --compact
+  --compact が無い古い WSL では、管理者の PowerShell で wsl --shutdown の後に:
+  Optimize-VHD -Path '${vhd_win}' -Mode Full
+EOF
