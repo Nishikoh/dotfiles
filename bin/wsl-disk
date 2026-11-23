@@ -68,19 +68,33 @@ vhd_win="${base_path%\\}\\${vhd_file:-ext4.vhdx}"
 vhd_unix=$(wslpath -u "${vhd_win}" 2>/dev/null) || die "${vhd_win} を WSL のパスに変換できません"
 [[ -f "${vhd_unix}" ]] || die "${vhd_unix} が見つかりません"
 
+is_number() {
+  local v
+  for v in "$@"; do
+    [[ "${v}" =~ ^[0-9]+$ ]] || return 1
+  done
+}
+
 # %s はファイルの長さ、%b × %B は実際に割り当てられた容量
-read -r vhd_length vhd_blocks vhd_block_size < <(stat -c '%s %b %B' "${vhd_unix}")
+vhd_stat=$(stat -c '%s %b %B' "${vhd_unix}") || die "${vhd_unix} の大きさを読めません"
+read -r vhd_length vhd_blocks vhd_block_size <<<"${vhd_stat}"
+is_number "${vhd_length}" "${vhd_blocks}" "${vhd_block_size}" || die "stat の出力を解釈できません: ${vhd_stat}"
 vhd_size=$((vhd_blocks * vhd_block_size))
 ((vhd_size > 0)) || vhd_size="${vhd_length}"
 
-read -r fs_source fs_size fs_used fs_avail < <(df -B1 --output=source,size,used,avail / | tail -n 1)
+df_line=$(df -B1 --output=source,size,used,avail / | tail -n 1) || die "df / で ext4 の使用量を読めません"
+read -r fs_source fs_size fs_used fs_avail <<<"${df_line}"
+is_number "${fs_size}" "${fs_used}" "${fs_avail}" || die "df の出力を解釈できません: ${df_line}"
 
 # メタデータの量。デバイスの大きさが読めなければ 0 とみなす (範囲ではなく最大だけを出す)
 overhead=0
 dev_sectors_file="${sys_block}/${fs_source#/dev/}/size"
 if [[ "${fs_source}" == /dev/* && -r "${dev_sectors_file}" ]]; then
-  overhead=$(($(<"${dev_sectors_file}") * 512 - fs_size))
-  ((overhead > 0)) || overhead=0
+  dev_sectors=$(<"${dev_sectors_file}")
+  if is_number "${dev_sectors}"; then
+    overhead=$((dev_sectors * 512 - fs_size))
+    ((overhead > 0)) || overhead=0
+  fi
 fi
 
 clamp() { if (($1 > 0)); then echo "$1"; else echo 0; fi; }
@@ -108,6 +122,13 @@ WSL ディスク: ${distro}
 compact の手順 (Windows の PowerShell で):
   wsl --shutdown
   wsl --manage ${distro} --compact
-  --compact が無い古い WSL では、管理者の PowerShell で wsl --shutdown の後に:
+
+--compact が無い古い WSL では、wsl --shutdown の後に管理者の PowerShell で次のどちらか:
   Optimize-VHD -Path '${vhd_win}' -Mode Full
+    (Hyper-V の PowerShell モジュールが必要。Windows Home には無い)
+  diskpart を起動して:
+    select vdisk file="${vhd_win}"
+    attach vdisk readonly
+    compact vdisk
+    detach vdisk
 EOF

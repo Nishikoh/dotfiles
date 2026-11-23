@@ -34,11 +34,20 @@ p="\${2#C:}"
 echo "${drive}\${p//\\\\//}"
 EOF
 
-# df は df.txt の used を使い、合計 9GiB の /dev/sdd を出す
+# df は df-used.txt の used を使い、合計 9GiB の /dev/sdd を出す。df-used.txt が fail なら失敗する
 cat >"${stub_dir}/df" <<EOF
 #!/usr/bin/env bash
+used=\$(cat "${work_dir}/df-used.txt")
+[[ "\${used}" != fail ]] || exit 1
 echo "Filesystem 1B-blocks Used Avail"
-echo "/dev/sdd $((9 * gib)) \$(cat "${work_dir}/df-used.txt") 1"
+echo "/dev/sdd $((9 * gib)) \${used} 1"
+EOF
+
+# stat は stat-fail があれば失敗し (/mnt/c が読めないときに当たる)、無ければ本物を呼ぶ
+cat >"${stub_dir}/stat" <<EOF
+#!/usr/bin/env bash
+[[ ! -e "${work_dir}/stat-fail" ]] || exit 1
+exec "$(command -v stat)" "\$@"
 EOF
 chmod +x "${stub_dir}"/*
 
@@ -66,7 +75,8 @@ run() {
 
 check() {
 	local name="$1" want_rc="$2" want="$3"
-	if [[ "${rc}" -eq "${want_rc}" && "${out}" == *"${want}"* ]]; then
+	# bash の計算エラーは出力に混ざっても処理が続くことがあるので、出ていたら失敗にする
+	if [[ "${rc}" -eq "${want_rc}" && "${out}" == *"${want}"* && "${out}" != *"syntax error"* ]]; then
 		echo "ok   ${name}"
 	else
 		echo "FAIL ${name}: rc=${rc} (want ${want_rc}), want output containing: ${want}"
@@ -80,6 +90,8 @@ run Ubuntu-24.04
 check "範囲で出す" 0 "compact で減る目安:   約 3.0GiB 〜 4.0GiB"
 check "VHDX のパス" 0 'VHDX:                 C:\wsl\ubuntu\ext4.vhdx'
 check "compact の手順" 0 "wsl --manage Ubuntu-24.04 --compact"
+check "Optimize-VHD の手順" 0 "Optimize-VHD -Path 'C:\\wsl\\ubuntu\\ext4.vhdx' -Mode Full"
+check "diskpart の手順" 0 'select vdisk file="C:\wsl\ubuntu\ext4.vhdx"'
 [[ "${out}" != *$'\r'* ]] || {
 	echo "FAIL CR が残っている"
 	failures=$((failures + 1))
@@ -99,6 +111,26 @@ echo $((10 * gib / 512)) >"${sys_block}/sdd/size"
 echo $((11 * gib)) >"${work_dir}/df-used.txt"
 run Ubuntu-24.04
 check "負にならない" 0 "compact で減る目安:   最大 0.0B"
+echo $((6 * gib)) >"${work_dir}/df-used.txt"
+
+# デバイスの大きさが数字でなければ最大だけ
+: >"${sys_block}/sdd/size"
+run Ubuntu-24.04
+check "メタデータが空なら最大だけ" 0 "compact で減る目安:   最大 4.0GiB"
+echo $((10 * gib / 512)) >"${sys_block}/sdd/size"
+
+touch "${work_dir}/stat-fail"
+run Ubuntu-24.04
+check "stat が失敗" 1 "の大きさを読めません"
+rm "${work_dir}/stat-fail"
+
+echo fail >"${work_dir}/df-used.txt"
+run Ubuntu-24.04
+check "df が失敗" 1 "df / で ext4 の使用量を読めません"
+
+echo - >"${work_dir}/df-used.txt"
+run Ubuntu-24.04
+check "df の出力が数字でない" 1 "df の出力を解釈できません"
 echo $((6 * gib)) >"${work_dir}/df-used.txt"
 
 run Arch
